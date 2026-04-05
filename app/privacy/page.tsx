@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const sections = [
   {
     heading: "Overview",
-    body: `Vitrine ("we," "us," or "our") is a creator monetization tool that turns Pinterest boards into shoppable storefronts. This Privacy Policy explains what data we collect, how we use it, and the choices you have. We've written it in plain language on purpose — legal jargon helps nobody.
+    body: `Vitrine ("we," "us," or "our") is a personal shopping tool that reads your Pinterest boards and generates a private, personalized shopping page for you — filled with real products that match your taste. This Privacy Policy explains what data we collect, how we use it, and the choices you have. We've written it in plain language on purpose — legal jargon helps nobody.
 
 If you have questions, email us at privacy@vitrine.app.`,
   },
@@ -19,19 +19,17 @@ If you have questions, email us at privacy@vitrine.app.`,
 
 **Account information.** When you sign up for the waitlist or create an account, we collect your name and email address.
 
-**Pinterest data (OAuth).** When you connect your Pinterest account, we request read-only access to your boards and pins via Pinterest's official OAuth flow. This includes board names, pin images, pin descriptions, and pin URLs. We use this data solely to analyze your board's aesthetic and generate your storefront.
+**Pinterest data (OAuth).** When you connect your Pinterest account, we request read-only access to your boards and pins via Pinterest's official OAuth flow. This includes board names, pin images, pin descriptions, and pin URLs. We use this data solely to analyze your taste and generate your personal shopping page. We do not store raw Pinterest data beyond the active session.
 
-**Usage data.** Standard web analytics — page views, button clicks, browser type, referring URL. We use this to understand how people use Vitrine and improve the product.
-
-**Storefront visitor data.** When your audience visits your public storefront, we may collect anonymous interaction data (e.g., which products were clicked) to improve recommendations and measure affiliate performance.`,
+**Usage data.** Standard web analytics — page views, button clicks, browser type, referring URL. We use this to understand how people use Vitrine and improve the product.`,
   },
   {
     heading: "How we use your data",
     body: `We use the data we collect for the following purposes:
 
-- **To generate your storefront.** We pass your Pinterest board data to our AI analysis pipeline to understand your aesthetic and generate shoppable product recommendations. This is the core service.
-- **To operate the service.** Account management, authentication, customer support, and sending you service-related emails (e.g., "your storefront is ready").
-- **To generate affiliate revenue.** When a visitor clicks a product link from your storefront and makes a purchase, we earn a small affiliate commission from the retailer. This is how Vitrine sustains itself as a free product.
+- **To generate your personal shopping page.** We pass your Pinterest board data to our AI analysis pipeline to understand your aesthetic and generate shoppable product recommendations for you. Your Pinterest data is only ever used to provide this service to you.
+- **To operate the service.** Account management, authentication, customer support, and sending you service-related emails.
+- **To generate affiliate revenue.** When you click a product link and make a purchase, we earn a small affiliate commission from the retailer. This is how Vitrine sustains itself as a free product.
 - **To improve the product.** Aggregate, anonymized usage patterns help us build a better product.`,
   },
   {
@@ -53,12 +51,12 @@ If you have questions, email us at privacy@vitrine.app.`,
   },
   {
     heading: "Affiliate tracking",
-    body: `When a visitor clicks a product link from your storefront, that link may be an affiliate link — a standard industry mechanism that tells the retailer the purchase originated from Vitrine. Here's how it works:
+    body: `When you click a product link on your Vitrine shopping page, that link may be an affiliate link — a standard industry mechanism that tells the retailer the purchase originated from Vitrine. Here's how it works:
 
 - We use affiliate programs such as Amazon Associates, Rakuten, ShareASale, and similar networks to track purchases and earn commissions.
-- Clicking an affiliate link will redirect the visitor through the affiliate network's servers, which may set a tracking cookie in their browser.
+- Clicking an affiliate link will redirect you through the affiliate network's servers, which may set a tracking cookie in your browser.
 - These cookies are set by the third-party affiliate network or retailer, not by Vitrine. Each network's own privacy policy governs those cookies.
-- We do not have access to visitors' personal information from affiliate networks — we only receive anonymized conversion data (e.g., "a purchase was made via this storefront").`,
+- We only receive anonymized conversion data (e.g., "a purchase was made") — we do not receive your payment or personal information from retailers.`,
   },
   {
     heading: "Cookies",
@@ -66,7 +64,7 @@ If you have questions, email us at privacy@vitrine.app.`,
 
 - **Session cookies.** We use a single session cookie to keep you logged in while you use the app. This cookie is deleted when you close your browser or log out.
 - **No tracking cookies from us.** We don't use cookies for advertising, retargeting, or cross-site tracking.
-- **Third-party affiliate cookies.** As described above, when a storefront visitor clicks a product link, the affiliate network or retailer may set their own cookies. These are outside our control and governed by their respective privacy policies.`,
+- **Third-party affiliate cookies.** As described above, when you click a product link, the affiliate network or retailer may set their own cookies. These are outside our control and governed by their respective privacy policies.`,
   },
   {
     heading: "Third-party service providers",

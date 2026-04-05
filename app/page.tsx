@@ -70,13 +70,13 @@ const steps = [
   },
   {
     number: "02",
-    title: "We analyze your vibe",
-    body: "Our AI reads the aesthetic of your board: the colors, the mood, the specific items. It understands your taste.",
+    title: "We analyze your taste",
+    body: "Our AI reads the aesthetic of your boards: the colors, the mood, the specific items. It builds a picture of what you actually love.",
   },
   {
     number: "03",
-    title: "Share it with anyone",
-    body: "Get a beautiful public storefront with shoppable products that match your board. Share the link with friends, family, or anyone who loves your taste.",
+    title: "Shop your own aesthetic",
+    body: "Get a private, personalized shopping page built from your own boards. Everything on it matches your taste — because it came from you.",
   },
 ];
 
@@ -101,13 +101,14 @@ export default function HomePage() {
               Early access
             </p>
             <h1 className="fade-in-up delay-100 text-5xl sm:text-6xl md:text-7xl font-bold tracking-tighter leading-[1.05] text-foreground mb-6">
-              Your Pinterest boards,{" "}
-              <span className="text-accent">made shoppable.</span>
+              Shop the taste{" "}
+              <span className="text-accent">you&apos;ve already built.</span>
             </h1>
             <p className="fade-in-up delay-200 text-lg sm:text-xl text-muted leading-relaxed mb-10 max-w-xl">
-              Vitrine analyzes the aesthetic of your Pinterest boards and turns
-              them into a beautiful, shoppable page you can share with anyone.
-              Connect your boards, share your taste, we handle the rest.
+              Vitrine reads your Pinterest boards and builds you a private,
+              personalized shopping page — real products that match your actual
+              aesthetic. No scrolling. No algorithm. Just your taste, made
+              shoppable.
             </p>
             <div className="fade-in-up delay-300 flex flex-col gap-3">
               <WaitlistForm id="hero-email" />
@@ -156,11 +157,12 @@ export default function HomePage() {
                 Built for Pinterest lovers.
               </h2>
               <p className="text-muted text-lg leading-relaxed">
-                If you&apos;ve spent time curating boards you love — home decor,
-                fashion, lifestyle, travel — Vitrine turns that taste into a
-                real shopping destination. No brand deals. No complicated setup.
-                Just connect your board, share your storefront, and let the
-                people in your life shop the aesthetic you&apos;ve already built.
+                If you&apos;ve spent hours pinning things you love — home decor,
+                fashion, travel, food — your boards already say a lot about your
+                taste. Vitrine turns that into something useful: a private
+                shopping page that&apos;s actually yours. No generic
+                recommendations. No ads. Just products that fit the aesthetic
+                you&apos;ve been quietly building.
               </p>
             </div>
           </div>
@@ -175,9 +177,8 @@ export default function HomePage() {
               </h3>
               <p className="text-muted text-sm leading-relaxed">
                 Vitrine is free to use. We earn a small affiliate commission
-                from retailers when someone makes a purchase through your
-                storefront. That&apos;s it — no fees, no ads, no selling your
-                data.
+                from retailers when you make a purchase through your shopping
+                page. That&apos;s it — no fees, no ads, no selling your data.
               </p>
             </div>
           </div>
@@ -194,7 +195,7 @@ export default function HomePage() {
                 First 100 spots only.
               </h2>
               <p className="text-muted text-lg leading-relaxed mb-10">
-                We&apos;re onboarding our first 100 pinners. Join the waitlist
+                We&apos;re onboarding our first 100 users. Join the waitlist
                 and we&apos;ll reach out personally.
               </p>
               <div className="flex flex-col gap-3">
