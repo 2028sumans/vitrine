@@ -75,8 +75,8 @@ const steps = [
   },
   {
     number: "03",
-    title: "Your audience shops it",
-    body: "Get a beautiful public storefront with shoppable products that match your board. Share it with your audience. When they buy, everyone wins.",
+    title: "Share it with anyone",
+    body: "Get a beautiful public storefront with shoppable products that match your board. Share the link with friends, family, or anyone who loves your taste.",
   },
 ];
 
@@ -106,7 +106,7 @@ export default function HomePage() {
             </h1>
             <p className="fade-in-up delay-200 text-lg sm:text-xl text-muted leading-relaxed mb-10 max-w-xl">
               Vitrine analyzes the aesthetic of your Pinterest boards and turns
-              them into beautiful storefronts your audience can actually shop.
+              them into a beautiful, shoppable page you can share with anyone.
               Connect your boards, share your taste, we handle the rest.
             </p>
             <div className="fade-in-up delay-300 flex flex-col gap-3">
@@ -153,14 +153,14 @@ export default function HomePage() {
                 Who it&apos;s for
               </p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6">
-                Built for Pinterest creators.
+                Built for Pinterest lovers.
               </h2>
               <p className="text-muted text-lg leading-relaxed">
-                If you&apos;ve spent time curating boards that people love —
-                home decor, fashion, lifestyle — Vitrine turns that taste into a
+                If you&apos;ve spent time curating boards you love — home decor,
+                fashion, lifestyle, travel — Vitrine turns that taste into a
                 real shopping destination. No brand deals. No complicated setup.
-                Just connect your board, share your storefront, and let your
-                audience shop the aesthetic you&apos;ve already built.
+                Just connect your board, share your storefront, and let the
+                people in your life shop the aesthetic you&apos;ve already built.
               </p>
             </div>
           </div>
@@ -174,10 +174,10 @@ export default function HomePage() {
                 How Vitrine works as a business
               </h3>
               <p className="text-muted text-sm leading-relaxed">
-                Vitrine is free for creators. We earn a small affiliate
-                commission from retailers when your audience makes a purchase
-                through your storefront. That&apos;s it — no fees taken from
-                you, no ads, no selling your data.
+                Vitrine is free to use. We earn a small affiliate commission
+                from retailers when someone makes a purchase through your
+                storefront. That&apos;s it — no fees, no ads, no selling your
+                data.
               </p>
             </div>
           </div>
@@ -191,10 +191,10 @@ export default function HomePage() {
                 Get early access
               </p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-                First 100 creators only.
+                First 100 spots only.
               </h2>
               <p className="text-muted text-lg leading-relaxed mb-10">
-                We&apos;re onboarding our first 100 creators. Join the waitlist
+                We&apos;re onboarding our first 100 pinners. Join the waitlist
                 and we&apos;ll reach out personally.
               </p>
               <div className="flex flex-col gap-3">
