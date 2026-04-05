@@ -6,10 +6,22 @@ import Link from "next/link";
 function WaitlistForm({ id }: { id: string }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
+    if (!email.trim()) return;
+    setLoading(true);
+    try {
+      await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+    } catch {
+      // fail silently — still show confirmation to user
+    } finally {
+      setLoading(false);
       setSubmitted(true);
     }
   };
@@ -40,9 +52,10 @@ function WaitlistForm({ id }: { id: string }) {
         />
         <button
           type="submit"
-          className="px-6 py-3 rounded-full bg-accent text-white text-sm font-semibold whitespace-nowrap hover:bg-accent-light active:scale-95 transition-all duration-150 shadow-sm"
+          disabled={loading}
+          className="px-6 py-3 rounded-full bg-accent text-white text-sm font-semibold whitespace-nowrap hover:bg-accent-light active:scale-95 transition-all duration-150 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          Join the waitlist
+          {loading ? "Joining…" : "Join the waitlist"}
         </button>
       </div>
     </form>
