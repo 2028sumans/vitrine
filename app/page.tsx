@@ -208,7 +208,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-8">
               {steps.map((step) => (
                 <div key={step.num}>
-                  <p className="font-display font-light text-6xl text-navy/10 mb-6 leading-none select-none">
+                  <p className="font-display font-light text-6xl text-navy/40 mb-6 leading-none select-none">
                     {step.num}
                   </p>
                   <h3 className="font-display font-light text-3xl text-navy mb-3 leading-snug">
