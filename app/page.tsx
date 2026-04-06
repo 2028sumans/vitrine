@@ -155,7 +155,7 @@ export default function HomePage() {
               Your taste, made shoppable.
             </p>
 
-            <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
+            <p className="fade-in-up delay-300 font-sans text-base italic text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
               VITRINE reads your Pinterest boards and builds you a private
               shopping page — curated by an AI stylist that understands exactly
               what you love.
@@ -195,10 +195,10 @@ export default function HomePage() {
                 <p className="font-display font-light text-6xl text-foreground/10 mb-6 leading-none select-none">
                   {step.num}
                 </p>
-                <h3 className="font-display font-light text-2xl text-foreground mb-3 leading-snug">
+                <h3 className="font-display font-light text-3xl text-foreground mb-3 leading-snug">
                   {step.title}
                 </h3>
-                <p className="font-sans text-base text-muted-strong leading-relaxed">
+                <p className="font-sans text-base italic text-muted-strong leading-relaxed">
                   {step.body}
                 </p>
               </div>
@@ -214,7 +214,7 @@ export default function HomePage() {
                 Built for the woman who has been pinning for years — and never
                 found all of it in one place.
               </h2>
-              <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
+              <p className="font-sans text-base italic text-muted-strong leading-relaxed max-w-lg">
                 Your boards already say everything. VITRINE listens — and finds
                 the exact pieces that match the aesthetic you&apos;ve been
                 quietly, carefully building.
@@ -237,7 +237,7 @@ export default function HomePage() {
                     <h3 className="font-display font-light text-xl text-foreground mb-2">
                       {label}
                     </h3>
-                    <p className="font-sans text-base text-muted-strong leading-relaxed">
+                    <p className="font-sans text-base italic text-muted-strong leading-relaxed">
                       {body}
                     </p>
                   </div>
