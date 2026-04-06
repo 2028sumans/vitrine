@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import type { AestheticProfile, ProductRecommendation } from "@/lib/ai";
+import type { AestheticProfile } from "@/lib/ai";
+import type { AlgoliaProduct } from "@/lib/algolia";
 
 const MOCK_BOARDS = [
   { id: "1", name: "Dream Home", pin_count: 142, emoji: "🪴", gradient: "from-[#E8DDD0] to-[#C9B99A]" },
@@ -42,30 +44,60 @@ function BoardCard({ board, selected, onClick }: { board: Board; selected: boole
   );
 }
 
-function ProductCard({ product }: { product: ProductRecommendation }) {
+function ProductCard({ product }: { product: AlgoliaProduct }) {
+  const price =
+    product.price != null
+      ? `$${product.price.toFixed(0)}`
+      : product.price_range !== "unknown"
+      ? product.price_range
+      : null;
+
   return (
     <a
-      href={product.amazon_url}
+      href={product.product_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
       className="group rounded-2xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 block"
     >
-      <div className="aspect-square bg-gradient-to-br from-[#F5EBE4] to-[#EDD9CC] flex flex-col items-center justify-center gap-2 relative p-4">
-        <span className="text-3xl">🛍️</span>
-        <span className="text-[10px] font-semibold bg-white/90 text-accent px-2.5 py-1 rounded-full border border-accent/20 text-center">
-          {product.category}
-        </span>
+      {/* Product image */}
+      <div className="aspect-square bg-gradient-to-br from-[#F5EBE4] to-[#EDD9CC] relative overflow-hidden">
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt={product.title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 640px) 50vw, 33vw"
+            unoptimized
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-3xl">🛍️</div>
+        )}
+        {/* Retailer badge */}
+        <div className="absolute top-2 left-2">
+          <span className="text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-foreground px-2 py-0.5 rounded-full border border-border">
+            {product.retailer}
+          </span>
+        </div>
       </div>
+
       <div className="p-4">
-        <p className="font-semibold text-sm text-foreground leading-tight mb-1">{product.name}</p>
-        <p className="text-xs text-muted leading-relaxed mb-3 line-clamp-2">{product.description}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-foreground">{product.price_range}</span>
-          <span className="text-xs font-semibold text-white bg-accent hover:bg-accent-light px-3.5 py-1.5 rounded-full transition-colors">
+        {product.brand && product.brand !== product.retailer && (
+          <p className="text-[10px] font-semibold text-accent uppercase tracking-wider mb-0.5">
+            {product.brand}
+          </p>
+        )}
+        <p className="font-semibold text-sm text-foreground leading-tight mb-1 line-clamp-2">
+          {product.title}
+        </p>
+        <div className="flex items-center justify-between mt-3">
+          {price && (
+            <span className="text-sm font-bold text-foreground">{price}</span>
+          )}
+          <span className="text-xs font-semibold text-white bg-accent group-hover:bg-accent-light px-3.5 py-1.5 rounded-full transition-colors ml-auto">
             Shop →
           </span>
         </div>
-        <p className="text-xs text-muted mt-2">{product.retailers.join(", ")}</p>
       </div>
     </a>
   );
@@ -75,7 +107,7 @@ export default function DashboardPage() {
   const [step, setStep] = useState<Step>("boards");
   const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
   const [aesthetic, setAesthetic] = useState<AestheticProfile | null>(null);
-  const [products, setProducts] = useState<ProductRecommendation[]>([]);
+  const [products, setProducts] = useState<AlgoliaProduct[]>([]);
   const [dots, setDots] = useState(1);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -253,7 +285,7 @@ export default function DashboardPage() {
             {/* Product grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
               {products.map((product) => (
-                <ProductCard key={product.name} product={product} />
+                <ProductCard key={product.objectID} product={product} />
               ))}
             </div>
 

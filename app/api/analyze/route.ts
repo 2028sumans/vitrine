@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { analyzeAesthetic, recommendProducts } from "@/lib/ai";
+import { analyzeAesthetic, findProducts } from "@/lib/ai";
 import { getServiceSupabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
@@ -24,11 +24,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Step 1: Analyze aesthetic
+    // Step 1: Analyze aesthetic + generate search queries
     const aesthetic = await analyzeAesthetic(boardName, pinDescriptions);
 
-    // Step 2: Get product recommendations
-    const products = await recommendProducts(boardName, aesthetic);
+    // Step 2: Search Algolia for real products
+    const products = await findProducts(aesthetic);
 
     // Step 3: Save to Supabase (best effort — don't fail if DB unavailable)
     try {
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ aesthetic, products });
   } catch (err) {
-    console.error("Analysis failed:", err);
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Analysis failed:", message);
+    return NextResponse.json({ error: "Analysis failed", detail: message }, { status: 500 });
   }
 }
