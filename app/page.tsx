@@ -54,7 +54,7 @@ function WaitlistForm({ onCream = false }: { onCream?: boolean }) {
             disabled={loading}
             className="px-5 py-3 bg-navy text-cream font-sans text-[10px] tracking-widest uppercase font-medium whitespace-nowrap hover:bg-navy/80 transition-colors duration-200 disabled:opacity-50"
           >
-            {loading ? "…" : "Request access"}
+            {loading ? "…" : "Join the waitlist"}
           </button>
         </div>
       </form>
@@ -78,7 +78,7 @@ function WaitlistForm({ onCream = false }: { onCream?: boolean }) {
           disabled={loading}
           className="px-5 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase font-medium whitespace-nowrap hover:bg-accent hover:text-background transition-colors duration-200 disabled:opacity-50"
         >
-          {loading ? "…" : "Request access"}
+          {loading ? "…" : "Join the waitlist"}
         </button>
       </div>
     </form>
@@ -181,15 +181,7 @@ export default function HomePage() {
 
             <div className="fade-in-up delay-400 flex flex-col items-center gap-4">
               <WaitlistForm onCream={false} />
-              <p className="font-sans text-[11px] text-muted tracking-wide">
-                Free. First 100 users only.
-              </p>
             </div>
-          </div>
-
-          {/* Scroll line */}
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 fade-in delay-600 opacity-20">
-            <div className="w-px h-14 bg-foreground" />
           </div>
         </section>
 
@@ -260,21 +252,6 @@ export default function HomePage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ══ 5. CTA — NAVY ═══════════════════════════════════════════════════ */}
-        <section className="bg-background px-8 py-36">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="font-display font-light text-5xl sm:text-7xl text-foreground leading-[1.05] mb-12">
-              Request early access.
-            </h2>
-            <div className="flex flex-col gap-4">
-              <WaitlistForm onCream={false} />
-              <p className="font-sans text-[11px] text-muted tracking-wide">
-                Free. First 100 users only.
-              </p>
             </div>
           </div>
         </section>
