@@ -33,9 +33,8 @@ export async function searchProducts(
 ): Promise<AlgoliaProduct[]> {
   const client = getClient();
 
-  // Build tag filter — match any of the aesthetic tags
   const tagFilters = aestheticTags
-    .slice(0, 5)
+    .slice(0, 6)
     .map((tag) => `aesthetic_tags:${tag}`);
 
   const priceFilter =
@@ -49,7 +48,7 @@ export async function searchProducts(
     indexName: INDEX_NAME,
     searchParams: {
       query,
-      hitsPerPage: maxResults * 3, // fetch more, then dedupe
+      hitsPerPage: maxResults * 3,
       optionalFilters: tagFilters,
       filters: priceFilter,
       attributesToRetrieve: [
@@ -72,7 +71,7 @@ export async function searchProducts(
 
   const hits = results.hits as unknown as AlgoliaProduct[];
 
-  // Dedupe by retailer — max 2 per retailer for variety
+  // Max 2 per retailer for variety
   const retailerCount: Record<string, number> = {};
   const deduped = hits.filter((h) => {
     const count = retailerCount[h.retailer] ?? 0;
@@ -87,11 +86,14 @@ export async function searchProducts(
 export async function searchByMultipleQueries(
   queries: string[],
   aestheticTags: string[],
-  priceRange: string
+  priceRange: string,
+  maxTotal = 6
 ): Promise<AlgoliaProduct[]> {
-  // Run multiple searches in parallel and merge results
+  // Fetch enough per query to give Claude real variety
+  const perQuery = Math.max(3, Math.ceil((maxTotal * 1.5) / queries.length));
+
   const results = await Promise.all(
-    queries.map((q) => searchProducts(q, aestheticTags, priceRange, 3))
+    queries.map((q) => searchProducts(q, aestheticTags, priceRange, perQuery))
   );
 
   const seen = new Set<string>();
@@ -106,5 +108,5 @@ export async function searchByMultipleQueries(
     }
   }
 
-  return merged.slice(0, 6);
+  return merged.slice(0, maxTotal);
 }

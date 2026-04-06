@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { analyzeAesthetic, findProducts } from "@/lib/ai";
+import { analyzeAesthetic, fetchCandidateProducts, curateProducts } from "@/lib/ai";
 import { getServiceSupabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
@@ -9,14 +9,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing boardId or boardName" }, { status: 400 });
   }
 
-  // Build pin descriptions for the AI
   const pinDescriptions: string[] = (pins ?? [])
     .map((p: { title?: string; description?: string }) =>
       [p.title, p.description].filter(Boolean).join(" — ")
     )
     .filter((d: string) => d.trim().length > 0);
 
-  // If no real pins provided, use board name as context (mock mode)
   if (pinDescriptions.length === 0) {
     pinDescriptions.push(
       `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
@@ -24,13 +22,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Step 1: Analyze aesthetic + generate search queries
+    // Step 1: Claude builds a deep StyleDNA — named aesthetic, palette, silhouettes, search queries
     const aesthetic = await analyzeAesthetic(boardName, pinDescriptions);
 
-    // Step 2: Search Algolia for real products
-    const products = await findProducts(aesthetic);
+    // Step 2: Algolia fetches 20 real candidate products matching the aesthetic
+    const candidates = await fetchCandidateProducts(aesthetic);
 
-    // Step 3: Save to Supabase (best effort — don't fail if DB unavailable)
+    // Step 3: Claude curates the best 6 with stylist judgment and personal style notes
+    const products = await curateProducts(aesthetic, candidates);
+
+    // Step 4: Save to Supabase (best effort)
     try {
       const supabase = getServiceSupabase();
       const slug = `${boardName.toLowerCase().replace(/\s+/g, "-")}-${boardId}`;
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
           slug,
           aesthetic_summary: JSON.stringify(aesthetic),
           products: JSON.stringify(products),
-          user_id: "00000000-0000-0000-0000-000000000000", // placeholder until auth is wired
+          user_id: "00000000-0000-0000-0000-000000000000",
         },
         { onConflict: "board_id" }
       );
