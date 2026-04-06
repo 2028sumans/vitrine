@@ -11,7 +11,15 @@
       "Bash(git checkout:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://vitrine-livid-pi.vercel.app/dashboard)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://vitrine-livid-pi.vercel.app/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://vitrine-livid-pi.vercel.app/api/auth/providers)"
     ]
   }
 }

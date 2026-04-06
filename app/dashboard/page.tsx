@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { AestheticProfile, ProductRecommendation } from "@/lib/ai";
 
 const MOCK_BOARDS = [
   { id: "1", name: "Dream Home", pin_count: 142, emoji: "🪴", gradient: "from-[#E8DDD0] to-[#C9B99A]" },
@@ -12,17 +13,8 @@ const MOCK_BOARDS = [
   { id: "6", name: "Outdoor Living", pin_count: 53, emoji: "🌿", gradient: "from-[#C8E0C8] to-[#8FBA8F]" },
 ];
 
-const MOCK_PRODUCTS = [
-  { id: "p1", name: "Linen Throw Pillow", price: "$38", retailer: "West Elm", emoji: "🛋️", tag: "Perfect match" },
-  { id: "p2", name: "Ceramic Table Lamp", price: "$124", retailer: "CB2", emoji: "💡", tag: "Trending" },
-  { id: "p3", name: "Rattan Side Table", price: "$89", retailer: "Article", emoji: "🪑", tag: "Perfect match" },
-  { id: "p4", name: "Boucle Accent Chair", price: "$445", retailer: "Wayfair", emoji: "🪑", tag: null },
-  { id: "p5", name: "Woven Wall Hanging", price: "$62", retailer: "Etsy", emoji: "🖼️", tag: "Handmade" },
-  { id: "p6", name: "Arch Floor Mirror", price: "$279", retailer: "H&M Home", emoji: "🪞", tag: null },
-];
-
 type Board = (typeof MOCK_BOARDS)[number];
-type Step = "boards" | "analyzing" | "results";
+type Step = "boards" | "analyzing" | "results" | "error";
 
 function BoardCard({ board, selected, onClick }: { board: Board; selected: boolean; onClick: () => void }) {
   return (
@@ -32,18 +24,13 @@ function BoardCard({ board, selected, onClick }: { board: Board; selected: boole
         selected ? "ring-2 ring-accent shadow-lg scale-[1.02]" : "hover:scale-[1.01] hover:shadow-md"
       }`}
     >
-      {/* Gradient cover */}
       <div className={`w-full aspect-[4/3] bg-gradient-to-br ${board.gradient} flex items-center justify-center`}>
         <span className="text-4xl">{board.emoji}</span>
       </div>
-
-      {/* Info */}
       <div className="bg-white px-4 py-3 border-x border-b border-border rounded-b-2xl">
         <p className="font-semibold text-sm text-foreground truncate">{board.name}</p>
         <p className="text-xs text-muted">{board.pin_count} pins</p>
       </div>
-
-      {/* Selected checkmark */}
       {selected && (
         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-accent flex items-center justify-center shadow">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -55,47 +42,81 @@ function BoardCard({ board, selected, onClick }: { board: Board; selected: boole
   );
 }
 
-function ProductCard({ product }: { product: (typeof MOCK_PRODUCTS)[number] }) {
+function ProductCard({ product }: { product: ProductRecommendation }) {
   return (
-    <div className="group rounded-2xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
-      {/* Image area */}
-      <div className="aspect-square bg-gradient-to-br from-[#F5EBE4] to-[#EDD9CC] flex items-center justify-center relative">
-        <span className="text-5xl">{product.emoji}</span>
-        {product.tag && (
-          <span className="absolute top-3 left-3 text-[10px] font-semibold bg-white/90 text-accent px-2.5 py-1 rounded-full border border-accent/20">
-            {product.tag}
-          </span>
-        )}
+    <a
+      href={product.amazon_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group rounded-2xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 block"
+    >
+      <div className="aspect-square bg-gradient-to-br from-[#F5EBE4] to-[#EDD9CC] flex flex-col items-center justify-center gap-2 relative p-4">
+        <span className="text-3xl">🛍️</span>
+        <span className="text-[10px] font-semibold bg-white/90 text-accent px-2.5 py-1 rounded-full border border-accent/20 text-center">
+          {product.category}
+        </span>
       </div>
-
-      {/* Details */}
       <div className="p-4">
-        <p className="font-semibold text-sm text-foreground leading-tight mb-0.5">{product.name}</p>
-        <p className="text-xs text-muted mb-3">{product.retailer}</p>
+        <p className="font-semibold text-sm text-foreground leading-tight mb-1">{product.name}</p>
+        <p className="text-xs text-muted leading-relaxed mb-3 line-clamp-2">{product.description}</p>
         <div className="flex items-center justify-between">
-          <span className="text-base font-bold text-foreground">{product.price}</span>
-          <button className="text-xs font-semibold text-white bg-accent hover:bg-accent-light px-3.5 py-1.5 rounded-full transition-colors">
-            Shop
-          </button>
+          <span className="text-sm font-bold text-foreground">{product.price_range}</span>
+          <span className="text-xs font-semibold text-white bg-accent hover:bg-accent-light px-3.5 py-1.5 rounded-full transition-colors">
+            Shop →
+          </span>
         </div>
+        <p className="text-xs text-muted mt-2">{product.retailers.join(", ")}</p>
       </div>
-    </div>
+    </a>
   );
 }
 
 export default function DashboardPage() {
   const [step, setStep] = useState<Step>("boards");
   const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
+  const [aesthetic, setAesthetic] = useState<AestheticProfile | null>(null);
+  const [products, setProducts] = useState<ProductRecommendation[]>([]);
   const [dots, setDots] = useState(1);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!selectedBoard) return;
     setStep("analyzing");
+    setErrorMsg("");
+
     const interval = setInterval(() => setDots((d) => (d % 3) + 1), 600);
-    setTimeout(() => {
-      clearInterval(interval);
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          boardId: selectedBoard.id,
+          boardName: selectedBoard.name,
+          pins: [], // real pins will come from Pinterest API once approved
+        }),
+      });
+
+      if (!res.ok) throw new Error("Analysis failed");
+
+      const data = await res.json();
+      setAesthetic(data.aesthetic);
+      setProducts(data.products);
       setStep("results");
-    }, 3000);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Something went wrong. Please try again.");
+      setStep("error");
+    } finally {
+      clearInterval(interval);
+    }
+  };
+
+  const reset = () => {
+    setStep("boards");
+    setSelectedBoard(null);
+    setAesthetic(null);
+    setProducts([]);
   };
 
   return (
@@ -108,10 +129,7 @@ export default function DashboardPage() {
           </Link>
           <div className="flex items-center gap-3">
             {step === "results" && (
-              <button
-                onClick={() => { setStep("boards"); setSelectedBoard(null); }}
-                className="text-xs text-muted hover:text-foreground transition-colors"
-              >
+              <button onClick={reset} className="text-xs text-muted hover:text-foreground transition-colors">
                 ← New board
               </button>
             )}
@@ -127,7 +145,6 @@ export default function DashboardPage() {
         {/* ── Board selection ── */}
         {step === "boards" && (
           <div className="fade-in-up">
-            {/* Header */}
             <div className="mb-10">
               <div className="inline-flex items-center gap-2 bg-accent-subtle border border-accent/20 rounded-full px-3 py-1 mb-4">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -137,11 +154,10 @@ export default function DashboardPage() {
                 Which board should<br />we shop for you?
               </h1>
               <p className="text-muted text-lg max-w-md">
-                Pick a board and we&apos;ll analyze its aesthetic to find products that actually match your taste.
+                Pick a board and we&apos;ll analyze its aesthetic to find products that match your taste.
               </p>
             </div>
 
-            {/* Board grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
               {MOCK_BOARDS.map((board) => (
                 <BoardCard
@@ -153,23 +169,19 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* CTA */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleAnalyze}
-                disabled={!selectedBoard}
-                className="px-8 py-3.5 rounded-full bg-accent text-white font-semibold text-sm hover:bg-accent-light active:scale-95 transition-all duration-150 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
-              >
-                {selectedBoard ? `Analyze "${selectedBoard.name}" →` : "Select a board to continue"}
-              </button>
-            </div>
+            <button
+              onClick={handleAnalyze}
+              disabled={!selectedBoard}
+              className="px-8 py-3.5 rounded-full bg-accent text-white font-semibold text-sm hover:bg-accent-light active:scale-95 transition-all duration-150 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {selectedBoard ? `Analyze "${selectedBoard.name}" →` : "Select a board to continue"}
+            </button>
           </div>
         )}
 
         {/* ── Analyzing ── */}
         {step === "analyzing" && (
           <div className="fade-in flex flex-col items-center justify-center py-40 text-center">
-            {/* Animated ring */}
             <div className="relative w-20 h-20 mb-10">
               <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
               <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
@@ -184,8 +196,6 @@ export default function DashboardPage() {
               Reading the colors, textures, and mood of your{" "}
               <span className="text-foreground font-medium">{selectedBoard?.name}</span> board.
             </p>
-
-            {/* Progress steps */}
             <div className="mt-10 flex flex-col gap-2 text-left">
               {["Reading your pins", "Understanding the aesthetic", "Matching products"].map((label, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm text-muted">
@@ -199,10 +209,21 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* ── Error ── */}
+        {step === "error" && (
+          <div className="fade-in flex flex-col items-center justify-center py-40 text-center">
+            <p className="text-2xl mb-4">😕</p>
+            <h2 className="text-xl font-bold tracking-tight mb-2">Something went wrong</h2>
+            <p className="text-muted text-sm mb-8">{errorMsg}</p>
+            <button onClick={reset} className="px-6 py-3 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-light transition-colors">
+              Try again
+            </button>
+          </div>
+        )}
+
         {/* ── Results ── */}
-        {step === "results" && (
+        {step === "results" && aesthetic && (
           <div className="fade-in-up">
-            {/* Header */}
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 bg-accent-subtle border border-accent/20 rounded-full px-3 py-1 mb-4">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -212,28 +233,30 @@ export default function DashboardPage() {
                 {selectedBoard?.name}
               </h1>
 
-              {/* Aesthetic summary */}
+              {/* Aesthetic card */}
               <div className="mt-6 p-5 rounded-2xl bg-white border border-border max-w-2xl">
-                <p className="text-xs font-semibold text-accent tracking-widest uppercase mb-2">
+                <p className="text-xs font-semibold text-accent tracking-widest uppercase mb-3">
                   Aesthetic analysis
                 </p>
-                <p className="text-sm text-muted leading-relaxed">
-                  Your <strong className="text-foreground">{selectedBoard?.name}</strong> board has a warm, organic feel —
-                  natural textures, muted earth tones, and a mix of vintage and modern pieces.
-                  Think linen, rattan, terracotta, and soft lighting. We found{" "}
-                  <strong className="text-foreground">{MOCK_PRODUCTS.length} products</strong> that match this vibe.
-                </p>
+                <p className="text-sm text-foreground font-semibold mb-1">{aesthetic.mood}</p>
+                <p className="text-sm text-muted leading-relaxed mb-3">{aesthetic.summary}</p>
+                <div className="flex flex-wrap gap-2">
+                  {aesthetic.style_keywords.map((kw) => (
+                    <span key={kw} className="text-xs bg-accent-subtle text-accent px-2.5 py-1 rounded-full border border-accent/20">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Product grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-              {MOCK_PRODUCTS.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {products.map((product) => (
+                <ProductCard key={product.name} product={product} />
               ))}
             </div>
 
-            {/* Footer note */}
             <p className="text-xs text-muted text-center border-t border-border pt-6">
               Vitrine earns a small affiliate commission if you make a purchase — at no cost to you.
             </p>
