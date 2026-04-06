@@ -92,6 +92,25 @@ function slug(str, i) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + `-${i}`;
 }
 
+// ── Category classification ───────────────────────────────────────────────────
+
+const CATEGORY_KEYWORDS = {
+  dress:   ["dress", "jumpsuit", "romper", "playsuit", "gown", "bodycon", "shift", "sundress", "minidress", "maxi dress", "midi dress"],
+  top:     ["top", "blouse", "shirt", "tee", "tank", "cami", "camisole", "bodysuit", "sweater", "knit", "cardigan", "pullover", "sweatshirt", "hoodie", "corset", "crop"],
+  bottom:  ["trouser", "pant", "skirt", "short", "jean", "denim", "legging", "culotte", "jogger", "wide-leg", "palazzo", "cargo"],
+  jacket:  ["jacket", "blazer", "coat", "trench", "vest", "gilet", "puffer", "anorak", "cape", "overcoat", "bomber", "leather jacket"],
+  shoes:   ["shoe", "boot", "sandal", "heel", "flat", "loafer", "sneaker", "mule", "pump", "stiletto", "wedge", "ankle boot", "ballet flat", "slingback"],
+  bag:     ["bag", "tote", "clutch", "handbag", "purse", "backpack", "crossbody", "satchel", "pouch", "wristlet", "shoulder bag", "mini bag"],
+};
+
+function categorize(title) {
+  const t = (title || "").toLowerCase();
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some(kw => t.includes(kw))) return cat;
+  }
+  return "other";
+}
+
 // ── Aesthetic tagging ─────────────────────────────────────────────────────────
 
 const AESTHETIC_MAP = {
@@ -296,8 +315,9 @@ async function readCSV(filePath, parserName, retailer) {
       const record = {
         ...base,
         retailer,
-        price_range: priceRange(base.price),
+        price_range:    priceRange(base.price),
         aesthetic_tags: aestheticTags(text),
+        category:       categorize(base.title),
       };
       records.push(record);
     } catch {
@@ -350,6 +370,7 @@ async function main() {
         "filterOnly(retailer)",
         "filterOnly(brand)",
         "filterOnly(price_range)",
+        "filterOnly(category)",
       ],
       customRanking: ["desc(price)"],
     },
