@@ -152,7 +152,7 @@ export default function HomePage() {
             </h1>
 
             <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/70 mb-4 leading-snug">
-              Your taste, finally shoppable.
+              Your taste, made shoppable.
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
