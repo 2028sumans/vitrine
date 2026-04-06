@@ -12,10 +12,12 @@ const config: Config = {
         // Dark-first palette — deep midnight, like Phia
         background:   "#0B1120",
         surface:      "#111827",
-        foreground:   "#F5F2EE",
-        muted:        "rgba(245,242,238,0.45)",
-        border:       "rgba(245,242,238,0.10)",
-        "border-mid": "rgba(245,242,238,0.18)",
+        foreground:     "#F5F2EE",
+        muted:          "rgba(245,242,238,0.70)",   // readable body text
+        "muted-strong": "rgba(245,242,238,0.85)",   // subheadings, key body
+        "muted-dim":    "rgba(245,242,238,0.35)",   // footnotes, labels
+        border:         "rgba(245,242,238,0.10)",
+        "border-mid":   "rgba(245,242,238,0.18)",
         accent:       "#D4C4A8",          // warm parchment — the one accent
         "accent-dim": "rgba(212,196,168,0.15)",
       },

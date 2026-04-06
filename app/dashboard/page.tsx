@@ -170,13 +170,13 @@ function ProductCard({ product }: { product: CuratedProduct }) {
             {product.brand}
           </p>
         )}
-        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2.5">
+        <p className="font-sans text-sm text-foreground leading-snug line-clamp-2 mb-2.5">
           {product.title}
         </p>
 
         {/* Style note in Cormorant italic */}
         {product.style_note && (
-          <p className="font-display font-light italic text-sm text-muted leading-relaxed line-clamp-2 mb-3">
+          <p className="font-display font-light italic text-base text-muted-strong leading-relaxed line-clamp-2 mb-3">
             &ldquo;{product.style_note}&rdquo;
           </p>
         )}
@@ -215,7 +215,7 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
             {dna.secondary_aesthetic}
           </p>
         )}
-        <p className="font-sans text-sm text-muted leading-relaxed mt-5 max-w-2xl">
+        <p className="font-sans text-base text-muted-strong leading-relaxed mt-5 max-w-2xl">
           {dna.summary}
         </p>
       </div>
@@ -232,7 +232,7 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
                 className="w-3.5 h-3.5 rounded-full flex-shrink-0 ring-1 ring-white/10"
                 style={{ backgroundColor: colorToCSS(color) }}
               />
-              <span className="font-sans text-xs text-foreground/70 capitalize">{color}</span>
+              <span className="font-sans text-sm text-muted-strong capitalize">{color}</span>
             </div>
           ))}
         </div>
@@ -246,7 +246,7 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
           </p>
           <ul className="flex flex-col gap-2">
             {(dna.key_pieces ?? []).slice(0, 5).map((p) => (
-              <li key={p} className="font-sans text-xs text-foreground/70 flex items-center gap-2.5">
+              <li key={p} className="font-sans text-sm text-muted-strong flex items-center gap-2.5">
                 <span className="w-3 h-px bg-accent/60 flex-shrink-0" />
                 {p}
               </li>
@@ -259,7 +259,7 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
           </p>
           <ul className="flex flex-col gap-2">
             {(dna.avoids ?? []).slice(0, 4).map((a) => (
-              <li key={a} className="font-sans text-xs text-muted/60 flex items-center gap-2.5">
+              <li key={a} className="font-sans text-sm text-muted flex items-center gap-2.5">
                 <span className="w-3 h-px bg-muted/30 flex-shrink-0" />
                 {a}
               </li>
@@ -407,7 +407,7 @@ export default function DashboardPage() {
               <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-[1.05] mb-5">
                 Which board should<br />we shop for you?
               </h1>
-              <p className="font-sans text-sm text-muted max-w-sm leading-relaxed">
+              <p className="font-sans text-base text-muted-strong max-w-sm leading-relaxed">
                 Select a board — we&apos;ll decode its aesthetic and find real
                 products that match your taste.
               </p>
@@ -450,7 +450,7 @@ export default function DashboardPage() {
             <h2 className="font-display font-light text-4xl text-foreground mb-2">
               Building your edit.
             </h2>
-            <p className="font-sans text-sm text-muted mb-16">
+            <p className="font-sans text-base text-muted-strong mb-16">
               About 15 seconds — being thorough.
             </p>
 
@@ -486,7 +486,7 @@ export default function DashboardPage() {
             <h2 className="font-display font-light text-3xl text-foreground mb-3">
               Something went wrong.
             </h2>
-            <p className="font-sans text-sm text-muted mb-12 max-w-sm">{errorMsg}</p>
+            <p className="font-sans text-base text-muted-strong mb-12 max-w-sm">{errorMsg}</p>
             <button
               onClick={reset}
               className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors"

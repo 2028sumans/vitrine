@@ -155,7 +155,7 @@ export default function HomePage() {
               Your taste, finally shoppable.
             </p>
 
-            <p className="fade-in-up delay-300 font-sans text-sm text-muted max-w-md mx-auto leading-relaxed mb-14">
+            <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
               VITRINE reads your Pinterest boards and builds you a private
               shopping page — curated by an AI stylist that understands exactly
               what you love.
@@ -198,7 +198,7 @@ export default function HomePage() {
                 <h3 className="font-display font-light text-2xl text-foreground mb-3 leading-snug">
                   {step.title}
                 </h3>
-                <p className="font-sans text-sm text-muted leading-relaxed">
+                <p className="font-sans text-base text-muted-strong leading-relaxed">
                   {step.body}
                 </p>
               </div>
@@ -214,7 +214,7 @@ export default function HomePage() {
                 Built for the woman who has been pinning for years — and never
                 found all of it in one place.
               </h2>
-              <p className="font-sans text-sm text-muted leading-relaxed max-w-lg">
+              <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
                 Your boards already say everything. VITRINE listens — and finds
                 the exact pieces that match the aesthetic you&apos;ve been
                 quietly, carefully building.
@@ -237,7 +237,7 @@ export default function HomePage() {
                     <h3 className="font-display font-light text-xl text-foreground mb-2">
                       {label}
                     </h3>
-                    <p className="font-sans text-sm text-muted leading-relaxed">
+                    <p className="font-sans text-base text-muted-strong leading-relaxed">
                       {body}
                     </p>
                   </div>
@@ -268,7 +268,7 @@ export default function HomePage() {
             <p className="font-sans text-[9px] tracking-widest uppercase text-muted/50 mt-0.5 whitespace-nowrap">
               Note
             </p>
-            <p className="font-sans text-xs text-muted/50 leading-relaxed max-w-md">
+            <p className="font-sans text-xs text-muted-dim leading-relaxed max-w-md">
               VITRINE is free. We earn a small affiliate commission when you
               purchase through your page — at no cost to you. We never sell your
               data.
