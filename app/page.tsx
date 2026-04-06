@@ -162,7 +162,7 @@ export default function HomePage() {
 
           <div className="relative z-10 max-w-4xl mx-auto">
             <p className="fade-in font-sans text-[10px] tracking-widest uppercase text-muted mb-12">
-              Personal Shopping
+              Coming Soon
             </p>
 
             <h1 className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] text-foreground mb-10">
