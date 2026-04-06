@@ -9,17 +9,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Dark-first palette — deep midnight, like Phia
-        background:   "#0B1120",
-        surface:      "#111827",
-        foreground:     "#F5F2EE",
-        muted:          "rgba(245,242,238,0.70)",   // readable body text
-        "muted-strong": "rgba(245,242,238,0.85)",   // subheadings, key body
-        "muted-dim":    "rgba(245,242,238,0.35)",   // footnotes, labels
-        border:         "rgba(245,242,238,0.10)",
-        "border-mid":   "rgba(245,242,238,0.18)",
-        accent:       "#D4C4A8",          // warm parchment — the one accent
-        "accent-dim": "rgba(212,196,168,0.15)",
+        // Navy sections (dark bg, cream text)
+        background:     "#0C1221",
+        foreground:     "#F0E8D8",          // warm cream
+        muted:          "rgba(240,232,216,0.60)",
+        "muted-strong": "rgba(240,232,216,0.85)",
+        "muted-dim":    "rgba(240,232,216,0.30)",
+        border:         "rgba(240,232,216,0.10)",
+        "border-mid":   "rgba(240,232,216,0.20)",
+        accent:         "#C9B99A",
+
+        // Cream sections (light bg, navy text)
+        cream:             "#F0E8D8",       // the cream colour itself
+        navy:              "#0C1221",       // navy used as text on cream
+        "navy-muted":      "rgba(12,18,33,0.55)",
+        "navy-strong":     "rgba(12,18,33,0.82)",
+        "navy-dim":        "rgba(12,18,33,0.28)",
+        "navy-border":     "rgba(12,18,33,0.10)",
+        "navy-border-mid": "rgba(12,18,33,0.20)",
       },
       fontFamily: {
         display: ["var(--font-cormorant)", "Georgia", "serif"],

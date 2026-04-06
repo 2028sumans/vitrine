@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 
-function WaitlistForm({ id, light = false }: { id: string; light?: boolean }) {
+// ── Waitlist form ─────────────────────────────────────────────────────────────
+
+function WaitlistForm({ onCream = false }: { onCream?: boolean }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,28 +30,48 @@ function WaitlistForm({ id, light = false }: { id: string; light?: boolean }) {
 
   if (submitted) {
     return (
-      <p className="fade-in font-sans text-sm text-accent tracking-wide">
+      <p className={`fade-in font-sans text-sm tracking-wide ${onCream ? "text-navy-muted" : "text-muted-strong"}`}>
         You&apos;re on the list.
       </p>
     );
   }
 
+  if (onCream) {
+    return (
+      <form onSubmit={handleSubmit} className="w-full max-w-sm">
+        <label className="sr-only">Email address</label>
+        <div className="flex">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            required
+            className="flex-1 px-4 py-3 text-sm font-sans bg-white/60 border border-navy-border text-navy placeholder-navy/30 focus:outline-none focus:border-navy-border-mid transition-colors"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-5 py-3 bg-navy text-cream font-sans text-[10px] tracking-widest uppercase font-medium whitespace-nowrap hover:bg-navy/80 transition-colors duration-200 disabled:opacity-50"
+          >
+            {loading ? "…" : "Request access"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm">
-      <label htmlFor={id} className="sr-only">Email address</label>
+      <label className="sr-only">Email address</label>
       <div className="flex">
         <input
-          id={id}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="your@email.com"
           required
-          className={`flex-1 px-4 py-3 text-sm font-sans placeholder-foreground/25 focus:outline-none transition-colors ${
-            light
-              ? "bg-white/8 border border-border text-foreground focus:border-border-mid"
-              : "bg-white/6 border border-border text-foreground focus:border-border-mid"
-          }`}
+          className="flex-1 px-4 py-3 text-sm font-sans bg-white/6 border border-border text-foreground placeholder-foreground/25 focus:outline-none focus:border-border-mid transition-colors"
         />
         <button
           type="submit"
@@ -62,6 +84,8 @@ function WaitlistForm({ id, light = false }: { id: string; light?: boolean }) {
     </form>
   );
 }
+
+// ── Data ──────────────────────────────────────────────────────────────────────
 
 const steps = [
   {
@@ -100,11 +124,13 @@ const features = [
   },
 ];
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <div className="min-h-screen flex flex-col">
 
-      {/* Nav */}
+      {/* ── Nav — floats over hero (navy) ── */}
       <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between">
         <span className="font-display font-light text-xl tracking-[0.22em] text-foreground">
           VITRINE
@@ -119,22 +145,17 @@ export default function HomePage() {
 
       <main className="flex-1">
 
-        {/* Hero */}
-        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+        {/* ══ 1. HERO — NAVY ══════════════════════════════════════════════════ */}
+        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-background">
 
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(212,196,168,0.06) 0%, transparent 70%)",
-            }}
+          {/* Radial glow */}
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(201,185,154,0.07) 0%, transparent 70%)" }}
           />
-
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03]"
+          {/* Grid texture */}
+          <div className="absolute inset-0 pointer-events-none opacity-[0.025]"
             style={{
-              backgroundImage:
-                "linear-gradient(rgba(245,242,238,1) 1px, transparent 1px), linear-gradient(90deg, rgba(245,242,238,1) 1px, transparent 1px)",
+              backgroundImage: "linear-gradient(rgba(240,232,216,1) 1px, transparent 1px), linear-gradient(90deg, rgba(240,232,216,1) 1px, transparent 1px)",
               backgroundSize: "80px 80px",
             }}
           />
@@ -148,7 +169,7 @@ export default function HomePage() {
               VITRINE
             </h1>
 
-            <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/70 mb-4 leading-snug">
+            <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/60 mb-5 leading-snug">
               Your taste, made shoppable.
             </p>
 
@@ -159,51 +180,52 @@ export default function HomePage() {
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col items-center gap-4">
-              <WaitlistForm id="hero-email" />
-              <p className="font-sans text-[11px] text-muted/60 tracking-wide">
+              <WaitlistForm onCream={false} />
+              <p className="font-sans text-[11px] text-muted tracking-wide">
                 Free. First 100 users only.
               </p>
             </div>
           </div>
 
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 fade-in delay-600 flex flex-col items-center gap-2 opacity-30">
-            <div className="w-px h-12 bg-foreground/40" />
+          {/* Scroll line */}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 fade-in delay-600 opacity-20">
+            <div className="w-px h-14 bg-foreground" />
           </div>
         </section>
 
-        <div className="border-t border-border" />
+        {/* ══ 2. HOW IT WORKS — CREAM ═════════════════════════════════════════ */}
+        <section className="bg-cream px-8 py-28 max-w-full">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-20">
+              <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-4">
+                How it works
+              </p>
+              <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
+                Three steps.
+              </h2>
+            </div>
 
-        {/* How it works */}
-        <section className="px-8 py-28 max-w-6xl mx-auto">
-          <div className="mb-20">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">
-              How it works
-            </p>
-            <h2 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">
-              Three steps.
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-8">
-            {steps.map((step) => (
-              <div key={step.num} className="group">
-                <p className="font-display font-light text-6xl text-foreground/10 mb-6 leading-none select-none">
-                  {step.num}
-                </p>
-                <h3 className="font-display font-light text-3xl text-foreground mb-3 leading-snug">
-                  {step.title}
-                </h3>
-                <p className="font-sans text-base text-muted-strong leading-relaxed">
-                  {step.body}
-                </p>
-              </div>
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-8">
+              {steps.map((step) => (
+                <div key={step.num}>
+                  <p className="font-display font-light text-6xl text-navy/10 mb-6 leading-none select-none">
+                    {step.num}
+                  </p>
+                  <h3 className="font-display font-light text-3xl text-navy mb-3 leading-snug">
+                    {step.title}
+                  </h3>
+                  <p className="font-sans text-base text-navy-strong leading-relaxed">
+                    {step.body}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Statement */}
-        <section className="border-t border-border">
-          <div className="max-w-6xl mx-auto px-8 py-32">
+        {/* ══ 3. STATEMENT — NAVY ═════════════════════════════════════════════ */}
+        <section className="bg-background px-8 py-32">
+          <div className="max-w-6xl mx-auto">
             <div className="max-w-3xl">
               <h2 className="font-display font-light text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-foreground mb-8">
                 Built for the woman who has been pinning for years and never
@@ -218,21 +240,21 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Features */}
-        <section className="border-t border-border">
-          <div className="max-w-6xl mx-auto px-8 py-24">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-14">
+        {/* ══ 4. FEATURES — CREAM ═════════════════════════════════════════════ */}
+        <section className="bg-cream px-8 py-24">
+          <div className="max-w-6xl mx-auto">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-14">
               What you get
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10">
               {features.map(({ label, body }) => (
                 <div key={label} className="flex gap-6 items-start">
-                  <div className="w-px h-10 bg-border-mid flex-shrink-0 mt-0.5" />
+                  <div className="w-px h-10 bg-navy-border-mid flex-shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="font-display font-light text-xl text-foreground mb-2">
+                    <h3 className="font-display font-light text-xl text-navy mb-2">
                       {label}
                     </h3>
-                    <p className="font-sans text-base text-muted-strong leading-relaxed">
+                    <p className="font-sans text-base text-navy-strong leading-relaxed">
                       {body}
                     </p>
                   </div>
@@ -242,28 +264,28 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="border-t border-border">
-          <div className="max-w-6xl mx-auto px-8 py-36">
+        {/* ══ 5. CTA — NAVY ═══════════════════════════════════════════════════ */}
+        <section className="bg-background px-8 py-36">
+          <div className="max-w-6xl mx-auto">
             <h2 className="font-display font-light text-5xl sm:text-7xl text-foreground leading-[1.05] mb-12">
               Request early access.
             </h2>
             <div className="flex flex-col gap-4">
-              <WaitlistForm id="cta-email" />
-              <p className="font-sans text-[11px] text-muted/60 tracking-wide">
+              <WaitlistForm onCream={false} />
+              <p className="font-sans text-[11px] text-muted tracking-wide">
                 Free. First 100 users only.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Transparency */}
-        <div className="border-t border-border">
+        {/* Transparency note */}
+        <div className="bg-background border-t border-border">
           <div className="max-w-6xl mx-auto px-8 py-10 flex items-start gap-8">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted/50 mt-0.5 whitespace-nowrap">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted-dim mt-0.5 whitespace-nowrap">
               Note
             </p>
-            <p className="font-sans text-xs text-muted-dim leading-relaxed max-w-md">
+            <p className="font-sans text-xs text-muted leading-relaxed max-w-md">
               VITRINE is free. We earn a small affiliate commission when you
               purchase through your page, at no cost to you. We never sell your
               data.
@@ -272,14 +294,14 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border px-8 py-7">
+      {/* ══ FOOTER — CREAM ══════════════════════════════════════════════════ */}
+      <footer className="bg-cream border-t border-navy-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="font-display font-light tracking-[0.18em] text-sm text-muted/50">
+          <span className="font-display font-light tracking-[0.18em] text-sm text-navy-muted">
             VITRINE
           </span>
-          <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted/40">
-            <Link href="/privacy" className="hover:text-foreground transition-colors">
+          <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-navy-dim">
+            <Link href="/privacy" className="hover:text-navy transition-colors">
               Privacy
             </Link>
             <span>© 2025</span>
