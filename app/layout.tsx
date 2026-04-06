@@ -1,14 +1,29 @@
 import type { Metadata, Viewport } from "next";
+import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-cormorant",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Vitrine — Your Pinterest boards, made shoppable",
+  title: "VITRINE — Your taste, made shoppable",
   description:
-    "Vitrine turns your Pinterest boards into shoppable storefronts. Connect your boards, share your taste, your audience shops the aesthetic you've already built.",
+    "VITRINE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
   openGraph: {
-    title: "Vitrine — Your Pinterest boards, made shoppable",
+    title: "VITRINE — Your taste, made shoppable",
     description:
-      "Vitrine turns your Pinterest boards into shoppable storefronts. Connect your boards, share your taste, your audience shops the aesthetic you've already built.",
+      "VITRINE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
     type: "website",
   },
 };
@@ -24,8 +39,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-background text-foreground font-sans">{children}</body>
+    <html lang="en" className={`${cormorant.variable} ${inter.variable}`}>
+      <body className="bg-background text-foreground font-sans antialiased">
+        {children}
+      </body>
     </html>
   );
 }

@@ -9,28 +9,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#FAFAF8",
-        foreground: "#1A1A1A",
-        accent: "#C17F5E",
-        "accent-light": "#D4997A",
-        "accent-subtle": "#F5EBE4",
-        muted: "#6B6B68",
-        border: "#E8E6E1",
+        background: "#F9F7F4",
+        foreground: "#111111",
+        accent: "#8C7258",
+        "accent-light": "#A5896F",
+        "accent-subtle": "#F0EBE3",
+        muted: "#6B6860",
+        border: "#E5E0D8",
       },
       fontFamily: {
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          '"Segoe UI"',
-          "Roboto",
-          '"Helvetica Neue"',
-          "Arial",
-          "sans-serif",
-        ],
+        display: ["var(--font-cormorant)", "Georgia", "serif"],
+        sans: ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       letterSpacing: {
         tighter: "-0.04em",
         tight: "-0.02em",
+        widest: "0.2em",
       },
     },
   },
