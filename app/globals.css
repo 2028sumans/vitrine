@@ -4,8 +4,8 @@
 
 @layer base {
   html {
-    background-color: #F9F7F4;
-    color: #111111;
+    background-color: #0B1120;
+    color: #F5F2EE;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -14,28 +14,28 @@
     box-sizing: border-box;
   }
 
-  /* Fine rule — 0.5px hairline borders feel more French */
-  .hairline {
-    border-width: 0.5px;
+  ::selection {
+    background: rgba(212, 196, 168, 0.25);
+    color: #F5F2EE;
   }
 }
 
 @layer utilities {
   .fade-in {
-    animation: fadeIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .fade-in-up {
-    animation: fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .delay-100 { animation-delay: 0.08s; }
-  .delay-200 { animation-delay: 0.16s; }
-  .delay-300 { animation-delay: 0.24s; }
-  .delay-400 { animation-delay: 0.32s; }
-  .delay-500 { animation-delay: 0.40s; }
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-400 { animation-delay: 0.4s; }
+  .delay-500 { animation-delay: 0.5s; }
+  .delay-600 { animation-delay: 0.6s; }
 
-  /* Display — Cormorant Garamond */
   .font-display {
     font-family: var(--font-cormorant), Georgia, serif;
   }
@@ -49,10 +49,15 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
+/* Thin scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(245,242,238,0.15); border-radius: 2px; }

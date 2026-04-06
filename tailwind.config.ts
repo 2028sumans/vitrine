@@ -9,22 +9,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#F9F7F4",
-        foreground: "#111111",
-        accent: "#8C7258",
-        "accent-light": "#A5896F",
-        "accent-subtle": "#F0EBE3",
-        muted: "#6B6860",
-        border: "#E5E0D8",
+        // Dark-first palette — deep midnight, like Phia
+        background:   "#0B1120",
+        surface:      "#111827",
+        foreground:   "#F5F2EE",
+        muted:        "rgba(245,242,238,0.45)",
+        border:       "rgba(245,242,238,0.10)",
+        "border-mid": "rgba(245,242,238,0.18)",
+        accent:       "#D4C4A8",          // warm parchment — the one accent
+        "accent-dim": "rgba(212,196,168,0.15)",
       },
       fontFamily: {
         display: ["var(--font-cormorant)", "Georgia", "serif"],
-        sans: ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans:    ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       letterSpacing: {
-        tighter: "-0.04em",
-        tight: "-0.02em",
-        widest: "0.2em",
+        tightest: "-0.05em",
+        tighter:  "-0.03em",
+        tight:    "-0.01em",
+        normal:   "0em",
+        wide:     "0.08em",
+        wider:    "0.14em",
+        widest:   "0.22em",
       },
     },
   },
