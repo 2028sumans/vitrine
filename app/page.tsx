@@ -272,13 +272,13 @@ export default function HomePage() {
       </main>
 
       {/* ══ FOOTER — CREAM ══════════════════════════════════════════════════ */}
-      <footer className="bg-cream border-t border-navy-border px-8 py-7">
+      <footer className="bg-background border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="font-display font-light tracking-[0.18em] text-sm text-navy-muted">
+          <span className="font-display font-light tracking-[0.18em] text-sm text-muted">
             VITRINE
           </span>
-          <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-navy-dim">
-            <Link href="/privacy" className="hover:text-navy transition-colors">
+          <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">
               Privacy
             </Link>
             <span>© 2025</span>
