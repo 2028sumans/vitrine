@@ -411,24 +411,32 @@ export default function DashboardPage() {
     }
   }, [session]);
 
-  // Fetch real Pinterest boards from the API
+  // Fetch real Pinterest boards from the API — pass access token from session
   useEffect(() => {
+    const token = (session as { accessToken?: string })?.accessToken;
+    if (!token) return; // wait for session to hydrate
     setBoardsLoading(true);
-    fetch("/api/pinterest/boards")
+    fetch("/api/pinterest/boards", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => r.json())
       .then((data) => {
         if (data.boards?.length) setBoards(data.boards);
       })
       .catch(() => {/* non-fatal */})
       .finally(() => setBoardsLoading(false));
-  }, []);
+  }, [session]); // re-run when session loads
 
   // Auto-fetch pins when a board is selected
   useEffect(() => {
     if (!selectedBoard) { setPins([]); return; }
+    const token = (session as { accessToken?: string })?.accessToken;
+    if (!token) return;
     setPins([]);
     setPinsLoading(true);
-    fetch(`/api/pinterest/pins?boardId=${selectedBoard.id}`)
+    fetch(`/api/pinterest/pins?boardId=${selectedBoard.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => r.json())
       .then((data) => { if (data.pins?.length) setPins(data.pins); })
       .catch(() => {/* non-fatal */})

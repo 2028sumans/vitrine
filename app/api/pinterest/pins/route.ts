@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 
 export interface PinData {
   id:          string;
@@ -10,9 +9,10 @@ export interface PinData {
 }
 
 export async function GET(request: NextRequest) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const auth = request.headers.get("authorization") ?? "";
+  const accessToken = auth.startsWith("Bearer ") ? auth.slice(7) : null;
 
-  if (!token?.accessToken) {
+  if (!accessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     `https://api.pinterest.com/v5/boards/${boardId}/pins?page_size=25`,
     {
       headers: {
-        Authorization: `Bearer ${token.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     }
