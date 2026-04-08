@@ -74,10 +74,12 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.PINTEREST_APP_SECRET,
       profile(profile) {
         console.log("[Pinterest profile] raw:", JSON.stringify(profile).slice(0, 200));
+        const username = String(profile.username ?? profile.id ?? "unknown");
         return {
-          id:    String(profile.username ?? profile.id ?? "unknown"),
-          name:  String(profile.username ?? ""),
-          email: null,
+          id:    username,
+          name:  username,
+          // NextAuth requires a non-null email — use a placeholder
+          email: `${username}@pinterest.vitrine`,
           image: profile.profile_image ?? null,
         };
       },
