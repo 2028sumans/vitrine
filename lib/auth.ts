@@ -27,6 +27,7 @@ export const authOptions: NextAuthOptions = {
       id: "pinterest",
       name: "Pinterest",
       type: "oauth",
+      checks: ["state"],   // disable PKCE — send code_verifier manually if needed
       authorization: {
         url: "https://www.pinterest.com/oauth/",
         params: {
@@ -41,21 +42,30 @@ export const authOptions: NextAuthOptions = {
             `${provider.clientId}:${provider.clientSecret}`
           ).toString("base64");
 
+          console.log("[Pinterest token] params keys:", Object.keys(params));
+
+          const body: Record<string, string> = {
+            grant_type:   "authorization_code",
+            code:         String(params.code ?? ""),
+            redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/pinterest`,
+          };
+
+          // Include PKCE code_verifier if NextAuth generated one
+          if (params.code_verifier) {
+            body.code_verifier = String(params.code_verifier);
+          }
+
           const res = await fetch("https://api.pinterest.com/v5/oauth/token", {
             method: "POST",
             headers: {
               "Authorization": `Basic ${credentials}`,
               "Content-Type": "application/x-www-form-urlencoded",
             },
-            body: new URLSearchParams({
-              grant_type:   "authorization_code",
-              code:         params.code ?? "",
-              redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/pinterest`,
-            }),
+            body: new URLSearchParams(body),
           });
 
           const tokens = await res.json();
-          console.log("[Pinterest token] status:", res.status, "response:", JSON.stringify(tokens).slice(0, 200));
+          console.log("[Pinterest token] status:", res.status, "response:", JSON.stringify(tokens).slice(0, 300));
           return { tokens };
         },
       },
