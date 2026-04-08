@@ -21,6 +21,7 @@ declare module "next-auth/jwt" {
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: "jwt" },
   providers: [
     {
       id: "pinterest",
@@ -80,6 +81,8 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, account }) {
       if (account) {
+        console.log("[NextAuth] account keys:", Object.keys(account));
+        console.log("[NextAuth] access_token present:", !!account.access_token);
         token.accessToken = account.access_token;
       }
       return token;
