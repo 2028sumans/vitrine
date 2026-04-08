@@ -1,24 +1,23 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import type { StyleDNA, CuratedProduct } from "@/lib/ai";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 
-// ── Boards ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-type Board = { id: string; name: string };
-type Step = "boards" | "analyzing" | "results" | "error";
+type Board   = { id: string; name: string };
+type Step    = "boards" | "analyzing" | "results" | "error";
 
-// ── Uploaded image ────────────────────────────────────────────────────────────
-
-interface UploadedImage {
-  dataUrl:  string;  // base64 data URL for preview
-  base64:   string;  // raw base64 for Claude
-  mimeType: string;
-  name:     string;
+interface PinData {
+  id:          string;
+  title:       string;
+  description: string;
+  imageUrl:    string;
+  thumbUrl:    string;
 }
 
 // ── Color → CSS ───────────────────────────────────────────────────────────────
@@ -105,91 +104,37 @@ function BoardCard({ board, selected, onClick }: {
   );
 }
 
-// ── Image uploader ────────────────────────────────────────────────────────────
+// ── Pin grid — auto-loaded from Pinterest ─────────────────────────────────────
 
-function ImageUploader({ images, onChange }: {
-  images: UploadedImage[];
-  onChange: (imgs: UploadedImage[]) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleFiles = (files: FileList | null) => {
-    if (!files) return;
-    const readers = Array.from(files).slice(0, 12 - images.length).map(
-      (file) =>
-        new Promise<UploadedImage>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const dataUrl = e.target?.result as string;
-            const base64 = dataUrl.split(",")[1];
-            resolve({ dataUrl, base64, mimeType: file.type, name: file.name });
-          };
-          reader.readAsDataURL(file);
-        })
+function PinGrid({ pins, loading }: { pins: PinData[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="mt-5 px-1 py-6 flex items-center gap-3">
+        <div className="w-3.5 h-3.5 rounded-full border border-transparent border-t-foreground/60 animate-spin flex-shrink-0" style={{ animationDuration: "1s" }} />
+        <p className="font-sans text-xs text-muted">Loading pins from your board…</p>
+      </div>
     );
-    Promise.all(readers).then((newImgs) => onChange([...images, ...newImgs]));
-  };
+  }
 
-  const remove = (idx: number) => {
-    onChange(images.filter((_, i) => i !== idx));
-  };
+  if (!pins.length) return null;
 
   return (
-    <div className="mt-6">
+    <div className="mt-5 border-t border-border pt-5">
       <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">
-        Add images {images.length > 0 ? `(${images.length}/12)` : "(optional)"}
+        {pins.length} pins found — Claude will analyse these
       </p>
-
-      {/* Thumbnails */}
-      {images.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {images.map((img, i) => (
-            <div key={i} className="relative w-16 h-16 border border-border overflow-hidden group/img">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.dataUrl} alt="" className="w-full h-full object-cover" />
-              <button
-                onClick={() => remove(i)}
-                className="absolute inset-0 bg-background/70 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity font-sans text-[10px] text-foreground"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-
-          {/* Add more */}
-          {images.length < 12 && (
-            <button
-              onClick={() => inputRef.current?.click()}
-              className="w-16 h-16 border border-dashed border-border hover:border-border-mid flex items-center justify-center font-sans text-lg text-muted/40 hover:text-muted transition-colors"
-            >
-              +
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Drop zone — shown when no images yet */}
-      {images.length === 0 && (
-        <button
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
-          className="w-full border border-dashed border-border hover:border-border-mid py-8 flex flex-col items-center gap-2 transition-colors group"
-        >
-          <span className="font-sans text-xl text-muted/30 group-hover:text-muted/50 transition-colors">↑</span>
-          <span className="font-sans text-xs text-muted">Drop images or click to upload</span>
-          <span className="font-sans text-[10px] text-muted/50">Up to 12 photos. The more the better.</span>
-        </button>
-      )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        multiple
-        className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
-      />
+      <div className="grid grid-cols-6 gap-1">
+        {pins.slice(0, 12).map((pin) => (
+          <div key={pin.id} className="aspect-square overflow-hidden bg-white/5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={pin.thumbUrl}
+              alt={pin.title}
+              className="w-full h-full object-cover opacity-80"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -444,7 +389,8 @@ export default function DashboardPage() {
   const [boards, setBoards]                 = useState<Board[]>([]);
   const [boardsLoading, setBoardsLoading]   = useState(true);
   const [selectedBoard, setSelectedBoard]   = useState<Board | null>(null);
-  const [images, setImages]                 = useState<UploadedImage[]>([]);
+  const [pins, setPins]                     = useState<PinData[]>([]);
+  const [pinsLoading, setPinsLoading]       = useState(false);
   const [aesthetic, setAesthetic]           = useState<StyleDNA | null>(null);
   const [products, setProducts]             = useState<CuratedProduct[]>([]);
   const [editorialIntro, setEditorialIntro] = useState("");
@@ -477,6 +423,18 @@ export default function DashboardPage() {
       .finally(() => setBoardsLoading(false));
   }, []);
 
+  // Auto-fetch pins when a board is selected
+  useEffect(() => {
+    if (!selectedBoard) { setPins([]); return; }
+    setPins([]);
+    setPinsLoading(true);
+    fetch(`/api/pinterest/pins?boardId=${selectedBoard.id}`)
+      .then((r) => r.json())
+      .then((data) => { if (data.pins?.length) setPins(data.pins); })
+      .catch(() => {/* non-fatal */})
+      .finally(() => setPinsLoading(false));
+  }, [selectedBoard]);
+
   // Fire view events when results arrive — builds personalization profile
   useEffect(() => {
     if (step === "results" && products.length > 0) {
@@ -503,14 +461,11 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          boardId:   selectedBoard.id,
-          boardName: selectedBoard.name,
-          pins:      [],
+          boardId:      selectedBoard.id,
+          boardName:    selectedBoard.name,
+          pins:         pins.map((p) => ({ title: p.title, description: p.description })),
+          pinImageUrls: pins.slice(0, 12).map((p) => p.imageUrl),
           userToken,
-          images:    images.map((img) => ({
-            base64:   img.base64,
-            mimeType: img.mimeType,
-          })),
         }),
       });
       const data = await res.json();
@@ -533,12 +488,12 @@ export default function DashboardPage() {
       clearTimeout(t3);
       clearTimeout(t4);
     }
-  }, [selectedBoard, images, userToken]);
+  }, [selectedBoard, pins, userToken]);
 
   const reset = () => {
     setStep("boards");
     setSelectedBoard(null);
-    setImages([]);
+    setPins([]);
     setAesthetic(null);
     setProducts([]);
     setEditorialIntro("");
@@ -612,30 +567,30 @@ export default function DashboardPage() {
                     key={board.id}
                     board={board}
                     selected={selectedBoard?.id === board.id}
-                    onClick={() => { setSelectedBoard(board); setImages([]); }}
+                    onClick={() => setSelectedBoard(board)}
                   />
                 ))
               )}
             </div>
 
-            {/* Image uploader — shown once a board is selected */}
+            {/* Pin grid — auto-loaded when board is selected */}
             {selectedBoard && (
               <div className="border border-t-0 border-border px-5 pb-6">
-                <ImageUploader images={images} onChange={setImages} />
+                <PinGrid pins={pins} loading={pinsLoading} />
               </div>
             )}
 
             <div className="mt-8">
               <button
                 onClick={handleAnalyze}
-                disabled={!selectedBoard}
+                disabled={!selectedBoard || pinsLoading}
                 className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
               >
-                {selectedBoard ? "Build my edit →" : "Select a board"}
+                {!selectedBoard ? "Select a board" : pinsLoading ? "Loading pins…" : "Build my edit →"}
               </button>
-              {selectedBoard && images.length === 0 && (
+              {selectedBoard && !pinsLoading && pins.length === 0 && (
                 <p className="font-sans text-[11px] text-muted mt-3">
-                  No images? We&apos;ll use the board name to infer your aesthetic.
+                  No pins found — we&apos;ll infer your aesthetic from the board name.
                 </p>
               )}
             </div>

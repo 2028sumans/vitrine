@@ -14,8 +14,25 @@ import {
 import { getRelevantTrends, formatTrendsBlock } from "@/lib/trends";
 import type { VisionImage } from "@/lib/types";
 
+// Fetch Pinterest CDN images server-side and convert to base64 for Claude
+async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
+  const results = await Promise.allSettled(
+    urls.slice(0, 12).map(async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const buffer    = await res.arrayBuffer();
+      const base64    = Buffer.from(buffer).toString("base64");
+      const mimeType  = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0];
+      return { base64, mimeType } as VisionImage;
+    })
+  );
+  return results
+    .filter((r): r is PromiseFulfilledResult<VisionImage> => r.status === "fulfilled" && r.value !== null)
+    .map((r) => r.value);
+}
+
 export async function POST(request: Request) {
-  const { boardId, boardName, pins, images, userToken } = await request.json();
+  const { boardId, boardName, pins, images, pinImageUrls, userToken } = await request.json();
 
   if (!boardId || !boardName) {
     return NextResponse.json({ error: "Missing boardId or boardName" }, { status: 400 });
@@ -27,7 +44,10 @@ export async function POST(request: Request) {
     )
     .filter((d: string) => d.trim().length > 0);
 
-  const uploadedImages: VisionImage[] = (images ?? []).slice(0, 12);
+  // Pin images take priority; fall back to manually uploaded images
+  const uploadedImages: VisionImage[] = pinImageUrls?.length
+    ? await fetchPinImages(pinImageUrls)
+    : (images ?? []).slice(0, 12);
 
   if (pinDescriptions.length === 0 && uploadedImages.length === 0) {
     pinDescriptions.push(
