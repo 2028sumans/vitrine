@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
-import { analyzeAesthetic, fetchCandidateProductsByCategory, curateProducts } from "@/lib/ai";
+import {
+  analyzeAesthetic,
+  fetchCandidateProductsByCategory,
+  filterByAvoids,
+  curateProducts,
+} from "@/lib/ai";
 import { getServiceSupabase } from "@/lib/supabase";
+import {
+  loadTasteMemory,
+  saveStyleDNA,
+  saveImpressions,
+} from "@/lib/taste-memory";
+import type { VisionImage } from "@/lib/types";
 
 export async function POST(request: Request) {
-  const { boardId, boardName, pins } = await request.json();
+  const { boardId, boardName, pins, images, userToken } = await request.json();
 
   if (!boardId || !boardName) {
     return NextResponse.json({ error: "Missing boardId or boardName" }, { status: 400 });
@@ -15,42 +26,92 @@ export async function POST(request: Request) {
     )
     .filter((d: string) => d.trim().length > 0);
 
-  if (pinDescriptions.length === 0) {
+  const uploadedImages: VisionImage[] = (images ?? []).slice(0, 12);
+
+  if (pinDescriptions.length === 0 && uploadedImages.length === 0) {
     pinDescriptions.push(
       `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
     );
   }
 
+  const token: string = userToken || "anon";
+
   try {
-    // Step 1: Claude builds a deep StyleDNA with category queries + style references
-    const aesthetic = await analyzeAesthetic(boardName, pinDescriptions);
+    // Load taste memory: previous StyleDNAs + click signals + soft avoids
+    // Runs in parallel with nothing — kick off early
+    const tasteMemoryPromise = loadTasteMemory(token);
 
-    // Step 2: Algolia fetches 5 candidates per category (30 total) — no more "6 dresses"
-    const candidates = await fetchCandidateProductsByCategory(aesthetic);
+    const tasteMemory = await tasteMemoryPromise;
 
-    // Step 3: Claude curates 6 pieces into 2 outfits with how_to_wear + editorial layer
-    const { products, editorial_intro, edit_rationale } = await curateProducts(aesthetic, candidates);
+    // Step 1: Analyze aesthetic — synthesises board images + taste history
+    const aesthetic = await analyzeAesthetic(
+      boardName,
+      pinDescriptions,
+      uploadedImages,
+      tasteMemory.previousDNAs   // living StyleDNA context
+    );
 
-    // Step 4: Save to Supabase (best effort)
-    try {
-      const supabase = getServiceSupabase();
-      const slug = `${boardName.toLowerCase().replace(/\s+/g, "-")}-${boardId}`;
-      await supabase.from("storefronts").upsert(
-        {
-          board_id:        boardId,
-          board_name:      boardName,
-          slug,
-          aesthetic_summary: JSON.stringify(aesthetic),
-          products:          JSON.stringify(products),
-          user_id:           "00000000-0000-0000-0000-000000000000",
-        },
-        { onConflict: "board_id" }
+    // Merge explicit avoids (from Claude) + behavioral soft avoids (from impression history)
+    const allAvoids = [
+      ...(aesthetic.avoids ?? []),
+      ...tasteMemory.softAvoids,
+    ];
+
+    // Step 2: Algolia — 8 candidates per category (48 total)
+    const rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
+
+    // Step 2b: Hard-filter avoids before Claude ever sees them
+    const candidates = filterByAvoids(rawCandidates, allAvoids);
+
+    // Step 3: Two-stage curation
+    //   3a — visual shortlist: board images tell Claude what to eliminate (48 → 12)
+    //   3b — outfit build: product images + click history + narrative arc
+    const { products, editorial_intro, edit_rationale, outfit_arc, outfit_a_role, outfit_b_role } =
+      await curateProducts(
+        aesthetic,
+        candidates,
+        uploadedImages,            // board images for visual grounding in Stage 1
+        tasteMemory.clickSignals   // confirmed taste signals for Stage 2
       );
-    } catch (dbErr) {
-      console.warn("Supabase save failed (non-fatal):", dbErr);
-    }
 
-    return NextResponse.json({ aesthetic, products, editorial_intro, edit_rationale });
+    // Persist results (best-effort, fire-and-forget — never block the response)
+    const sessionId = `${boardId}-${Date.now()}`;
+    void Promise.all([
+      // Save this StyleDNA to history
+      saveStyleDNA(token, boardId, boardName, aesthetic),
+      // Save product impressions for implicit negative tracking
+      saveImpressions(token, sessionId, products),
+      // Save to storefronts table
+      (async () => {
+        try {
+          const supabase = getServiceSupabase();
+          const slug = `${boardName.toLowerCase().replace(/\s+/g, "-")}-${boardId}`;
+          await supabase.from("storefronts").upsert(
+            {
+              board_id:          boardId,
+              board_name:        boardName,
+              slug,
+              aesthetic_summary: JSON.stringify(aesthetic),
+              products:          JSON.stringify(products),
+              user_id:           "00000000-0000-0000-0000-000000000000",
+            },
+            { onConflict: "board_id" }
+          );
+        } catch (dbErr) {
+          console.warn("Supabase storefronts save failed (non-fatal):", dbErr);
+        }
+      })(),
+    ]).catch((err) => console.warn("Background persistence failed (non-fatal):", err));
+
+    return NextResponse.json({
+      aesthetic,
+      products,
+      editorial_intro,
+      edit_rationale,
+      outfit_arc,
+      outfit_a_role,
+      outfit_b_role,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Analysis failed:", message);

@@ -1,6 +1,24 @@
 import { NextAuthOptions } from "next-auth";
 import { getServiceSupabase } from "@/lib/supabase";
 
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken?: string;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
@@ -17,8 +35,8 @@ export const authOptions: NextAuthOptions = {
       },
       token: "https://api.pinterest.com/v5/oauth/token",
       userinfo: "https://api.pinterest.com/v5/user_account",
-      clientId: process.env.PINTEREST_CLIENT_ID,
-      clientSecret: process.env.PINTEREST_CLIENT_SECRET,
+      clientId: process.env.PINTEREST_APP_ID,
+      clientSecret: process.env.PINTEREST_APP_SECRET,
       profile(profile) {
         return {
           id: profile.username,
@@ -55,6 +73,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       return {
         ...session,
+        accessToken: token.accessToken,
         user: {
           ...session.user,
           id: token.sub ?? "",
