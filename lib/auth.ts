@@ -34,7 +34,32 @@ export const authOptions: NextAuthOptions = {
           response_type: "code",
         },
       },
-      token: "https://api.pinterest.com/v5/oauth/token",
+      token: {
+        url: "https://api.pinterest.com/v5/oauth/token",
+        async request({ params, provider }) {
+          // Pinterest requires Basic auth on the token endpoint
+          const credentials = Buffer.from(
+            `${provider.clientId}:${provider.clientSecret}`
+          ).toString("base64");
+
+          const res = await fetch("https://api.pinterest.com/v5/oauth/token", {
+            method: "POST",
+            headers: {
+              "Authorization": `Basic ${credentials}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              grant_type:   "authorization_code",
+              code:         params.code ?? "",
+              redirect_uri: String(params.redirect_uri ?? ""),
+            }),
+          });
+
+          const tokens = await res.json();
+          console.log("[Pinterest token] status:", res.status, "keys:", Object.keys(tokens));
+          return { tokens };
+        },
+      },
       userinfo: "https://api.pinterest.com/v5/user_account",
       clientId: process.env.PINTEREST_APP_ID,
       clientSecret: process.env.PINTEREST_APP_SECRET,
