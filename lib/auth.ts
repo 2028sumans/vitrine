@@ -51,21 +51,19 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       if (account?.provider !== "pinterest") return false;
 
-      const supabase = getServiceSupabase();
-
-      // Upsert user on first login
-      const { error } = await supabase.from("users").upsert(
-        {
-          pinterest_id: user.id,
-          name: user.name,
-          image: user.image,
-        },
-        { onConflict: "pinterest_id" }
-      );
-
-      if (error) {
-        console.error("Error upserting user:", error);
-        return false;
+      // Best-effort user upsert — never block sign-in on DB failure
+      try {
+        const supabase = getServiceSupabase();
+        await supabase.from("users").upsert(
+          {
+            pinterest_id: user.id,
+            name: user.name,
+            image: user.image,
+          },
+          { onConflict: "pinterest_id" }
+        );
+      } catch (err) {
+        console.warn("User upsert failed (non-fatal):", err);
       }
 
       return true;
