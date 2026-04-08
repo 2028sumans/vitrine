@@ -11,6 +11,7 @@ import {
   saveStyleDNA,
   saveImpressions,
 } from "@/lib/taste-memory";
+import { getRelevantTrends, formatTrendsBlock } from "@/lib/trends";
 import type { VisionImage } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -37,11 +38,10 @@ export async function POST(request: Request) {
   const token: string = userToken || "anon";
 
   try {
-    // Load taste memory: previous StyleDNAs + click signals + soft avoids
-    // Runs in parallel with nothing — kick off early
-    const tasteMemoryPromise = loadTasteMemory(token);
-
-    const tasteMemory = await tasteMemoryPromise;
+    // Load taste memory and trends in parallel — both are non-blocking on analysis
+    const [tasteMemory] = await Promise.all([
+      loadTasteMemory(token),
+    ]);
 
     // Step 1: Analyze aesthetic — synthesises board images + taste history
     const aesthetic = await analyzeAesthetic(
@@ -57,21 +57,28 @@ export async function POST(request: Request) {
       ...tasteMemory.softAvoids,
     ];
 
-    // Step 2: Algolia — 8 candidates per category (48 total)
-    const rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
+    // Step 2: Algolia + Pinterest Trends — run in parallel
+    const [rawCandidates, relevantTrends] = await Promise.all([
+      fetchCandidateProductsByCategory(aesthetic, token),
+      getRelevantTrends(aesthetic),
+    ]);
 
     // Step 2b: Hard-filter avoids before Claude ever sees them
     const candidates = filterByAvoids(rawCandidates, allAvoids);
 
+    // Format trends into a Claude-readable block
+    const trendsBlock = formatTrendsBlock(relevantTrends);
+
     // Step 3: Two-stage curation
     //   3a — visual shortlist: board images tell Claude what to eliminate (48 → 12)
-    //   3b — outfit build: product images + click history + narrative arc
+    //   3b — outfit build: product images + click history + narrative arc + trends
     const { products, editorial_intro, edit_rationale, outfit_arc, outfit_a_role, outfit_b_role } =
       await curateProducts(
         aesthetic,
         candidates,
         uploadedImages,            // board images for visual grounding in Stage 1
-        tasteMemory.clickSignals   // confirmed taste signals for Stage 2
+        tasteMemory.clickSignals,  // confirmed taste signals for Stage 2
+        trendsBlock                // Pinterest trending signals for commentary
       );
 
     // Persist results (best-effort, fire-and-forget — never block the response)

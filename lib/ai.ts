@@ -363,7 +363,8 @@ async function buildOutfitsWithVision(
   dna:          StyleDNA,
   finalists:    CategoryCandidates,
   client:       Anthropic,
-  clickSignals: ClickSignal[] = []
+  clickSignals: ClickSignal[] = [],
+  trendsBlock:  string = ""
 ): Promise<CurationResult> {
   const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
 
@@ -417,7 +418,7 @@ Hard avoids: ${dna.avoids.join(", ")}
 Budget: ${dna.price_range}
 Style summary: ${dna.summary}
 ${dna.style_references?.length ? `Inspired by: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
-${clickBlock}
+${clickBlock}${trendsBlock ? `\n${trendsBlock}\n` : ""}
 ${imageKeyText}
 
 FINALISTS BY CATEGORY:
@@ -555,7 +556,8 @@ export async function curateProducts(
   dna:          StyleDNA,
   candidates:   CategoryCandidates,
   boardImages:  VisionImage[]  = [],
-  clickSignals: ClickSignal[]  = []
+  clickSignals: ClickSignal[]  = [],
+  trendsBlock:  string         = ""
 ): Promise<CurationResult> {
   const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
 
@@ -569,8 +571,8 @@ export async function curateProducts(
   // Stage 1: visual shortlist — board images ground the elimination pass (48 → 12)
   const finalists = await shortlistCandidates(dna, candidates, client, boardImages);
 
-  // Stage 2: outfit build with product images + click history + narrative arc
-  return buildOutfitsWithVision(dna, finalists, client, clickSignals);
+  // Stage 2: outfit build with product images + click history + narrative arc + trends
+  return buildOutfitsWithVision(dna, finalists, client, clickSignals, trendsBlock);
 }
 
 // ── Legacy alias ──────────────────────────────────────────────────────────────
