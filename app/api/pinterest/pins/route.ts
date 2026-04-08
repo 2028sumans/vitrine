@@ -1,18 +1,18 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 export interface PinData {
   id:          string;
   title:       string;
   description: string;
-  imageUrl:    string;  // ~736px — sent to Claude
-  thumbUrl:    string;  // ~400px — shown in UI
+  imageUrl:    string;
+  thumbUrl:    string;
 }
 
-export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+export async function GET(request: NextRequest) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+
+  if (!token?.accessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     `https://api.pinterest.com/v5/boards/${boardId}/pins?page_size=25`,
     {
       headers: {
-        Authorization: `Bearer ${session.accessToken}`,
+        Authorization: `Bearer ${token.accessToken}`,
         "Content-Type": "application/json",
       },
     }
@@ -48,7 +48,6 @@ export async function GET(request: Request) {
     .map((pin: Record<string, unknown>) => {
       const media  = pin.media as Record<string, Record<string, { url: string }>>;
       const images = media.images ?? {};
-      // Prefer 736x for Claude quality, fall back to largest available
       const imageUrl = (images["736x"] ?? images["1200x"] ?? images["400x300"] ?? images["orig"])?.url ?? "";
       const thumbUrl = (images["400x300"] ?? images["736x"] ?? images["150x150"])?.url ?? "";
 

@@ -1,13 +1,12 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
+export async function GET(request: NextRequest) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
-  console.log("[boards] session exists:", !!session, "accessToken:", !!session?.accessToken);
+  console.log("[boards] token exists:", !!token, "accessToken:", !!token?.accessToken);
 
-  if (!session?.accessToken) {
+  if (!token?.accessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -15,25 +14,25 @@ export async function GET() {
     "https://api.pinterest.com/v5/boards?page_size=50",
     {
       headers: {
-        Authorization: `Bearer ${session.accessToken}`,
+        Authorization: `Bearer ${token.accessToken}`,
         "Content-Type": "application/json",
       },
     }
   );
 
   const data = await res.json();
-  console.log("[boards] Pinterest status:", res.status, "keys:", Object.keys(data), "items count:", data.items?.length ?? 0);
+  console.log("[boards] Pinterest status:", res.status, "items count:", data.items?.length ?? 0);
 
   if (!res.ok) {
     console.error("[boards] Pinterest error:", JSON.stringify(data).slice(0, 300));
     return NextResponse.json({ error: "Failed to fetch boards" }, { status: res.status });
   }
 
-  // Normalize to { id, name } shape
   const boards = (data.items ?? []).map((b: { id: string; name: string }) => ({
     id: b.id,
     name: b.name,
   }));
 
+  console.log("[boards] returning", boards.length, "boards");
   return NextResponse.json({ boards });
 }
