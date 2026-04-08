@@ -37,7 +37,6 @@ export const authOptions: NextAuthOptions = {
       token: {
         url: "https://api.pinterest.com/v5/oauth/token",
         async request({ params, provider }) {
-          // Pinterest requires Basic auth on the token endpoint
           const credentials = Buffer.from(
             `${provider.clientId}:${provider.clientSecret}`
           ).toString("base64");
@@ -56,19 +55,30 @@ export const authOptions: NextAuthOptions = {
           });
 
           const tokens = await res.json();
-          console.log("[Pinterest token] status:", res.status, "keys:", Object.keys(tokens));
+          console.log("[Pinterest token] status:", res.status, "response:", JSON.stringify(tokens).slice(0, 200));
           return { tokens };
         },
       },
-      userinfo: "https://api.pinterest.com/v5/user_account",
+      userinfo: {
+        url: "https://api.pinterest.com/v5/user_account",
+        async request({ tokens }) {
+          const res = await fetch("https://api.pinterest.com/v5/user_account", {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          });
+          const profile = await res.json();
+          console.log("[Pinterest userinfo] status:", res.status, "keys:", Object.keys(profile));
+          return profile;
+        },
+      },
       clientId: process.env.PINTEREST_APP_ID,
       clientSecret: process.env.PINTEREST_APP_SECRET,
       profile(profile) {
+        console.log("[Pinterest profile] raw:", JSON.stringify(profile).slice(0, 200));
         return {
-          id: profile.username,
-          name: profile.username,
-          email: null, // Pinterest doesn't return email
-          image: profile.profile_image,
+          id:    String(profile.username ?? profile.id ?? "unknown"),
+          name:  String(profile.username ?? ""),
+          email: null,
+          image: profile.profile_image ?? null,
         };
       },
     },
