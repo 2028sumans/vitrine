@@ -50,7 +50,7 @@ export const authOptions: NextAuthOptions = {
             body: new URLSearchParams({
               grant_type:   "authorization_code",
               code:         params.code ?? "",
-              redirect_uri: String(params.redirect_uri ?? ""),
+              redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/pinterest`,
             }),
           });
 
