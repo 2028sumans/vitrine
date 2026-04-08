@@ -414,7 +414,11 @@ export default function DashboardPage() {
   // Fetch real Pinterest boards from the API — pass access token from session
   useEffect(() => {
     const token = (session as { accessToken?: string })?.accessToken;
-    if (!token) return; // wait for session to hydrate
+    if (!token) {
+      // Session still loading or no token — stop spinner
+      if (session !== undefined) setBoardsLoading(false);
+      return;
+    }
     setBoardsLoading(true);
     fetch("/api/pinterest/boards", {
       headers: { Authorization: `Bearer ${token}` },
@@ -531,15 +535,9 @@ export default function DashboardPage() {
             )}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              title="Sign out"
-              className="w-7 h-7 border border-border flex items-center justify-center font-sans text-[10px] text-muted hover:border-border-mid hover:text-foreground transition-colors overflow-hidden"
+              className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors"
             >
-              {session?.user?.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={session.user.image} alt="" className="w-full h-full object-cover" />
-              ) : (
-                (session?.user?.name?.[0] ?? "S").toUpperCase()
-              )}
+              Sign out
             </button>
           </div>
         </div>
