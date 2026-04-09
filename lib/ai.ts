@@ -82,12 +82,12 @@ const JSON_SCHEMA_TEMPLATE = `{
     { "name": "...", "era": "...", "why": "..." }
   ],
   "category_queries": {
-    "dress": ["2-3 targeted queries for dresses/jumpsuits only — e.g. 'ivory bias-cut midi slip dress'"],
-    "top": ["2-3 queries for tops/blouses/knitwear only — e.g. 'oversized ribbed cream knit top'"],
-    "bottom": ["2-3 queries for skirts/trousers only — e.g. 'wide-leg camel linen trouser'"],
-    "jacket": ["2-3 queries for outerwear/blazers/cardigans — e.g. 'oversized camel wool coat'"],
-    "shoes": ["2-3 queries for footwear — e.g. 'tan leather strappy heeled sandal'"],
-    "bag": ["2-3 queries for bags — e.g. 'woven raffia natural tote'"]
+    "dress": ["2-3 SHORT queries, 2-4 words max — focus on color + silhouette — e.g. 'ivory slip dress', 'black mini dress', 'floral midi dress'"],
+    "top": ["2-3 SHORT queries, 2-4 words max — e.g. 'cream knit top', 'white silk blouse', 'black bodysuit'"],
+    "bottom": ["2-3 SHORT queries, 2-4 words max — e.g. 'camel wide trouser', 'black mini skirt', 'linen wide pants'"],
+    "jacket": ["2-3 SHORT queries, 2-4 words max — e.g. 'camel coat', 'black leather jacket', 'oversized blazer'"],
+    "shoes": ["2-3 SHORT queries, 2-4 words max — e.g. 'black heels', 'tan sandals', 'white sneakers'"],
+    "bag": ["2-3 SHORT queries, 2-4 words max — e.g. 'black leather bag', 'woven tote', 'mini shoulder bag'"]
   }
 }`;
 
@@ -261,7 +261,7 @@ async function shortlistCandidates(
 
   const categoryBlocks = categories.map((cat) => {
     const pool = candidates[cat];
-    if (pool.length === 0) return `${cat.toUpperCase()}: (no results)`;
+    if (pool.length === 0) return `${cat.toUpperCase()}: (no products — skip this category)`;
     const items = pool.map((p, i) => ({
       idx:         i,
       title:       p.title,
@@ -291,28 +291,19 @@ Key pieces: ${dna.key_pieces.join(", ")}
 Hard avoids: ${dna.avoids.join(", ")}
 Mood: ${dna.mood}
 
-CANDIDATES:
+CANDIDATES (categories marked "no products — skip" have nothing available — do NOT include them):
 ${categoryBlocks}
 
-TASK: Pick the 2 products per category that most authentically fit this client.
+TASK: Pick up to 2 products per AVAILABLE category that most authentically fit this client.
+Only include categories that have actual products listed above. Skip any category marked "(no products — skip)".
 Cut anything that: conflicts with palette, hits any hard avoid, or feels tonally wrong.
 ${hasBoardImages ? "Ask yourself: could this product have appeared on the board above?" : ""}
 
-Return ONLY this JSON (exactly 12 entries):
+Return ONLY this JSON (include only categories that have products — 2 picks per available category):
 {
   "shortlist": [
     { "category": "dress",  "idx": 0 },
-    { "category": "dress",  "idx": 3 },
-    { "category": "top",    "idx": 1 },
-    { "category": "top",    "idx": 4 },
-    { "category": "bottom", "idx": 0 },
-    { "category": "bottom", "idx": 2 },
-    { "category": "jacket", "idx": 1 },
-    { "category": "jacket", "idx": 3 },
-    { "category": "shoes",  "idx": 0 },
-    { "category": "shoes",  "idx": 2 },
-    { "category": "bag",    "idx": 1 },
-    { "category": "bag",    "idx": 3 }
+    { "category": "dress",  "idx": 3 }
   ]
 }`;
 
@@ -389,12 +380,12 @@ async function buildOutfitsWithVision(
 
   const catalogueText = categories.map((cat) => {
     const pool = finalists[cat];
-    if (pool.length === 0) return `${cat.toUpperCase()}: (none)`;
+    if (pool.length === 0) return null; // skip empty categories
     return pool.map((p, si) => {
       const label = `${cat.toUpperCase()}-${si === 0 ? "A" : "B"}`;
       return `  ${label}: "${p.title}" — ${p.brand} | colour: ${p.color || "unspecified"} | material: ${(p.material || "unknown").slice(0, 60)} | ${p.price_range} | ${p.retailer}`;
     }).join("\n");
-  }).join("\n\n");
+  }).filter(Boolean).join("\n\n");
 
   // Click history block — confirmed positive taste signals
   const clickBlock = clickSignals.length > 0
@@ -426,8 +417,8 @@ ${catalogueText}
 
 YOUR TASK:
 1. Study each product image. Does the visual match the palette and mood?
-2. Select exactly 1 product per category (6 total).
-3. Group into 2 complete outfits of 3 pieces each. No two items of the same category in one outfit.
+2. Select 1 product per AVAILABLE category (only pick from categories that have finalists listed above). Skip categories with no products.
+3. Distribute the selected pieces into 2 outfits. Aim for 3 pieces each, but be flexible — if only 4-5 categories have products, split them as evenly as possible.
 
 OUTFIT NARRATIVE — critical:
 The two outfits must have a meaningful relationship. Choose one arc:
@@ -440,10 +431,11 @@ The two outfits must have a meaningful relationship. Choose one arc:
 The arc must be specific to THIS client. "day / night" means something different for cottagecore vs. quiet luxury. Name the arc and give each outfit a single evocative phrase that makes the relationship clear.
 
 Rules:
+- ONLY select products that exist in the FINALISTS list above. Never invent labels.
 - Trust what you see in the images over text descriptions.
-- The 6 pieces must share a colour story.
+- Selected pieces must share a colour story.
 - Hard eliminate anything that visually clashes with the palette or hits their avoids.
-- how_to_wear must name another selected product by its full title. Never say "pair with jeans."
+- how_to_wear must name another selected product by its full title.
 
 Return ONLY valid JSON:
 {

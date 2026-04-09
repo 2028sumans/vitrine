@@ -17,7 +17,7 @@ import type { VisionImage } from "@/lib/types";
 // Fetch Pinterest CDN images server-side and convert to base64 for Claude
 async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
   const results = await Promise.allSettled(
-    urls.slice(0, 12).map(async (url) => {
+    urls.slice(0, 20).map(async (url) => {
       const res = await fetch(url);
       if (!res.ok) return null;
       const buffer    = await res.arrayBuffer();
@@ -83,8 +83,13 @@ export async function POST(request: Request) {
       getRelevantTrends(aesthetic),
     ]);
 
+    // Log candidate counts so we can diagnose in Vercel logs
+    const cats = ["dress","top","bottom","jacket","shoes","bag"] as const;
+    console.log("[analyze] Algolia candidates:", Object.fromEntries(cats.map((c) => [c, rawCandidates[c].length])));
+
     // Step 2b: Hard-filter avoids before Claude ever sees them
     const candidates = filterByAvoids(rawCandidates, allAvoids);
+    console.log("[analyze] After avoid-filter:", Object.fromEntries(cats.map((c) => [c, candidates[c].length])));
 
     // Format trends into a Claude-readable block
     const trendsBlock = formatTrendsBlock(relevantTrends);
@@ -100,6 +105,8 @@ export async function POST(request: Request) {
         tasteMemory.clickSignals,  // confirmed taste signals for Stage 2
         trendsBlock                // Pinterest trending signals for commentary
       );
+
+    console.log("[analyze] Final products count:", products.length, "outfit_a:", products.filter(p => p.outfit_group === "outfit_a").length, "outfit_b:", products.filter(p => p.outfit_group === "outfit_b").length);
 
     // Persist results (best-effort, fire-and-forget — never block the response)
     const sessionId = `${boardId}-${Date.now()}`;

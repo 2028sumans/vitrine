@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   const res = await fetch(
-    `https://api.pinterest.com/v5/boards/${boardId}/pins?page_size=25`,
+    `https://api.pinterest.com/v5/boards/${boardId}/pins?page_size=50`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       const media = pin.media as Record<string, unknown> | undefined;
       return media?.media_type === "image" && media?.images;
     })
-    .slice(0, 20)
+    .slice(0, 50)
     .map((pin: Record<string, unknown>) => {
       const media  = pin.media as Record<string, Record<string, { url: string }>>;
       const images = media.images ?? {};

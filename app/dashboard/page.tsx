@@ -123,8 +123,8 @@ function PinGrid({ pins, loading }: { pins: PinData[]; loading: boolean }) {
       <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">
         {pins.length} pins found — Claude will analyse these
       </p>
-      <div className="grid grid-cols-6 gap-1">
-        {pins.slice(0, 12).map((pin) => (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1">
+        {pins.slice(0, 50).map((pin) => (
           <div key={pin.id} className="aspect-square overflow-hidden bg-white/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -476,7 +476,7 @@ export default function DashboardPage() {
           boardId:      selectedBoard.id,
           boardName:    selectedBoard.name,
           pins:         pins.map((p) => ({ title: p.title, description: p.description })),
-          pinImageUrls: pins.slice(0, 12).map((p) => p.imageUrl),
+          pinImageUrls: pins.slice(0, 20).map((p) => p.imageUrl),
           userToken,
         }),
       });

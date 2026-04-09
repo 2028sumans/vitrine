@@ -104,7 +104,8 @@ export async function searchProducts(
   return deduped.slice(0, maxResults);
 }
 
-// Run multiple queries for a single category, merge and dedup by objectID
+// Run multiple queries for a single category, merge and dedup by objectID.
+// Falls back to no-category filter if the strict category has sparse data.
 async function searchCategory(
   queries:        string[],
   aestheticTags:  string[],
@@ -116,11 +117,10 @@ async function searchCategory(
   const perQuery       = Math.max(3, Math.ceil((maxPerCategory * 2) / queries.length));
   const categoryFilter = `category:${category}`;
 
+  // First pass — strict category filter
   const batches = await Promise.all(
     queries.map((q) =>
-      searchProducts(q, aestheticTags, priceRange, perQuery, categoryFilter, userToken).catch(
-        () => searchProducts(q, aestheticTags, priceRange, perQuery, undefined, userToken)
-      )
+      searchProducts(q, aestheticTags, priceRange, perQuery, categoryFilter, userToken).catch(() => [] as AlgoliaProduct[])
     )
   );
 
@@ -128,12 +128,40 @@ async function searchCategory(
   const merged: AlgoliaProduct[] = [];
   for (const batch of batches) {
     for (const product of batch) {
-      if (!seen.has(product.objectID)) {
-        seen.add(product.objectID);
-        merged.push(product);
-      }
+      if (!seen.has(product.objectID)) { seen.add(product.objectID); merged.push(product); }
     }
   }
+
+  // If we got enough, return now
+  if (merged.length >= Math.max(2, Math.floor(maxPerCategory / 2))) {
+    return merged.slice(0, maxPerCategory);
+  }
+
+  // Fallback — category is sparse in the index; search without category filter
+  // Add the category as a keyword hint in each query so results lean that direction
+  const categoryHints: Record<ClothingCategory, string> = {
+    dress:  "",         // dresses dominate — no extra hint needed
+    top:    "top",
+    bottom: "skirt",
+    jacket: "jacket",
+    shoes:  "shoes",
+    bag:    "bag",
+  };
+  const hint = categoryHints[category];
+
+  const fallbackBatches = await Promise.all(
+    queries.map((q) => {
+      const q2 = hint && !q.toLowerCase().includes(hint) ? `${q} ${hint}` : q;
+      return searchProducts(q2, aestheticTags, priceRange, perQuery, undefined, userToken).catch(() => [] as AlgoliaProduct[]);
+    })
+  );
+
+  for (const batch of fallbackBatches) {
+    for (const product of batch) {
+      if (!seen.has(product.objectID)) { seen.add(product.objectID); merged.push(product); }
+    }
+  }
+
   return merged.slice(0, maxPerCategory);
 }
 
