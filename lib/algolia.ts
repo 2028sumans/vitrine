@@ -64,11 +64,12 @@ export async function searchProducts(
     ? `(${priceFilter(priceRange)}) AND ${categoryFilter}`
     : priceFilter(priceRange);
 
+  // Request many more than needed — ~75% of index has no/broken images, so we need extras
   const results = await client.searchSingleIndex({
     indexName: INDEX_NAME,
     searchParams: {
       query,
-      hitsPerPage:           maxResults * 3,
+      hitsPerPage:           maxResults * 8,
       optionalFilters:       tagFilters,
       filters,
       clickAnalytics:        true,
@@ -92,11 +93,17 @@ export async function searchProducts(
     _position: i + 1,
   }));
 
-  // Max 2 per retailer for variety
+  // Only keep products with a real, non-placeholder image
+  const withImages = annotated.filter((h) => {
+    const img = h.image_url ?? "";
+    return img.length > 20 && !img.includes("blank.gif") && !img.includes("placeholder");
+  });
+
+  // Max 3 per retailer for variety (increased from 2 to help with sparse image data)
   const retailerCount: Record<string, number> = {};
-  const deduped = annotated.filter((h) => {
+  const deduped = withImages.filter((h) => {
     const count = retailerCount[h.retailer] ?? 0;
-    if (count >= 2) return false;
+    if (count >= 3) return false;
     retailerCount[h.retailer] = count + 1;
     return true;
   });
@@ -137,10 +144,10 @@ async function searchCategory(
     return merged.slice(0, maxPerCategory);
   }
 
-  // Fallback — category is sparse in the index; search without category filter
-  // Add the category as a keyword hint in each query so results lean that direction
+  // Fallback 1 — category is sparse; search without category filter
+  // Add the category as a keyword hint so results lean that direction
   const categoryHints: Record<ClothingCategory, string> = {
-    dress:  "",         // dresses dominate — no extra hint needed
+    dress:  "",
     top:    "top",
     bottom: "skirt",
     jacket: "jacket",
@@ -160,6 +167,16 @@ async function searchCategory(
     for (const product of batch) {
       if (!seen.has(product.objectID)) { seen.add(product.objectID); merged.push(product); }
     }
+  }
+
+  if (merged.length >= 2) return merged.slice(0, maxPerCategory);
+
+  // Fallback 2 — broadest: use just color/style keywords, no category constraint
+  // This ensures we always return at least some products with images
+  const broadTerms = aestheticTags.slice(0, 3).join(" ") || queries[0]?.split(" ")[0] || "dress";
+  const broadResults = await searchProducts(broadTerms, [], priceRange, maxPerCategory, undefined, userToken).catch(() => [] as AlgoliaProduct[]);
+  for (const product of broadResults) {
+    if (!seen.has(product.objectID)) { seen.add(product.objectID); merged.push(product); }
   }
 
   return merged.slice(0, maxPerCategory);

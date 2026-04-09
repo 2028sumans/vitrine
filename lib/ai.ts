@@ -210,7 +210,7 @@ export async function fetchCandidateProductsByCategory(
     queries as Record<ClothingCategory, string[]>,
     dna.style_keywords,
     dna.price_range,
-    8,
+    12,   // 12 per category — more buffer since 75% of index lacks images
     userToken
   );
 }
@@ -277,33 +277,33 @@ async function shortlistCandidates(
   const hasBoardImages = boardImages.length > 0;
 
   const promptText =
-    `You are a senior fashion editor doing a ruthless first-pass edit.` +
+    `You are a senior fashion editor doing a first-pass curation.` +
     (hasBoardImages
-      ? ` The ${boardImages.length} images above are the client's actual Pinterest board. Use them as your visual reference — a product must feel like it could appear on that board.`
+      ? ` The ${boardImages.length} images above are the client's Pinterest board — use them as mood/vibe reference, not as a strict palette checklist.`
       : "") +
-    `\n\nYour job is NOT to build outfits. Just eliminate products that don't belong.
+    `\n\nYour job: pick the 6-8 BEST products from the candidates below that could work for this client.
 
 CLIENT:
 Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? ` — ${dna.secondary_aesthetic}` : ""}
+References: ${(dna.style_references ?? []).map((r) => `${r.name} (${r.era})`).join(", ") || "none"}
 Palette: ${dna.color_palette.join(", ")}
-Silhouettes: ${(dna.silhouettes ?? []).join(", ")}
 Key pieces: ${dna.key_pieces.join(", ")}
 Hard avoids: ${dna.avoids.join(", ")}
-Mood: ${dna.mood}
 
-CANDIDATES (categories marked "no products — skip" have nothing available — do NOT include them):
+CANDIDATES (skip any category marked "no products"):
 ${categoryBlocks}
 
-TASK: Pick up to 2 products per AVAILABLE category that most authentically fit this client.
-Only include categories that have actual products listed above. Skip any category marked "(no products — skip)".
-Cut anything that: conflicts with palette, hits any hard avoid, or feels tonally wrong.
-${hasBoardImages ? "Ask yourself: could this product have appeared on the board above?" : ""}
+TASK: Pick the 6-8 products that feel most true to this client's world.
+- Be GENEROUS with interpretation — different pieces can express different facets of the same aesthetic (e.g., romantic vs. edgy, classic vs. maximalist)
+- Only hard-eliminate things that hit the avoids list or are completely tonally wrong
+- If a category has products, pick at least 1 (up to 3 from dress/top since those dominate the catalogue)
+- Do NOT worry about strict palette matching — vibe matters more than exact color
 
-Return ONLY this JSON (include only categories that have products — 2 picks per available category):
+Return ONLY this JSON:
 {
   "shortlist": [
     { "category": "dress",  "idx": 0 },
-    { "category": "dress",  "idx": 3 }
+    { "category": "dress",  "idx": 2 }
   ]
 }`;
 
@@ -314,7 +314,6 @@ Return ONLY this JSON (include only categories that have products — 2 picks pe
       {
         role: "user",
         content: [
-          // Board images first — visual context before the task
           ...toImageBlocks(boardImages, 8),
           { type: "text" as const, text: promptText },
         ],
@@ -334,14 +333,16 @@ Return ONLY this JSON (include only categories that have products — 2 picks pe
     const cat = pick.category as ClothingCategory;
     if (!categories.includes(cat)) continue;
     const product = candidates[cat][pick.idx];
-    if (product && finalists[cat].length < 2) finalists[cat].push(product);
+    if (product && finalists[cat].length < 4) finalists[cat].push(product); // allow up to 4 per category
   }
 
-  // Guarantee ≥1 per category
+  // Guarantee at least 2 picks per available category (to give Stage 2 real choice)
   for (const cat of categories) {
     if (finalists[cat].length === 0 && candidates[cat].length > 0) {
-      finalists[cat].push(candidates[cat][0]);
-      if (candidates[cat].length > 1) finalists[cat].push(candidates[cat][1]);
+      finalists[cat].push(...candidates[cat].slice(0, 3));
+    } else if (finalists[cat].length === 1 && candidates[cat].length > 1) {
+      const next = candidates[cat].find((p) => p.objectID !== finalists[cat][0].objectID);
+      if (next) finalists[cat].push(next);
     }
   }
 
@@ -416,26 +417,24 @@ FINALISTS BY CATEGORY:
 ${catalogueText}
 
 YOUR TASK:
-1. Study each product image. Does the visual match the palette and mood?
-2. Select 1 product per AVAILABLE category (only pick from categories that have finalists listed above). Skip categories with no products.
-3. Distribute the selected pieces into 2 outfits. Aim for 3 pieces each, but be flexible — if only 4-5 categories have products, split them as evenly as possible.
+1. Study each product image for vibe, not just palette.
+2. Select 3 products for Outfit A and 3 products for Outfit B (6 total). You CAN pick multiple dresses or tops across the two outfits — each outfit is a complete look in itself.
+3. Each outfit should express a DIFFERENT FACET of this client's aesthetic.
 
 OUTFIT NARRATIVE — critical:
-The two outfits must have a meaningful relationship. Choose one arc:
-- "day / night" — same palette, one daytime, one escalates for evening
-- "core / unexpected" — expected expression vs. the interesting interpretation
-- "casual / elevated" — relaxed version vs. same energy dressed up
-- "work / weekend" — polished enough for the office vs. the off-duty version
-- "minimal / textured" — clean lines vs. same palette with more visual interest
+This client's aesthetic likely has multiple layers (e.g., romantic vs. edgy, classical vs. maximalist, day vs. after-dark). Use the style references to guide you:
+- Outfit A could embody the softer / more classic reference
+- Outfit B could embody the bolder / more maximalist reference
+- Or use any meaningful arc: "day / night", "the muse / the femme fatale", "understated / show-stopping", etc.
 
-The arc must be specific to THIS client. "day / night" means something different for cottagecore vs. quiet luxury. Name the arc and give each outfit a single evocative phrase that makes the relationship clear.
+The arc should be specific to THIS client and their references. Name it and give each outfit one evocative phrase.
 
 Rules:
-- ONLY select products that exist in the FINALISTS list above. Never invent labels.
+- ONLY select labels that exist in the FINALISTS list above. Never invent labels.
+- Each outfit needs 3 pieces. If fewer categories have products, use 2 from the same category across different outfits (e.g., two different dresses — one per outfit).
 - Trust what you see in the images over text descriptions.
-- Selected pieces must share a colour story.
-- Hard eliminate anything that visually clashes with the palette or hits their avoids.
-- how_to_wear must name another selected product by its full title.
+- Hard eliminate anything that hits the avoids list or is completely wrong tonally.
+- how_to_wear should be a concrete, inspired styling suggestion. Reference a real item from the selection if possible.
 
 Return ONLY valid JSON:
 {
@@ -522,12 +521,16 @@ Return ONLY valid JSON:
 
   if (products.length < 6) {
     const usedIds = new Set(products.map((p) => p.objectID));
+    const outfitACount = products.filter((p) => p.outfit_group === "outfit_a").length;
+    // Fill remaining slots, alternating outfit groups
     for (const cat of categories) {
       if (products.length >= 6) break;
-      const extra = finalists[cat].find((p) => !usedIds.has(p.objectID));
-      if (extra) {
+      for (const extra of finalists[cat]) {
+        if (products.length >= 6) break;
+        if (usedIds.has(extra.objectID)) continue;
         usedIds.add(extra.objectID);
-        products.push({ ...extra, style_note: `A considered pick for your ${dna.primary_aesthetic} aesthetic.`, outfit_role: "versatile staple", outfit_group: "outfit_b", how_to_wear: "Style with other pieces from your edit." });
+        const group: OutfitGroup = products.filter((p) => p.outfit_group === "outfit_a").length <= outfitACount ? "outfit_a" : "outfit_b";
+        products.push({ ...extra, style_note: `A key piece for your ${dna.primary_aesthetic} aesthetic.`, outfit_role: "versatile staple", outfit_group: group, how_to_wear: "Style this with the other pieces from your edit." });
       }
     }
   }
