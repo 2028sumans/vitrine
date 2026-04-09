@@ -74,8 +74,8 @@ const JSON_SCHEMA_TEMPLATE = `{
   "avoids": ["3-4 explicit avoids, e.g. 'heavy logos', 'neon colors', 'shiny polyester'"],
   "occasion_mix": { "casual": 40, "work": 20, "weekend": 30, "going_out": 10 },
   "price_range": "budget | mid | luxury",
-  "mood": "3-4 word evocative mood phrase, e.g. 'effortlessly refined, unhurried'",
-  "summary": "2-3 sentences describing this person's style in an aspirational, editorial voice — like a stylist briefing a fashion shoot",
+  "mood": "3-4 words, understated and specific, e.g. 'unhurried, a little cinematic'",
+  "summary": "2-3 sentences in a quiet, knowing editorial voice. No hype, no em dashes, no superlatives. Write like a friend who really gets it, not a press release.",
   "style_keywords": ["8-10 specific searchable fashion terms"],
   "style_references": [
     { "name": "celebrity or cultural figure name", "era": "specific era and context", "why": "one sentence on why this reference fits this exact board" },
@@ -135,28 +135,28 @@ export async function analyzeAesthetic(
   const historyBlock = buildHistoryBlock(previousDNAs);
 
   const promptText = hasImages
-    ? `You are a world-class fashion stylist and aesthetic analyst with deep knowledge of contemporary fashion subcultures, color theory, silhouette psychology, and how aesthetics translate to shoppable garments.
+    ? `You are a fashion editor and stylist with a sharp, quiet eye. You identify aesthetics with precision, not hype.
 ${hasHistory ? `\n${historyBlock}\n` : ""}
-Now analyze these ${images.length} images from a Pinterest board called "${boardName}". The images ARE the board — treat them as the primary source of truth.${pinText ? `\n\nAdditional context:\n${pinText}` : ""}
+Analyze these ${images.length} images from a Pinterest board called "${boardName}". The images are the primary source.${pinText ? `\n\nAdditional context:\n${pinText}` : ""}
 
-Study the images:
-- Colors, textures, fabrics that recur
-- Dominant silhouettes and proportions
-- Overall mood, lighting, lifestyle aesthetic
-- Specific garments or styling choices that repeat
-- Aesthetic sub-culture
-${hasHistory ? "- What does this add, refine, or contradict about the taste history above?" : ""}
+Look for:
+- Colors, textures, fabrics that repeat
+- Silhouettes and proportions
+- Mood and atmosphere
+- Specific garments or styling choices that appear more than once
+- The underlying aesthetic subculture
+${hasHistory ? "- How does this relate to or differ from the taste history above?" : ""}
 
-Return a deeply nuanced StyleDNA JSON. Be highly specific and fashion-literate. Return ONLY valid JSON:
+Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no superlatives. Return ONLY valid JSON:
 
 ${JSON_SCHEMA_TEMPLATE}`
-    : `You are a world-class fashion stylist and aesthetic analyst with deep knowledge of contemporary fashion subcultures, color theory, silhouette psychology, and how aesthetics translate to shoppable garments.
+    : `You are a fashion editor and stylist with a sharp, quiet eye. You identify aesthetics with precision, not hype.
 ${hasHistory ? `\n${historyBlock}\n` : ""}
 Analyze this Pinterest board called "${boardName}":
 
 ${pinText}
 
-Return a deeply nuanced StyleDNA JSON. Be highly specific and fashion-literate. Return ONLY valid JSON:
+Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no superlatives. Return ONLY valid JSON:
 
 ${JSON_SCHEMA_TEMPLATE}`;
 
@@ -398,10 +398,17 @@ async function buildOutfitsWithVision(
       `same fabric weight, brand tier, color story, silhouette. If a finalist closely matches a clicked product, prefer it.\n`
     : "";
 
-  const promptText = `You are a personal stylist making the final call on a curated edit. You can see the actual product images above. Visual fit matters more than text descriptions.
+  const promptText = `You are a fashion editor making the final call on a curated edit. You can see the product images above. Trust what you see.
+
+VOICE RULES — apply to every piece of text you write:
+- No em dashes. Use a period or rewrite the sentence instead.
+- No superlatives: not "perfect", "stunning", "elevated", "effortless", "impeccable", "iconic".
+- No hype language: not "statement piece" as a cliche, not "takes it to the next level", not "the epitome of".
+- Write like someone who already knows — quiet confidence, not persuasion.
+- Short sentences. Specific observations. No filler.
 
 CLIENT PROFILE:
-Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? ` — ${dna.secondary_aesthetic}` : ""}
+Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? `, ${dna.secondary_aesthetic}` : ""}
 Mood: ${dna.mood}
 Palette: ${dna.color_palette.join(", ")}
 Silhouettes: ${(dna.silhouettes ?? []).join(", ")}
@@ -409,7 +416,7 @@ Reaches for: ${dna.key_pieces.join(", ")}
 Hard avoids: ${dna.avoids.join(", ")}
 Budget: ${dna.price_range}
 Style summary: ${dna.summary}
-${dna.style_references?.length ? `Inspired by: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
+${dna.style_references?.length ? `References: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
 ${clickBlock}${trendsBlock ? `\n${trendsBlock}\n` : ""}
 ${imageKeyText}
 
@@ -417,40 +424,34 @@ FINALISTS BY CATEGORY:
 ${catalogueText}
 
 YOUR TASK:
-1. Study each product image for vibe, not just palette.
-2. Select 3 products for Outfit A and 3 products for Outfit B (6 total). You CAN pick multiple dresses or tops across the two outfits — each outfit is a complete look in itself.
-3. Each outfit should express a DIFFERENT FACET of this client's aesthetic.
+1. Look at the images. Pick by feel, not just palette.
+2. Select 3 products for Outfit A and 3 for Outfit B (6 total). You can use two dresses across different outfits if that's what works.
+3. Each outfit should represent a different side of this client's taste.
 
-OUTFIT NARRATIVE — critical:
-This client's aesthetic likely has multiple layers (e.g., romantic vs. edgy, classical vs. maximalist, day vs. after-dark). Use the style references to guide you:
-- Outfit A could embody the softer / more classic reference
-- Outfit B could embody the bolder / more maximalist reference
-- Or use any meaningful arc: "day / night", "the muse / the femme fatale", "understated / show-stopping", etc.
-
-The arc should be specific to THIS client and their references. Name it and give each outfit one evocative phrase.
+OUTFIT ARC:
+The two outfits should have a natural relationship. Name it plainly: "day / night", "soft / sharp", "easy / considered", etc. Keep it to 3-4 words. Give each outfit a short phrase that captures its feeling, not its occasion.
 
 Rules:
-- ONLY select labels that exist in the FINALISTS list above. Never invent labels.
-- Each outfit needs 3 pieces. If fewer categories have products, use 2 from the same category across different outfits (e.g., two different dresses — one per outfit).
-- Trust what you see in the images over text descriptions.
-- Hard eliminate anything that hits the avoids list or is completely wrong tonally.
-- how_to_wear should be a concrete, inspired styling suggestion. Reference a real item from the selection if possible.
+- ONLY select labels that exist in the FINALISTS list. Never invent labels.
+- Each outfit needs 3 pieces.
+- Hard eliminate anything that hits the avoids list.
+- how_to_wear: one specific, practical styling idea. Reference another selected product by its full title if it makes sense.
 
 Return ONLY valid JSON:
 {
-  "outfit_arc": "the arc — e.g. 'day / night'",
-  "outfit_a_role": "evocative phrase for Outfit A — e.g. 'the unhurried Sunday morning'",
-  "outfit_b_role": "evocative phrase for Outfit B — e.g. 'the same energy, after dark'",
-  "editorial_intro": "Exactly 2 sentences, fashion-magazine voice. Reference the outfit arc and make it feel personal to this aesthetic.",
-  "edit_rationale": "Exactly 1 sentence: why these 6 pieces form a single coherent wardrobe.",
+  "outfit_arc": "3-4 words, e.g. 'soft / sharp'",
+  "outfit_a_role": "a short phrase for Outfit A, e.g. 'something to wear slowly'",
+  "outfit_b_role": "a short phrase for Outfit B, e.g. 'when you want to be looked at'",
+  "editorial_intro": "2 sentences. Quiet, specific, no hype. No em dashes. Describe what this edit is actually for.",
+  "edit_rationale": "1 sentence. Plain language. What connects these pieces.",
   "selections": [
     {
       "category": "dress",
       "label": "DRESS-A",
       "outfit_group": "outfit_a",
-      "outfit_role": "statement piece | base layer | layer | going-out look | weekend staple | workwear piece",
-      "style_note": "One confident sentence — why this specific piece for this specific client.",
-      "how_to_wear": "Concrete styling tip naming another selected product by its full title."
+      "outfit_role": "the anchor | the layer | the detail | the easy one | the considered one",
+      "style_note": "One sentence. Specific to this piece and this person. No em dashes, no superlatives.",
+      "how_to_wear": "One practical styling idea. Specific, not generic."
     }
   ]
 }`;
