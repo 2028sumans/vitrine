@@ -10,9 +10,9 @@ export async function POST(request: Request) {
   }
 
   await resend.emails.send({
-    from: "Vitrine Waitlist <onboarding@resend.dev>",
+    from: "MUSE Waitlist <onboarding@resend.dev>",
     to: process.env.WAITLIST_TO_EMAIL!,
-    subject: "New waitlist signup — Vitrine",
+    subject: "New waitlist signup — MUSE",
     html: `
       <p style="font-family:sans-serif;font-size:16px;color:#1A1A1A;">
         New waitlist signup:

@@ -16,7 +16,7 @@ const INSIGHTS_URL    = `https://insights.algolia.io/1/events`;
 
 export function getUserToken(): string {
   if (typeof window === "undefined") return "anon";
-  const key = "vitrine_user_token";
+  const key = "muse_user_token";
   let token = localStorage.getItem(key);
   if (!token) {
     token = "anon-" + crypto.randomUUID();

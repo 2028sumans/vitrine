@@ -18,13 +18,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "VITRINE — Your taste, made shoppable",
+  title: "MUSE — Your taste, made shoppable",
   description:
-    "VITRINE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
+    "MUSE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
   openGraph: {
-    title: "VITRINE — Your taste, made shoppable",
+    title: "MUSE — Your taste, made shoppable",
     description:
-      "VITRINE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
+      "MUSE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
     type: "website",
   },
 };

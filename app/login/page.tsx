@@ -22,7 +22,7 @@ export default function LoginPage() {
             href="/"
             className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200"
           >
-            VITRINE
+            MUSE
           </Link>
         </div>
       </header>

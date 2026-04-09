@@ -89,7 +89,7 @@ export const authOptions: NextAuthOptions = {
           id:    username,
           name:  username,
           // NextAuth requires a non-null email — use a placeholder
-          email: `${username}@pinterest.vitrine`,
+          email: `${username}@pinterest.muse`,
           image: profile.profile_image ?? null,
         };
       },

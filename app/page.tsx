@@ -133,7 +133,7 @@ export default function HomePage() {
       {/* ── Nav — floats over hero (navy) ── */}
       <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between">
         <span className="font-display font-light text-xl tracking-[0.22em] text-foreground">
-          VITRINE
+          MUSE
         </span>
         <Link
           href="/dashboard"
@@ -166,7 +166,7 @@ export default function HomePage() {
             </p>
 
             <h1 className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] text-foreground mb-10">
-              VITRINE
+              MUSE
             </h1>
 
             <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/60 mb-5 leading-snug">
@@ -174,7 +174,7 @@ export default function HomePage() {
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              VITRINE reads your Pinterest boards and builds you a private
+              MUSE reads your Pinterest boards and builds you a private
               shopping page, curated by an AI stylist that understands exactly
               what you love.
             </p>
@@ -224,7 +224,7 @@ export default function HomePage() {
                 found all of it in one place.
               </h2>
               <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
-                Your boards already say everything. VITRINE listens and finds
+                Your boards already say everything. MUSE listens and finds
                 the exact pieces that match the aesthetic you&apos;ve been
                 quietly, carefully building.
               </p>
@@ -263,7 +263,7 @@ export default function HomePage() {
               Note
             </p>
             <p className="font-sans text-xs text-muted leading-relaxed max-w-md">
-              VITRINE is free. We earn a small affiliate commission when you
+              MUSE is free. We earn a small affiliate commission when you
               purchase through your page, at no cost to you. We never sell your
               data.
             </p>
@@ -275,7 +275,7 @@ export default function HomePage() {
       <footer className="bg-background border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <span className="font-display font-light tracking-[0.18em] text-sm text-muted">
-            VITRINE
+            MUSE
           </span>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">

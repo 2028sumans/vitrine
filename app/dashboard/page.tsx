@@ -525,7 +525,7 @@ export default function DashboardPage() {
       <header className="px-8 py-5 border-b border-border sticky top-0 bg-background/90 backdrop-blur-md z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">
-            VITRINE
+            MUSE
           </Link>
           <div className="flex items-center gap-8">
             {step === "results" && (
@@ -680,7 +680,7 @@ export default function DashboardPage() {
 
             <div className="border-t border-border pt-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
-                VITRINE earns a small affiliate commission if you purchase, at no extra cost to you.
+                MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
               </p>
               <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors whitespace-nowrap">
                 ← Try another board
