@@ -345,82 +345,83 @@ async function shortlistCandidates(
 ): Promise<CategoryCandidates> {
   const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
 
-  // Build product image blocks (up to 3 per category = 18 max) so Claude can
-  // visually verify gender, silhouette and vibe — not just trust the title.
+  // ── Build image-keyed product list ────────────────────────────────────────
+  // Send every product that has an image URL (up to 8 per category = 48 max).
+  // Claude will judge PRIMARILY by image — text is only supplementary context.
+  // Products without images fall back to text-only rows at the end.
+
+  type Entry = { cat: ClothingCategory; idx: number; product: AlgoliaProduct; imgSlot: number | null };
+  const entries: Entry[] = [];
   const productImgBlocks: Array<{ type: "image"; source: { type: "url"; url: string } }> = [];
-  const productImgKey: string[] = [];
 
   for (const cat of categories) {
-    candidates[cat].slice(0, 3).forEach((p, i) => {
-      if (p.image_url?.startsWith("http")) {
+    candidates[cat].forEach((p, idx) => {
+      const hasImg = p.image_url?.startsWith("http");
+      if (hasImg && productImgBlocks.length < 48) {
         productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: p.image_url } });
-        productImgKey.push(`Img ${productImgBlocks.length} → ${cat.toUpperCase()} idx ${i}: "${p.title}"`);
+        entries.push({ cat, idx, product: p, imgSlot: productImgBlocks.length }); // 1-based
+      } else {
+        entries.push({ cat, idx, product: p, imgSlot: null });
       }
     });
   }
 
-  const categoryBlocks = categories.map((cat) => {
-    const pool = candidates[cat];
-    if (pool.length === 0) return `${cat.toUpperCase()}: (no products — skip this category)`;
-    const items = pool.map((p, i) => ({
-      idx:         i,
-      title:       p.title,
-      brand:       p.brand,
-      tags:        (p.aesthetic_tags ?? []).slice(0, 6).join(", "),
-      description: (p.description || "").slice(0, 100),
-      price_range: p.price_range,
-      retailer:    p.retailer,
-    }));
-    return `${cat.toUpperCase()} (${pool.length} options):\n${JSON.stringify(items, null, 1)}`;
-  }).join("\n\n");
+  // Human-readable image key for the prompt
+  const imageKeyLines = entries
+    .filter((e) => e.imgSlot !== null)
+    .map((e) => `  Img ${e.imgSlot} → ${e.cat.toUpperCase()} idx ${e.idx}: "${e.product.title}" (${e.product.brand})`);
+
+  // Text-only fallback rows (no image)
+  const textOnlyLines = entries
+    .filter((e) => e.imgSlot === null)
+    .map((e) => `  ${e.cat.toUpperCase()} idx ${e.idx} [no image]: "${e.product.title}" — ${e.product.brand} | ${(e.product.aesthetic_tags ?? []).slice(0, 4).join(", ")} | ${e.product.price_range}`);
 
   const hasBoardImages   = boardImages.length > 0;
   const hasProductImages = productImgBlocks.length > 0;
 
-  const imageKeySection = hasProductImages
-    ? `\nPRODUCT IMAGES (sent above, after any board images):\n${productImgKey.join("\n")}\n`
-    : "";
-
   const promptText =
-    `You are a senior fashion editor doing a first-pass curation for WOMEN'S FASHION ONLY.` +
-    (hasBoardImages
-      ? ` The first ${boardImages.length} image(s) are the client's Pinterest board — use them as mood/vibe reference.`
-      : "") +
-    (hasProductImages
-      ? ` The remaining ${productImgBlocks.length} image(s) are product photos — look at them carefully.`
-      : "") +
-    `\n\nYour job: pick the 6-8 BEST products from the candidates below that could work for this client.
+    `You are a senior fashion editor doing a visual first-pass for a WOMEN'S FASHION edit.` +
+    (hasBoardImages ? ` The first ${boardImages.length} image(s) above are the client's Pinterest board — they define the aesthetic target.` : "") +
+    (hasProductImages ? ` The next ${productImgBlocks.length} images are product photos — JUDGE PRIMARILY BY WHAT YOU SEE IN EACH IMAGE.` : "") +
+    `
 
-HARD RULES — eliminate immediately, no exceptions:
-1. ANY item that is clearly designed for men (male cut, male model wearing it, "mens" in title) → REJECT.
-2. Any item that hits the hard avoids list → REJECT.
-${imageKeySection}
-CLIENT:
-Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? ` — ${dna.secondary_aesthetic}` : ""}
-References: ${(dna.style_references ?? []).map((r) => `${r.name} (${r.era})`).join(", ") || "none"}
+YOUR PRIMARY TOOL IS YOUR EYES. Look at each product image. Ask: "Does this look like it belongs in this person's world?" Texture, silhouette, drape, color, and vibe from the image outweigh anything in the text description.
+
+HARD ELIMINATES (no exceptions):
+1. Anything clearly designed for men — male model wearing it, male cut, boxy shoulder, men's blazer shape → REJECT.
+2. Anything that hits the hard avoids list.
+
+CLIENT AESTHETIC:
+${dna.primary_aesthetic}${dna.secondary_aesthetic ? ` — ${dna.secondary_aesthetic}` : ""}
 Palette: ${dna.color_palette.join(", ")}
+Silhouettes she reaches for: ${(dna.silhouettes ?? []).join(", ")}
 Key pieces: ${dna.key_pieces.join(", ")}
 Hard avoids: ${dna.avoids.join(", ")}
+${(dna.style_references ?? []).length ? `References: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
 
-CANDIDATES (skip any category marked "no products"):
-${categoryBlocks}
+PRODUCT IMAGES (in order sent above):
+${imageKeyLines.join("\n") || "  (none)"}
 
-TASK: Pick the 6-8 products that feel most true to this client's world.
-- Be GENEROUS with interpretation — different pieces can express different facets of the same aesthetic
-- If a category has products, pick at least 1 (up to 3 from dress/top since those dominate)
-- Vibe matters more than exact palette match
+TEXT-ONLY PRODUCTS (no image available — judge by description):
+${textOnlyLines.join("\n") || "  (none)"}
+
+TASK: Shortlist the 8-12 visually strongest picks across all categories.
+- Pick at least 1 per category that has candidates.
+- Up to 4 from dress/top (those dominate the catalogue).
+- Prefer image-verified picks over text-only picks.
+- Be generous — capture different facets of the aesthetic (e.g. one relaxed, one sharp).
 
 Return ONLY this JSON:
 {
   "shortlist": [
-    { "category": "dress",  "idx": 0 },
-    { "category": "dress",  "idx": 2 }
+    { "category": "dress", "idx": 0 },
+    { "category": "top",   "idx": 1 }
   ]
 }`;
 
   const message = await client.messages.create({
     model:      "claude-sonnet-4-6",
-    max_tokens: 800,
+    max_tokens: 900,
     messages: [
       {
         role: "user",
@@ -445,16 +446,17 @@ Return ONLY this JSON:
     const cat = pick.category as ClothingCategory;
     if (!categories.includes(cat)) continue;
     const product = candidates[cat][pick.idx];
-    if (product && finalists[cat].length < 5) finalists[cat].push(product); // allow up to 5 per category
+    if (product && finalists[cat].length < 8) finalists[cat].push(product); // up to 8 per category → richer Stage 2 pool
   }
 
-  // Guarantee at least 2 picks per available category (to give Stage 2 real choice)
+  // Guarantee at least 3 picks per available category (to give Stage 2 real visual choice)
   for (const cat of categories) {
     if (finalists[cat].length === 0 && candidates[cat].length > 0) {
-      finalists[cat].push(...candidates[cat].slice(0, 3));
-    } else if (finalists[cat].length === 1 && candidates[cat].length > 1) {
-      const next = candidates[cat].find((p) => p.objectID !== finalists[cat][0].objectID);
-      if (next) finalists[cat].push(next);
+      finalists[cat].push(...candidates[cat].slice(0, 4));
+    } else if (finalists[cat].length < 3 && candidates[cat].length > finalists[cat].length) {
+      const usedIds = new Set(finalists[cat].map((p) => p.objectID));
+      const extras  = candidates[cat].filter((p) => !usedIds.has(p.objectID)).slice(0, 3 - finalists[cat].length);
+      finalists[cat].push(...extras);
     }
   }
 
@@ -538,16 +540,17 @@ FINALISTS BY CATEGORY:
 ${catalogueText}
 
 YOUR TASK:
-1. Look at the images. Pick by feel, not just palette.
-2. Select 3 products for Outfit A and 3 for Outfit B (6 total). You can use two dresses across different outfits if that's what works.
+1. Look at the images first. Judge every product visually — silhouette, drape, color, texture, vibe. Text is only a tiebreaker.
+2. Select 4 products for Outfit A and 4 for Outfit B (8 total). You can use two dresses across different outfits if that's what works.
 3. Each outfit should represent a different side of this client's taste.
+4. ABSOLUTE RULE: If an image shows a male model or a clearly male-cut garment → do not select it.
 
 OUTFIT ARC:
 The two outfits should have a natural relationship. Name it plainly: "day / night", "soft / sharp", "easy / considered", etc. Keep it to 3-4 words. Give each outfit a short phrase that captures its feeling, not its occasion.
 
 Rules:
 - ONLY select labels that exist in the FINALISTS list. Never invent labels.
-- Each outfit needs 3 pieces.
+- Each outfit needs 4 pieces.
 - Hard eliminate anything that hits the avoids list.
 - how_to_wear: one specific, practical styling idea. Reference another selected product by its full title if it makes sense.
 
@@ -628,7 +631,7 @@ Return ONLY valid JSON:
 
   const products: CuratedProduct[] = (raw.selections ?? [])
     .filter((s) => byLabel.has(s.label))
-    .slice(0, 6)
+    .slice(0, 8)
     .map((s) => ({
       ...byLabel.get(s.label)!,
       style_note:   clean(s.style_note),
@@ -644,14 +647,13 @@ Return ONLY valid JSON:
   raw.outfit_a_role   = clean(raw.outfit_a_role   ?? "");
   raw.outfit_b_role   = clean(raw.outfit_b_role   ?? "");
 
-  if (products.length < 6) {
-    const usedIds = new Set(products.map((p) => p.objectID));
+  if (products.length < 8) {
+    const usedIds      = new Set(products.map((p) => p.objectID));
     const outfitACount = products.filter((p) => p.outfit_group === "outfit_a").length;
-    // Fill remaining slots, alternating outfit groups
     for (const cat of categories) {
-      if (products.length >= 6) break;
+      if (products.length >= 8) break;
       for (const extra of finalists[cat]) {
-        if (products.length >= 6) break;
+        if (products.length >= 8) break;
         if (usedIds.has(extra.objectID)) continue;
         usedIds.add(extra.objectID);
         const group: OutfitGroup = products.filter((p) => p.outfit_group === "outfit_a").length <= outfitACount ? "outfit_a" : "outfit_b";
