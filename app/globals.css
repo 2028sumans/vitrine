@@ -4,6 +4,7 @@
 
 @layer base {
   html {
+    font-size: 18px;
     background-color: #0C1221;
     color: #F0E8D8;
     -webkit-font-smoothing: antialiased;

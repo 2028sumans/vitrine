@@ -5,12 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import type { StyleDNA, CuratedProduct } from "@/lib/ai";
+import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Board   = { id: string; name: string };
-type Step    = "boards" | "analyzing" | "results" | "error";
+type Board = { id: string; name: string };
+type Step  = "boards" | "shopping_loading" | "shopping" | "edit_loading" | "results" | "error";
 
 interface PinData {
   id:          string;
@@ -104,7 +105,7 @@ function BoardCard({ board, selected, onClick }: {
   );
 }
 
-// ── Pin grid — auto-loaded from Pinterest ─────────────────────────────────────
+// ── Pin grid ──────────────────────────────────────────────────────────────────
 
 function PinGrid({ pins, loading }: { pins: PinData[]; loading: boolean }) {
   if (loading) {
@@ -115,9 +116,7 @@ function PinGrid({ pins, loading }: { pins: PinData[]; loading: boolean }) {
       </div>
     );
   }
-
   if (!pins.length) return null;
-
   return (
     <div className="mt-5 border-t border-border pt-5">
       <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">
@@ -127,11 +126,7 @@ function PinGrid({ pins, loading }: { pins: PinData[]; loading: boolean }) {
         {pins.slice(0, 50).map((pin) => (
           <div key={pin.id} className="aspect-square overflow-hidden bg-white/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={pin.thumbUrl}
-              alt={pin.title}
-              className="w-full h-full object-cover opacity-80"
-            />
+            <img src={pin.thumbUrl} alt={pin.title} className="w-full h-full object-cover opacity-80" />
           </div>
         ))}
       </div>
@@ -139,7 +134,155 @@ function PinGrid({ pins, loading }: { pins: PinData[]; loading: boolean }) {
   );
 }
 
-// ── Product card ──────────────────────────────────────────────────────────────
+// ── Musing dots ───────────────────────────────────────────────────────────────
+
+function MusingDots() {
+  return (
+    <span className="inline-flex ml-0.5">
+      <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
+      <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
+      <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
+    </span>
+  );
+}
+
+// ── Loading screen ─────────────────────────────────────────────────────────────
+
+function LoadingScreen({ title, steps, currentStep }: {
+  title:       string;
+  steps:       { label: string; sub: string }[];
+  currentStep: number;
+}) {
+  return (
+    <div className="fade-in flex flex-col items-center justify-center py-40 text-center">
+      <div className="relative w-10 h-10 mb-16">
+        <div className="absolute inset-0 rounded-full border border-border" />
+        <div className="absolute inset-0 rounded-full border border-transparent border-t-foreground/60 animate-spin" style={{ animationDuration: "1.4s" }} />
+      </div>
+      <h2 className="font-display font-light text-4xl text-foreground mb-2">{title}</h2>
+      <p className="font-sans text-base text-muted-strong mb-16">
+        Musing<MusingDots />
+      </p>
+      <div className="flex flex-col gap-6 text-left max-w-xs w-full">
+        {steps.map(({ label, sub }, i) => (
+          <div key={i} className="flex items-start gap-4">
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 transition-all duration-700 ${
+              i < currentStep ? "bg-accent" : i === currentStep ? "bg-foreground/80 shadow-[0_0_6px_rgba(240,232,216,0.4)]" : "bg-foreground/15"
+            }`} />
+            <div>
+              <p className={`font-sans text-xs transition-colors duration-500 ${i <= currentStep ? "text-foreground" : "text-muted/50"}`}>{label}</p>
+              <p className="font-sans text-[11px] text-muted/50 mt-0.5">{sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Shop card (browsable — no style notes) ────────────────────────────────────
+
+function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: string }) {
+  const price = product.price != null
+    ? `$${product.price.toFixed(0)}`
+    : product.price_range !== "unknown" ? product.price_range : null;
+
+  const handleClick = () => {
+    trackProductClick({
+      userToken,
+      objectID: product.objectID,
+      queryID:  product._queryID ?? "",
+      position: product._position ?? 1,
+    });
+    fetch("/api/taste/click", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userToken,
+        product: {
+          objectID:    product.objectID,
+          title:       product.title,
+          brand:       product.brand,
+          color:       product.color,
+          category:    product.category,
+          retailer:    product.retailer,
+          price_range: product.price_range,
+          image_url:   product.image_url,
+        },
+      }),
+    }).catch(() => {});
+  };
+
+  return (
+    <a
+      href={product.product_url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={handleClick}
+      className="group block border border-border hover:border-border-mid transition-colors duration-300 bg-white/[0.02]"
+    >
+      <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt={product.title}
+            fill
+            className="object-cover group-hover:scale-[1.04] transition-transform duration-700"
+            sizes="(max-width: 640px) 50vw, 25vw"
+            unoptimized
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
+        )}
+        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-background/60 to-transparent">
+          <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer}</p>
+        </div>
+      </div>
+      <div className="p-3 border-t border-border">
+        {product.brand && product.brand.toLowerCase() !== product.retailer.toLowerCase() && (
+          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>
+        )}
+        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{product.title}</p>
+        <div className="flex items-center justify-between">
+          {price ? <span className="font-sans text-xs font-medium text-foreground">{price}</span> : <span />}
+          <span className="font-sans text-[9px] tracking-widest uppercase text-muted group-hover:text-accent transition-colors">Shop →</span>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+// ── Shopping section by category ──────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<string, string> = {
+  dress: "Dresses", top: "Tops", bottom: "Bottoms",
+  jacket: "Jackets", shoes: "Shoes", bag: "Bags",
+};
+
+function ShoppingSection({ category, products, userToken }: {
+  category:  string;
+  products:  AlgoliaProduct[];
+  userToken: string;
+}) {
+  if (!products.length) return null;
+  return (
+    <div className="mb-12">
+      <div className="flex items-baseline gap-4 mb-5 border-t border-border pt-6">
+        <h3 className="font-display font-light text-2xl text-foreground">
+          {CATEGORY_LABELS[category] ?? category}
+        </h3>
+        <span className="font-sans text-[9px] tracking-widest uppercase text-muted">{products.length} found</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {products.map((p) => (
+          <ShopCard key={p.objectID} product={p} userToken={userToken} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Product card (edit results — has style notes) ─────────────────────────────
 
 function ProductCard({
   product,
@@ -158,31 +301,29 @@ function ProductCard({
       : null;
 
   const handleClick = () => {
-    // Algolia Insights — feeds Dynamic Re-Ranking + Personalization
     trackProductClick({
       userToken,
       objectID: product.objectID,
       queryID:  product._queryID ?? "",
       position,
     });
-    // Taste memory — feeds living StyleDNA + click-as-ground-truth
     fetch("/api/taste/click", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userToken,
         product: {
-          objectID:   product.objectID,
-          title:      product.title,
-          brand:      product.brand,
-          color:      product.color,
-          category:   product.category,
-          retailer:   product.retailer,
+          objectID:    product.objectID,
+          title:       product.title,
+          brand:       product.brand,
+          color:       product.color,
+          category:    product.category,
+          retailer:    product.retailer,
           price_range: product.price_range,
-          image_url:  product.image_url,
+          image_url:   product.image_url,
         },
       }),
-    }).catch(() => {/* non-fatal */});
+    }).catch(() => {});
   };
 
   return (
@@ -217,7 +358,6 @@ function ProductCard({
           <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer}</p>
         </div>
       </div>
-
       <div className="p-4 border-t border-border">
         {product.brand && product.brand.toLowerCase() !== product.retailer.toLowerCase() && (
           <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1.5">{product.brand}</p>
@@ -245,11 +385,7 @@ function ProductCard({
 // ── Outfit section ────────────────────────────────────────────────────────────
 
 function OutfitSection({
-  label,
-  role,
-  products,
-  startPosition,
-  userToken,
+  label, role, products, startPosition, userToken,
 }: {
   label:         string;
   role?:         string;
@@ -257,7 +393,7 @@ function OutfitSection({
   startPosition: number;
   userToken:     string;
 }) {
-  if (products.length === 0) return null;
+  if (!products.length) return null;
   return (
     <div className="mb-12">
       <div className="flex items-baseline gap-4 mb-6 border-t border-border pt-7">
@@ -269,12 +405,7 @@ function OutfitSection({
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {products.map((p, i) => (
-          <ProductCard
-            key={p.objectID}
-            product={p}
-            position={startPosition + i}
-            userToken={userToken}
-          />
+          <ProductCard key={p.objectID} product={p} position={startPosition + i} userToken={userToken} />
         ))}
       </div>
     </div>
@@ -294,7 +425,6 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
         )}
         <p className="font-sans text-base text-muted-strong leading-relaxed mt-5 max-w-2xl">{dna.summary}</p>
       </div>
-
       <div className="px-7 py-5 border-b border-border">
         <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Your palette</p>
         <div className="flex flex-wrap gap-5">
@@ -306,7 +436,6 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
           ))}
         </div>
       </div>
-
       {(dna.style_references ?? []).length > 0 && (
         <div className="px-7 py-5 border-b border-border">
           <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Inspired by</p>
@@ -322,7 +451,6 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
           </div>
         </div>
       )}
-
       <div className="px-7 py-5 border-b border-border grid grid-cols-2 gap-8">
         <div>
           <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Reaches for</p>
@@ -345,7 +473,6 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
           </ul>
         </div>
       </div>
-
       {dna.occasion_mix && (
         <div className="px-7 py-5">
           <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Where you wear it</p>
@@ -373,15 +500,22 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Loading step lists ────────────────────────────────────────────────────────
 
-const ANALYZING_STEPS = [
-  { label: "Reading your aesthetic",    sub: "Colors, textures, silhouettes & mood" },
-  { label: "Finding candidates",        sub: "48 products across 6 categories" },
-  { label: "Shortlisting finalists",    sub: "Narrowing to the 12 strongest fits" },
-  { label: "Seeing the products",       sub: "Claude views each image, builds outfits" },
-  { label: "Writing your edit",         sub: "Styling notes & editorial intro" },
+const SHOPPING_STEPS = [
+  { label: "Reading your aesthetic",  sub: "Colors, textures, silhouettes & mood" },
+  { label: "Finding your products",   sub: "Searching across 6 categories" },
 ];
+
+const EDIT_STEPS = [
+  { label: "Shortlisting finalists",  sub: "Narrowing to the strongest fits" },
+  { label: "Seeing the products",     sub: "Claude views each image, builds outfits" },
+  { label: "Writing your edit",       sub: "Styling notes & editorial intro" },
+];
+
+const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -392,17 +526,18 @@ export default function DashboardPage() {
   const [pins, setPins]                     = useState<PinData[]>([]);
   const [pinsLoading, setPinsLoading]       = useState(false);
   const [aesthetic, setAesthetic]           = useState<StyleDNA | null>(null);
+  const [candidates, setCandidates]         = useState<CategoryCandidates | null>(null);
   const [products, setProducts]             = useState<CuratedProduct[]>([]);
   const [editorialIntro, setEditorialIntro] = useState("");
   const [editRationale, setEditRationale]   = useState("");
   const [outfitArc, setOutfitArc]           = useState("");
   const [outfitARole, setOutfitARole]       = useState("");
   const [outfitBRole, setOutfitBRole]       = useState("");
-  const [analyzeStep, setAnalyzeStep]       = useState(0);
+  const [shoppingStep, setShoppingStep]     = useState(0);
+  const [editStep, setEditStep]             = useState(0);
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
 
-  // Use Pinterest user ID as userToken when authenticated; fall back to localStorage anon token
   useEffect(() => {
     if (session?.user?.id) {
       setUserToken(session.user.id);
@@ -411,11 +546,9 @@ export default function DashboardPage() {
     }
   }, [session]);
 
-  // Fetch real Pinterest boards from the API — pass access token from session
   useEffect(() => {
     const token = (session as { accessToken?: string })?.accessToken;
     if (!token) {
-      // Session still loading or no token — stop spinner
       if (session !== undefined) setBoardsLoading(false);
       return;
     }
@@ -424,14 +557,11 @@ export default function DashboardPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((data) => {
-        if (data.boards?.length) setBoards(data.boards);
-      })
-      .catch(() => {/* non-fatal */})
+      .then((data) => { if (data.boards?.length) setBoards(data.boards); })
+      .catch(() => {})
       .finally(() => setBoardsLoading(false));
-  }, [session]); // re-run when session loads
+  }, [session]);
 
-  // Auto-fetch pins when a board is selected
   useEffect(() => {
     if (!selectedBoard) { setPins([]); return; }
     const token = (session as { accessToken?: string })?.accessToken;
@@ -443,34 +573,37 @@ export default function DashboardPage() {
     })
       .then((r) => r.json())
       .then((data) => { if (data.pins?.length) setPins(data.pins); })
-      .catch(() => {/* non-fatal */})
+      .catch(() => {})
       .finally(() => setPinsLoading(false));
-  }, [selectedBoard]);
+  }, [selectedBoard, session]);
 
-  // Fire view events when results arrive — builds personalization profile
+  // Fire view events for shopping page products
+  useEffect(() => {
+    if (step === "shopping" && candidates) {
+      const allProducts = CATEGORIES.flatMap((c) => candidates[c]);
+      trackProductsViewed({ userToken, objectIDs: allProducts.map((p) => p.objectID) });
+    }
+  }, [step, candidates, userToken]);
+
+  // Fire view events for edit products
   useEffect(() => {
     if (step === "results" && products.length > 0) {
-      trackProductsViewed({
-        userToken,
-        objectIDs: products.map((p) => p.objectID),
-      });
+      trackProductsViewed({ userToken, objectIDs: products.map((p) => p.objectID) });
     }
   }, [step, products, userToken]);
 
-  const handleAnalyze = useCallback(async () => {
+  // Step 1: Shop this board — analyze aesthetic + fetch product candidates
+  const handleShop = useCallback(async () => {
     if (!selectedBoard) return;
-    setStep("analyzing");
+    setStep("shopping_loading");
     setErrorMsg("");
-    setAnalyzeStep(0);
+    setShoppingStep(0);
 
-    const t1 = setTimeout(() => setAnalyzeStep(1), 10000);
-    const t2 = setTimeout(() => setAnalyzeStep(2), 14000);
-    const t3 = setTimeout(() => setAnalyzeStep(3), 20000);
-    const t4 = setTimeout(() => setAnalyzeStep(4), 28000);
+    const t1 = setTimeout(() => setShoppingStep(1), 15000);
 
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
+      const res = await fetch("/api/shop", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           boardId:      selectedBoard.id,
@@ -481,9 +614,43 @@ export default function DashboardPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Analysis failed");
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
 
       setAesthetic(data.aesthetic);
+      setCandidates(data.candidates);
+      setStep("shopping");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
+      setStep("error");
+    } finally {
+      clearTimeout(t1);
+    }
+  }, [selectedBoard, pins, userToken]);
+
+  // Step 2: Build my edit — two-stage curation (also used for regenerate)
+  const handleBuildEdit = useCallback(async () => {
+    if (!aesthetic || !candidates) return;
+    setStep("edit_loading");
+    setEditStep(0);
+
+    const t1 = setTimeout(() => setEditStep(1), 8000);
+    const t2 = setTimeout(() => setEditStep(2), 16000);
+
+    try {
+      const res = await fetch("/api/curate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aesthetic,
+          candidates,
+          boardId:   selectedBoard?.id,
+          boardName: selectedBoard?.name,
+          userToken,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Curation failed");
+
       setProducts(data.products);
       setEditorialIntro(data.editorial_intro ?? "");
       setEditRationale(data.edit_rationale ?? "");
@@ -497,16 +664,15 @@ export default function DashboardPage() {
     } finally {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
     }
-  }, [selectedBoard, pins, userToken]);
+  }, [aesthetic, candidates, selectedBoard, userToken]);
 
   const reset = () => {
     setStep("boards");
     setSelectedBoard(null);
     setPins([]);
     setAesthetic(null);
+    setCandidates(null);
     setProducts([]);
     setEditorialIntro("");
     setEditRationale("");
@@ -514,7 +680,8 @@ export default function DashboardPage() {
     setOutfitARole("");
     setOutfitBRole("");
     setErrorMsg("");
-    setAnalyzeStep(0);
+    setShoppingStep(0);
+    setEditStep(0);
   };
 
   const outfitA = products.filter((p) => p.outfit_group === "outfit_a");
@@ -529,6 +696,11 @@ export default function DashboardPage() {
           </Link>
           <div className="flex items-center gap-8">
             {step === "results" && (
+              <button onClick={() => setStep("shopping")} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">
+                ← My picks
+              </button>
+            )}
+            {(step === "shopping" || step === "results") && (
               <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">
                 ← New board
               </button>
@@ -579,7 +751,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Pin grid — auto-loaded when board is selected */}
             {selectedBoard && (
               <div className="border border-t-0 border-border px-5 pb-6">
                 <PinGrid pins={pins} loading={pinsLoading} />
@@ -588,11 +759,11 @@ export default function DashboardPage() {
 
             <div className="mt-8">
               <button
-                onClick={handleAnalyze}
+                onClick={handleShop}
                 disabled={!selectedBoard || pinsLoading}
                 className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
               >
-                {!selectedBoard ? "Select a board" : pinsLoading ? "Loading pins…" : "Build my edit →"}
+                {!selectedBoard ? "Select a board" : pinsLoading ? "Loading pins…" : "Shop this board →"}
               </button>
               {selectedBoard && !pinsLoading && pins.length === 0 && (
                 <p className="font-sans text-[11px] text-muted mt-3">
@@ -603,36 +774,87 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Analyzing ── */}
-        {step === "analyzing" && (
-          <div className="fade-in flex flex-col items-center justify-center py-40 text-center">
-            <div className="relative w-10 h-10 mb-16">
-              <div className="absolute inset-0 rounded-full border border-border" />
-              <div className="absolute inset-0 rounded-full border border-transparent border-t-foreground/60 animate-spin" style={{ animationDuration: "1.4s" }} />
+        {/* ── Shopping loading ── */}
+        {step === "shopping_loading" && (
+          <LoadingScreen
+            title="Finding your picks."
+            steps={SHOPPING_STEPS}
+            currentStep={shoppingStep}
+          />
+        )}
+
+        {/* ── Shopping results ── */}
+        {step === "shopping" && aesthetic && candidates && (
+          <div className="fade-in-up">
+            <div className="mb-10">
+              <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">
+                {selectedBoard?.name}
+              </p>
+              <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight capitalize mb-1">
+                {aesthetic.primary_aesthetic}
+              </h1>
+              {aesthetic.mood && (
+                <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>
+              )}
+              {aesthetic.summary && (
+                <p className="font-sans text-base text-muted-strong leading-relaxed mt-4 max-w-2xl">{aesthetic.summary}</p>
+              )}
             </div>
-            <h2 className="font-display font-light text-4xl text-foreground mb-2">Building your edit.</h2>
-            <p className="font-sans text-base text-muted-strong mb-16">
-              Musing
-              <span className="inline-flex ml-0.5">
-                <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
-                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
-                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
-              </span>
-            </p>
-            <div className="flex flex-col gap-6 text-left max-w-xs w-full">
-              {ANALYZING_STEPS.map(({ label, sub }, i) => (
-                <div key={i} className="flex items-start gap-4">
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 transition-all duration-700 ${
-                    i < analyzeStep ? "bg-accent" : i === analyzeStep ? "bg-foreground/80 shadow-[0_0_6px_rgba(240,232,216,0.4)]" : "bg-foreground/15"
-                  }`} />
-                  <div>
-                    <p className={`font-sans text-xs transition-colors duration-500 ${i <= analyzeStep ? "text-foreground" : "text-muted/50"}`}>{label}</p>
-                    <p className="font-sans text-[11px] text-muted/50 mt-0.5">{sub}</p>
-                  </div>
+
+            {/* Palette */}
+            <div className="flex flex-wrap gap-4 mb-10">
+              {(aesthetic.color_palette ?? []).map((color) => (
+                <div key={color} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ backgroundColor: colorToCSS(color) }} />
+                  <span className="font-sans text-xs text-muted-strong capitalize">{color}</span>
                 </div>
               ))}
             </div>
+
+            {/* Build my edit CTA */}
+            <div className="mb-14 flex items-center gap-6">
+              <button
+                onClick={handleBuildEdit}
+                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
+              >
+                Build my edit →
+              </button>
+              <p className="font-sans text-[11px] text-muted">
+                Claude will shortlist and style the best finds into a curated edit.
+              </p>
+            </div>
+
+            {/* Products by category */}
+            {CATEGORIES.map((cat) => (
+              <ShoppingSection
+                key={cat}
+                category={cat}
+                products={candidates[cat]}
+                userToken={userToken}
+              />
+            ))}
+
+            <div className="border-t border-border pt-7 flex items-center justify-between mt-4">
+              <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
+                MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
+              </p>
+              <button
+                onClick={handleBuildEdit}
+                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
+              >
+                Build my edit →
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* ── Edit loading ── */}
+        {step === "edit_loading" && (
+          <LoadingScreen
+            title="Building your edit."
+            steps={EDIT_STEPS}
+            currentStep={editStep}
+          />
         )}
 
         {/* ── Error ── */}
@@ -640,17 +862,27 @@ export default function DashboardPage() {
           <div className="fade-in flex flex-col items-center justify-center py-40 text-center">
             <h2 className="font-display font-light text-3xl text-foreground mb-3">Something went wrong.</h2>
             <p className="font-sans text-base text-muted-strong mb-12 max-w-sm">{errorMsg}</p>
-            <button onClick={reset} className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors">Try again</button>
+            <button onClick={reset} className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors">
+              Try again
+            </button>
           </div>
         )}
 
-        {/* ── Results ── */}
+        {/* ── Edit results ── */}
         {step === "results" && aesthetic && (
           <div className="fade-in-up">
-            <div className="mb-12">
-              <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">Personal edit</p>
-              <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">{selectedBoard?.name}</h1>
-              {aesthetic.mood && <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>}
+            <div className="flex items-start justify-between mb-12 gap-6">
+              <div>
+                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">Personal edit</p>
+                <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">{selectedBoard?.name}</h1>
+                {aesthetic.mood && <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>}
+              </div>
+              <button
+                onClick={handleBuildEdit}
+                className="flex-shrink-0 mt-1 px-6 py-2.5 border border-border hover:border-foreground/60 text-foreground font-sans text-[10px] tracking-widest uppercase transition-colors duration-200"
+              >
+                Regenerate
+              </button>
             </div>
 
             <div className="mb-14"><StyleDNACard dna={aesthetic} /></div>
@@ -668,6 +900,7 @@ export default function DashboardPage() {
                 <span className="font-display font-light italic text-base text-muted-strong">{outfitArc}</span>
               </div>
             )}
+
             <OutfitSection label="Outfit A" role={outfitARole} products={outfitA} startPosition={1}                    userToken={userToken} />
             <OutfitSection label="Outfit B" role={outfitBRole} products={outfitB} startPosition={outfitA.length + 1} userToken={userToken} />
 
@@ -689,9 +922,14 @@ export default function DashboardPage() {
               <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
                 MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
               </p>
-              <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors whitespace-nowrap">
-                ← Try another board
-              </button>
+              <div className="flex items-center gap-6">
+                <button onClick={() => setStep("shopping")} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors whitespace-nowrap">
+                  ← My picks
+                </button>
+                <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors whitespace-nowrap">
+                  ← New board
+                </button>
+              </div>
             </div>
           </div>
         )}

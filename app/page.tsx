@@ -146,7 +146,7 @@ export default function HomePage() {
       <main className="flex-1">
 
         {/* ══ 1. HERO — NAVY ══════════════════════════════════════════════════ */}
-        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-background">
+        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pb-24 overflow-hidden bg-background">
 
           {/* Radial glow */}
           <div className="absolute inset-0 pointer-events-none"

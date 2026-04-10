@@ -83,12 +83,13 @@ const JSON_SCHEMA_TEMPLATE = `{
     { "name": "...", "era": "...", "why": "..." }
   ],
   "category_queries": {
-    "dress": ["2-3 SHORT queries, 2-4 words max — focus on color + silhouette — e.g. 'ivory slip dress', 'black mini dress', 'floral midi dress'"],
-    "top": ["2-3 SHORT queries, 2-4 words max — e.g. 'cream knit top', 'white silk blouse', 'black bodysuit'"],
-    "bottom": ["2-3 SHORT queries, 2-4 words max — e.g. 'camel wide trouser', 'black mini skirt', 'linen wide pants'"],
-    "jacket": ["2-3 SHORT queries, 2-4 words max — e.g. 'camel coat', 'black leather jacket', 'oversized blazer'"],
-    "shoes": ["2-3 SHORT queries, 2-4 words max — e.g. 'black heels', 'tan sandals', 'white sneakers'"],
-    "bag": ["2-3 SHORT queries, 2-4 words max — e.g. 'black leather bag', 'woven tote', 'mini shoulder bag'"]
+    "IMPORTANT": "Queries must match how products are actually titled in a retail catalogue. Short. Simple. Color + type. NOT descriptive sentences.",
+    "dress": ["3 queries, MAX 3 words each — color + silhouette only — e.g. 'black midi dress', 'ivory slip dress', 'floral mini dress' — NOT 'dusty sage bias-cut linen slip dress'"],
+    "top": ["3 queries, MAX 3 words each — e.g. 'cream knit top', 'white blouse', 'black bodysuit' — NOT 'relaxed oversized cotton turtleneck'"],
+    "bottom": ["3 queries, MAX 3 words each — e.g. 'camel wide pants', 'black mini skirt', 'beige trousers' — NOT 'high-waisted flowy linen wide-leg trouser'"],
+    "jacket": ["3 queries, MAX 3 words each — e.g. 'camel coat', 'black blazer', 'leather jacket' — NOT 'structured oversized vintage-inspired blazer'"],
+    "shoes": ["3 queries, MAX 3 words each — e.g. 'black heels', 'tan sandals', 'white sneakers'"],
+    "bag": ["3 queries, MAX 3 words each — e.g. 'black leather bag', 'tan tote', 'mini shoulder bag'"]
   }
 }`;
 
@@ -207,11 +208,28 @@ export async function fetchCandidateProductsByCategory(
     };
   }
 
+  // Supplement Claude's queries with simple [color] + [type] fallbacks.
+  // Channel3 titles are short (e.g. "Black Viscose Blend Dress") so overly
+  // descriptive queries miss inventory. Simple color + type always hits something.
+  const baseColors = (dna.color_palette ?? [])
+    .slice(0, 4)
+    .map((c) => c.toLowerCase().split(" ").pop() ?? c)   // "dusty sage" → "sage"
+    .filter((c) => c.length > 2 && !/^\d/.test(c));
+
+  const augmented: Record<ClothingCategory, string[]> = {
+    dress:  [...(queries.dress  ?? []), ...baseColors.map((c) => `${c} dress`)],
+    top:    [...(queries.top    ?? []), ...baseColors.map((c) => `${c} top`)],
+    bottom: [...(queries.bottom ?? []), ...baseColors.map((c) => `${c} skirt`),  ...baseColors.map((c) => `${c} pants`)],
+    jacket: [...(queries.jacket ?? []), ...baseColors.map((c) => `${c} blazer`), ...baseColors.map((c) => `${c} coat`)],
+    shoes:  [...(queries.shoes  ?? []), ...baseColors.map((c) => `${c} heels`),  ...baseColors.map((c) => `${c} boots`)],
+    bag:    [...(queries.bag    ?? []), ...baseColors.map((c) => `${c} bag`)],
+  };
+
   const result = await searchByCategory(
-    queries as Record<ClothingCategory, string[]>,
+    augmented,
     dna.style_keywords,
     dna.price_range,
-    12,
+    20,           // up from 12 — more candidates → better shortlist picks
     userToken
   );
 
@@ -309,10 +327,10 @@ async function shortlistCandidates(
       idx:         i,
       title:       p.title,
       brand:       p.brand,
-      color:       p.color || "unknown",
-      material:    (p.material || "").slice(0, 80),
-      description: (p.description || "").slice(0, 120),
+      tags:        (p.aesthetic_tags ?? []).slice(0, 6).join(", "),
+      description: (p.description || "").slice(0, 100),
       price_range: p.price_range,
+      retailer:    p.retailer,
     }));
     return `${cat.toUpperCase()} (${pool.length} options):\n${JSON.stringify(items, null, 1)}`;
   }).join("\n\n");
@@ -376,7 +394,7 @@ Return ONLY this JSON:
     const cat = pick.category as ClothingCategory;
     if (!categories.includes(cat)) continue;
     const product = candidates[cat][pick.idx];
-    if (product && finalists[cat].length < 4) finalists[cat].push(product); // allow up to 4 per category
+    if (product && finalists[cat].length < 5) finalists[cat].push(product); // allow up to 5 per category
   }
 
   // Guarantee at least 2 picks per available category (to give Stage 2 real choice)
