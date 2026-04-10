@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
@@ -10,8 +10,17 @@ import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insi
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Board = { id: string; name: string };
-type Step  = "boards" | "shopping_loading" | "shopping" | "edit_loading" | "results" | "error";
+type Board     = { id: string; name: string };
+type Step      = "boards" | "shopping_loading" | "shopping" | "edit_loading" | "results" | "error";
+type ViewMode  = "grid" | "scroll";
+
+interface OutfitCard {
+  id:       string;
+  label:    string;
+  role:     string;
+  products: CuratedProduct[];
+  liked:    boolean;
+}
 
 interface PinData {
   id:          string;
@@ -500,6 +509,203 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
   );
 }
 
+// ── Outfit scroll card ────────────────────────────────────────────────────────
+
+function OutfitScrollCard({
+  card,
+  index,
+  onLike,
+  userToken,
+}: {
+  card:      OutfitCard;
+  index:     number;
+  onLike:    () => void;
+  userToken: string;
+}) {
+  const cols = card.products.length === 1 ? 1 : card.products.length === 2 ? 2 : 3;
+
+  return (
+    <div
+      className="relative flex flex-col bg-background"
+      style={{ height: "100svh", scrollSnapAlign: "start" }}
+      data-card-index={index}
+    >
+      {/* Product images — equal columns */}
+      <div className="flex-1 grid gap-px overflow-hidden" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        {card.products.map((p) => (
+          <a
+            key={p.objectID}
+            href={p.product_url || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative overflow-hidden bg-white/5 group"
+            onClick={() => trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: 1 })}
+          >
+            {p.image_url ? (
+              <Image
+                src={p.image_url}
+                alt={p.title}
+                fill
+                className="object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                unoptimized
+                sizes="33vw"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-5xl">▢</div>
+            )}
+          </a>
+        ))}
+      </div>
+
+      {/* Top overlay — outfit label + role */}
+      <div className="absolute top-16 left-5 z-10 pointer-events-none">
+        <p className="font-sans text-[8px] tracking-widest uppercase text-white/40 mb-0.5">{card.label}</p>
+        {card.role && (
+          <p className="font-display italic text-lg text-white/80 drop-shadow-sm">{card.role}</p>
+        )}
+      </div>
+
+      {/* Right side — like button */}
+      <button
+        onClick={onLike}
+        className="absolute right-4 bottom-40 z-10 flex flex-col items-center gap-1.5 group"
+      >
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+          card.liked
+            ? "bg-red-500/90 scale-110"
+            : "bg-background/60 backdrop-blur-sm border border-white/10 group-hover:scale-105"
+        }`}>
+          <span className={`text-xl leading-none transition-all duration-300 ${card.liked ? "text-white" : "text-white/60"}`}>
+            {card.liked ? "♥" : "♡"}
+          </span>
+        </div>
+        <span className="font-sans text-[8px] tracking-widest uppercase text-white/30">
+          {card.liked ? "liked" : "like"}
+        </span>
+      </button>
+
+      {/* Bottom overlay — product details */}
+      <div className="absolute bottom-0 left-0 right-16 z-10 px-5 py-6 bg-gradient-to-t from-background/90 via-background/50 to-transparent">
+        <div className="flex flex-col gap-2">
+          {card.products.map((p) => (
+            <a
+              key={p.objectID}
+              href={p.product_url || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group/item"
+            >
+              <p className="font-sans text-xs text-foreground/90 line-clamp-1 group-hover/item:text-accent transition-colors">
+                {p.title}
+              </p>
+              <p className="font-sans text-[10px] text-muted">
+                {p.brand}{p.price != null ? ` · $${p.price.toFixed(0)}` : ""}
+              </p>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Outfit scroll view (TikTok-style full-screen) ─────────────────────────────
+
+function OutfitScrollView({
+  cards,
+  onLike,
+  onNearEnd,
+  isGeneratingMore,
+  onClose,
+  userToken,
+}: {
+  cards:             OutfitCard[];
+  onLike:            (cardId: string) => void;
+  onNearEnd:         () => void;
+  isGeneratingMore:  boolean;
+  onClose:           () => void;
+  userToken:         string;
+}) {
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const nearEndFired  = useRef(false);
+
+  // Track active card via scroll position
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current) return;
+    const { scrollTop, clientHeight } = containerRef.current;
+    const idx = Math.round(scrollTop / clientHeight);
+    setActiveIdx(idx);
+    // Fire nearEnd when 2 cards from the end
+    if (!nearEndFired.current && idx >= cards.length - 2) {
+      nearEndFired.current = true;
+      onNearEnd();
+    }
+  }, [cards.length, onNearEnd]);
+
+  // Reset nearEnd gate when new cards arrive
+  useEffect(() => { nearEndFired.current = false; }, [cards.length]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Mini header */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-background/80 to-transparent pointer-events-none">
+        <button
+          onClick={onClose}
+          className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/60 hover:text-foreground transition-colors"
+        >
+          ← Grid
+        </button>
+        <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/30">
+          {activeIdx + 1} / {cards.length}
+        </span>
+      </div>
+
+      {/* Scroll container */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-scroll"
+        style={{ scrollSnapType: "y mandatory", scrollBehavior: "smooth" }}
+      >
+        {cards.map((card, i) => (
+          <OutfitScrollCard
+            key={card.id}
+            card={card}
+            index={i}
+            onLike={() => onLike(card.id)}
+            userToken={userToken}
+          />
+        ))}
+
+        {/* Generating more indicator */}
+        {isGeneratingMore && (
+          <div
+            className="flex items-center justify-center bg-background"
+            style={{ height: "100svh", scrollSnapAlign: "start" }}
+          >
+            <p className="font-display italic text-xl text-muted">
+              Musing<span className="inline-flex ml-0.5">
+                <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
+                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
+                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
+              </span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Scroll hint on first card */}
+      {activeIdx === 0 && cards.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
+          <span className="font-sans text-[8px] tracking-widest uppercase text-white/20">scroll</span>
+          <span className="text-white/20 text-xs">↓</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Loading step lists ────────────────────────────────────────────────────────
 
 const SHOPPING_STEPS = [
@@ -537,6 +743,9 @@ export default function DashboardPage() {
   const [editStep, setEditStep]             = useState(0);
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
+  const [viewMode, setViewMode]             = useState<ViewMode>("grid");
+  const [scrollCards, setScrollCards]       = useState<OutfitCard[]>([]);
+  const [isGeneratingMore, setIsGeneratingMore] = useState(false);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -628,7 +837,7 @@ export default function DashboardPage() {
   }, [selectedBoard, pins, userToken]);
 
   // Step 2: Build my edit — two-stage curation (also used for regenerate)
-  const handleBuildEdit = useCallback(async () => {
+  const handleBuildEdit = useCallback(async (isAppend = false) => {
     if (!aesthetic || !candidates) return;
     setStep("edit_loading");
     setEditStep(0);
@@ -651,12 +860,23 @@ export default function DashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? data.error ?? "Curation failed");
 
-      setProducts(data.products);
+      const ps: CuratedProduct[] = data.products ?? [];
+      setProducts(ps);
       setEditorialIntro(data.editorial_intro ?? "");
       setEditRationale(data.edit_rationale ?? "");
       setOutfitArc(data.outfit_arc ?? "");
       setOutfitARole(data.outfit_a_role ?? "");
       setOutfitBRole(data.outfit_b_role ?? "");
+
+      // Build scroll cards from the new outfits — append for regenerations
+      const ts = Date.now();
+      const newCards: OutfitCard[] = [];
+      const a = ps.filter((p) => p.outfit_group === "outfit_a");
+      const b = ps.filter((p) => p.outfit_group === "outfit_b");
+      if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
+      if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
+      setScrollCards((prev) => isAppend ? [...prev, ...newCards] : newCards);
+
       setStep("results");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
@@ -666,6 +886,54 @@ export default function DashboardPage() {
       clearTimeout(t2);
     }
   }, [aesthetic, candidates, selectedBoard, userToken]);
+
+  // Generate more outfits for infinite scroll — appends cards, doesn't replace results
+  const handleGenerateMore = useCallback(async () => {
+    if (!aesthetic || !candidates || isGeneratingMore) return;
+    setIsGeneratingMore(true);
+    try {
+      const res = await fetch("/api/curate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aesthetic, candidates, boardId: selectedBoard?.id, boardName: selectedBoard?.name, userToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) return; // silent fail — user just won't get more cards
+      const ps: CuratedProduct[] = data.products ?? [];
+      const ts = Date.now();
+      const a = ps.filter((p) => p.outfit_group === "outfit_a");
+      const b = ps.filter((p) => p.outfit_group === "outfit_b");
+      const newCards: OutfitCard[] = [];
+      if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
+      if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
+      setScrollCards((prev) => [...prev, ...newCards]);
+    } finally {
+      setIsGeneratingMore(false);
+    }
+  }, [aesthetic, candidates, selectedBoard, userToken, isGeneratingMore]);
+
+  // Like a scroll card — records preference, influences future generations
+  const handleLikeCard = useCallback((cardId: string) => {
+    setScrollCards((prev) => prev.map((c) => {
+      if (c.id !== cardId) return c;
+      const nowLiked = !c.liked;
+      // Record click signals for each product in the liked outfit
+      if (nowLiked) {
+        c.products.forEach((p) => {
+          trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: 1 });
+          fetch("/api/taste/click", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userToken,
+              product: { objectID: p.objectID, title: p.title, brand: p.brand, color: p.color, category: p.category, retailer: p.retailer, price_range: p.price_range, image_url: p.image_url },
+            }),
+          }).catch(() => {});
+        });
+      }
+      return { ...c, liked: nowLiked };
+    }));
+  }, [userToken]);
 
   const reset = () => {
     setStep("boards");
@@ -682,6 +950,9 @@ export default function DashboardPage() {
     setErrorMsg("");
     setShoppingStep(0);
     setEditStep(0);
+    setViewMode("grid");
+    setScrollCards([]);
+    setIsGeneratingMore(false);
   };
 
   const outfitA = products.filter((p) => p.outfit_group === "outfit_a");
@@ -814,7 +1085,7 @@ export default function DashboardPage() {
             {/* Build my edit CTA */}
             <div className="mb-14 flex items-center gap-6">
               <button
-                onClick={handleBuildEdit}
+                onClick={() => handleBuildEdit()}
                 className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
               >
                 Build my edit →
@@ -858,7 +1129,7 @@ export default function DashboardPage() {
                 MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
               </p>
               <button
-                onClick={handleBuildEdit}
+                onClick={() => handleBuildEdit()}
                 className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
               >
                 Build my edit →
@@ -889,6 +1160,19 @@ export default function DashboardPage() {
 
         {/* ── Edit results ── */}
         {step === "results" && aesthetic && (
+          <>
+          {/* TikTok scroll view — full-screen overlay */}
+          {viewMode === "scroll" && (
+            <OutfitScrollView
+              cards={scrollCards}
+              onLike={handleLikeCard}
+              onNearEnd={handleGenerateMore}
+              isGeneratingMore={isGeneratingMore}
+              onClose={() => setViewMode("grid")}
+              userToken={userToken}
+            />
+          )}
+
           <div className="fade-in-up">
             <div className="flex items-start justify-between mb-12 gap-6">
               <div>
@@ -896,12 +1180,33 @@ export default function DashboardPage() {
                 <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">{selectedBoard?.name}</h1>
                 {aesthetic.mood && <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>}
               </div>
-              <button
-                onClick={handleBuildEdit}
-                className="flex-shrink-0 mt-1 px-6 py-2.5 border border-border hover:border-foreground/60 text-foreground font-sans text-[10px] tracking-widest uppercase transition-colors duration-200"
-              >
-                Regenerate
-              </button>
+              <div className="flex items-center gap-3 flex-shrink-0 mt-1">
+                {/* View toggle */}
+                <div className="flex border border-border overflow-hidden">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 ${
+                      viewMode === "grid" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    Grid
+                  </button>
+                  <button
+                    onClick={() => setViewMode("scroll")}
+                    className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 border-l border-border ${
+                      viewMode === "scroll" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    Scroll
+                  </button>
+                </div>
+                <button
+                  onClick={() => handleBuildEdit()}
+                  className="px-6 py-2.5 border border-border hover:border-foreground/60 text-foreground font-sans text-[10px] tracking-widest uppercase transition-colors duration-200"
+                >
+                  Regenerate
+                </button>
+              </div>
             </div>
 
             <div className="mb-14"><StyleDNACard dna={aesthetic} /></div>
@@ -951,6 +1256,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          </>
         )}
       </main>
     </div>
