@@ -788,7 +788,7 @@ export default function DashboardPage() {
           <div className="fade-in-up">
             <div className="mb-10">
               <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">
-                {selectedBoard?.name}
+                {selectedBoard?.name} — {CATEGORIES.reduce((n, c) => n + candidates[c].length, 0)} picks
               </p>
               <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight capitalize mb-1">
                 {aesthetic.primary_aesthetic}
@@ -824,15 +824,34 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Products by category */}
-            {CATEGORIES.map((cat) => (
-              <ShoppingSection
-                key={cat}
-                category={cat}
-                products={candidates[cat]}
-                userToken={userToken}
-              />
-            ))}
+            {/* All products — ranked by aesthetic relevance */}
+            {(() => {
+              const terms = [
+                ...(aesthetic.style_keywords ?? []),
+                ...(aesthetic.color_palette ?? []).map((c) => c.toLowerCase().split(" ").pop() ?? c),
+                aesthetic.primary_aesthetic?.toLowerCase() ?? "",
+              ].map((t) => t.toLowerCase());
+
+              const scored = CATEGORIES.flatMap((cat) => candidates[cat]).map((p) => {
+                const haystack = [
+                  ...(p.aesthetic_tags ?? []),
+                  (p.title ?? "").toLowerCase(),
+                  (p.description ?? "").toLowerCase(),
+                ].join(" ");
+                const score = terms.filter((t) => t.length > 2 && haystack.includes(t)).length;
+                return { product: p, score };
+              });
+
+              scored.sort((a, b) => b.score - a.score);
+
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-14">
+                  {scored.map(({ product }) => (
+                    <ShopCard key={product.objectID} product={product} userToken={userToken} />
+                  ))}
+                </div>
+              );
+            })()}
 
             <div className="border-t border-border pt-7 flex items-center justify-between mt-4">
               <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
