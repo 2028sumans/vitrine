@@ -228,6 +228,50 @@ export async function searchByCategory(
   };
 }
 
+// Fetch full product records by objectID (used after Pinecone visual search)
+export async function getProductsByIds(objectIDs: string[]): Promise<AlgoliaProduct[]> {
+  if (!objectIDs.length) return [];
+  const client = getClient();
+
+  // Algolia getObjects returns results in same order as requested IDs
+  const res = await client.getObjects({
+    requests: objectIDs.map((id) => ({
+      indexName:            INDEX_NAME,
+      objectID:             id,
+      attributesToRetrieve: [
+        "objectID", "title", "brand", "price", "price_range",
+        "color", "material", "description", "image_url", "images",
+        "product_url", "retailer", "aesthetic_tags", "category",
+      ],
+    })),
+  });
+
+  return (res.results as AlgoliaProduct[]).filter(
+    (p) => p?.objectID && p.image_url?.startsWith("http") && !p.image_url.includes("placeholder")
+  );
+}
+
+// ── Group a flat product list into CategoryCandidates ─────────────────────────
+// Used after visual search returns an ordered flat list — preserves relevance
+// ranking within each category bucket.
+
+export function groupByCategory(
+  products:     AlgoliaProduct[],
+  maxPerCat = 20
+): CategoryCandidates {
+  const buckets: CategoryCandidates = { dress: [], top: [], bottom: [], jacket: [], shoes: [], bag: [] };
+  const categories = Object.keys(buckets) as ClothingCategory[];
+
+  for (const p of products) {
+    const cat = (p.category ?? "") as ClothingCategory;
+    if (categories.includes(cat) && buckets[cat].length < maxPerCat) {
+      buckets[cat].push(p);
+    }
+  }
+
+  return buckets;
+}
+
 // Legacy flat search — kept for backwards compatibility
 export async function searchByMultipleQueries(
   queries:       string[],

@@ -1,12 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextResponse }                         from "next/server";
 import {
   analyzeAesthetic,
   fetchCandidateProductsByCategory,
   filterByAvoids,
   filterMensItems,
-} from "@/lib/ai";
-import { loadTasteMemory, saveStyleDNA } from "@/lib/taste-memory";
-import type { VisionImage } from "@/lib/types";
+}                                               from "@/lib/ai";
+import { getProductsByIds, groupByCategory }    from "@/lib/algolia";
+import { searchByBoardImages }                  from "@/lib/embeddings";
+import { loadTasteMemory, saveStyleDNA }        from "@/lib/taste-memory";
+import type { VisionImage }                     from "@/lib/types";
+
+// Use visual search if Pinecone is configured; fall back to Algolia text search
+const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
 
 async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
   const results = await Promise.allSettled(
@@ -52,6 +57,7 @@ export async function POST(request: Request) {
   try {
     const tasteMemory = await loadTasteMemory(token);
 
+    // ── Aesthetic analysis (always runs — needed for StyleDNA + Claude prompt) ─
     const aesthetic = await analyzeAesthetic(
       boardName,
       pinDescriptions,
@@ -59,19 +65,45 @@ export async function POST(request: Request) {
       tasteMemory.previousDNAs
     );
 
-    const allAvoids = [
-      ...(aesthetic.avoids ?? []),
-      ...tasteMemory.softAvoids,
-    ];
+    const allAvoids = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
 
-    const rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
+    // ── Product retrieval: visual search OR text search ────────────────────────
+    let rawCandidates: import("@/lib/algolia").CategoryCandidates;
+
+    if (USE_VISUAL_SEARCH && (pinImageUrls ?? []).length > 0) {
+      console.log("[shop] Using visual embedding search via Pinecone…");
+
+      // Embed board images → cluster by repetition → weighted Pinecone queries
+      const objectIDs = await searchByBoardImages(
+        pinImageUrls.slice(0, 20),
+        120,                     // retrieve 120 visually nearest products
+        aesthetic.price_range
+      );
+
+      console.log(`[shop] Pinecone returned ${objectIDs.length} objectIDs`);
+
+      // Fetch full product records from Algolia (preserves ranking order)
+      const products  = await getProductsByIds(objectIDs);
+      rawCandidates   = groupByCategory(products, 20);
+
+      console.log("[shop] Visual candidates by category:",
+        Object.fromEntries(
+          (["dress","top","bottom","jacket","shoes","bag"] as const).map((c) => [c, rawCandidates[c].length])
+        )
+      );
+    } else {
+      // Fallback: classic Algolia text search (runs before Pinecone is set up,
+      // or when no board images are available)
+      console.log("[shop] Using Algolia text search (Pinecone not configured or no board images).");
+      rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
+    }
+
+    // ── Filters (same regardless of retrieval method) ─────────────────────────
+    const afterAvoids  = filterByAvoids(rawCandidates, allAvoids);
+    const candidates   = filterMensItems(afterAvoids);
 
     const cats = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
-    console.log("[shop] Algolia candidates:", Object.fromEntries(cats.map((c) => [c, rawCandidates[c].length])));
-
-    const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
-    const candidates  = filterMensItems(afterAvoids);
-    console.log("[shop] After avoid+gender filter:", Object.fromEntries(cats.map((c) => [c, candidates[c].length])));
+    console.log("[shop] Final candidates:", Object.fromEntries(cats.map((c) => [c, candidates[c].length])));
 
     void saveStyleDNA(token, boardId, boardName, aesthetic)
       .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));

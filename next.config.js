@@ -3,6 +3,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Don't bundle these — they need native Node.js resolution (WASM, ONNX runtime)
+  serverExternalPackages: ["@xenova/transformers", "onnxruntime-node"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.asos-media.com" },
