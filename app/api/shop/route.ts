@@ -3,6 +3,7 @@ import {
   analyzeAesthetic,
   fetchCandidateProductsByCategory,
   filterByAvoids,
+  filterMensItems,
 } from "@/lib/ai";
 import { loadTasteMemory, saveStyleDNA } from "@/lib/taste-memory";
 import type { VisionImage } from "@/lib/types";
@@ -68,8 +69,9 @@ export async function POST(request: Request) {
     const cats = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
     console.log("[shop] Algolia candidates:", Object.fromEntries(cats.map((c) => [c, rawCandidates[c].length])));
 
-    const candidates = filterByAvoids(rawCandidates, allAvoids);
-    console.log("[shop] After avoid-filter:", Object.fromEntries(cats.map((c) => [c, candidates[c].length])));
+    const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
+    const candidates  = filterMensItems(afterAvoids);
+    console.log("[shop] After avoid+gender filter:", Object.fromEntries(cats.map((c) => [c, candidates[c].length])));
 
     void saveStyleDNA(token, boardId, boardName, aesthetic)
       .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));

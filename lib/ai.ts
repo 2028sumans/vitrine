@@ -276,6 +276,31 @@ export async function fetchCandidateProductsByCategory(
   return result;
 }
 
+// ── Step 2b-pre: Hard gender filter — runs before any AI call ────────────────
+// Catches "Mens Gold Blazer", "Men's Coat", "boys hoodie" etc. by title/description.
+// Also checks the `gender` field if the importer stored it.
+
+const MENS_RE = /\b(mens?|men['']s|boys?|boy['']s|for\s+him)\b/i;
+
+export function filterMensItems(candidates: CategoryCandidates): CategoryCandidates {
+  const filter = (pool: AlgoliaProduct[]) =>
+    pool.filter((p) => {
+      // Check stored gender field (populated by Channel3 importer)
+      if ((p as AlgoliaProduct & { gender?: string }).gender === "male") return false;
+      // Check title + first 120 chars of description
+      const text = `${p.title ?? ""} ${(p.description ?? "").slice(0, 120)}`;
+      return !MENS_RE.test(text);
+    });
+  return {
+    dress:  filter(candidates.dress),
+    top:    filter(candidates.top),
+    bottom: filter(candidates.bottom),
+    jacket: filter(candidates.jacket),
+    shoes:  filter(candidates.shoes),
+    bag:    filter(candidates.bag),
+  };
+}
+
 // ── Step 2b: Avoids filter ────────────────────────────────────────────────────
 
 function extractAvoidKeywords(avoids: string[]): string[] {
@@ -320,6 +345,20 @@ async function shortlistCandidates(
 ): Promise<CategoryCandidates> {
   const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
 
+  // Build product image blocks (up to 3 per category = 18 max) so Claude can
+  // visually verify gender, silhouette and vibe — not just trust the title.
+  const productImgBlocks: Array<{ type: "image"; source: { type: "url"; url: string } }> = [];
+  const productImgKey: string[] = [];
+
+  for (const cat of categories) {
+    candidates[cat].slice(0, 3).forEach((p, i) => {
+      if (p.image_url?.startsWith("http")) {
+        productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: p.image_url } });
+        productImgKey.push(`Img ${productImgBlocks.length} → ${cat.toUpperCase()} idx ${i}: "${p.title}"`);
+      }
+    });
+  }
+
   const categoryBlocks = categories.map((cat) => {
     const pool = candidates[cat];
     if (pool.length === 0) return `${cat.toUpperCase()}: (no products — skip this category)`;
@@ -335,15 +374,27 @@ async function shortlistCandidates(
     return `${cat.toUpperCase()} (${pool.length} options):\n${JSON.stringify(items, null, 1)}`;
   }).join("\n\n");
 
-  const hasBoardImages = boardImages.length > 0;
+  const hasBoardImages   = boardImages.length > 0;
+  const hasProductImages = productImgBlocks.length > 0;
+
+  const imageKeySection = hasProductImages
+    ? `\nPRODUCT IMAGES (sent above, after any board images):\n${productImgKey.join("\n")}\n`
+    : "";
 
   const promptText =
-    `You are a senior fashion editor doing a first-pass curation.` +
+    `You are a senior fashion editor doing a first-pass curation for WOMEN'S FASHION ONLY.` +
     (hasBoardImages
-      ? ` The ${boardImages.length} images above are the client's Pinterest board — use them as mood/vibe reference, not as a strict palette checklist.`
+      ? ` The first ${boardImages.length} image(s) are the client's Pinterest board — use them as mood/vibe reference.`
+      : "") +
+    (hasProductImages
+      ? ` The remaining ${productImgBlocks.length} image(s) are product photos — look at them carefully.`
       : "") +
     `\n\nYour job: pick the 6-8 BEST products from the candidates below that could work for this client.
 
+HARD RULES — eliminate immediately, no exceptions:
+1. ANY item that is clearly designed for men (male cut, male model wearing it, "mens" in title) → REJECT.
+2. Any item that hits the hard avoids list → REJECT.
+${imageKeySection}
 CLIENT:
 Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? ` — ${dna.secondary_aesthetic}` : ""}
 References: ${(dna.style_references ?? []).map((r) => `${r.name} (${r.era})`).join(", ") || "none"}
@@ -355,10 +406,9 @@ CANDIDATES (skip any category marked "no products"):
 ${categoryBlocks}
 
 TASK: Pick the 6-8 products that feel most true to this client's world.
-- Be GENEROUS with interpretation — different pieces can express different facets of the same aesthetic (e.g., romantic vs. edgy, classic vs. maximalist)
-- Only hard-eliminate things that hit the avoids list or are completely tonally wrong
-- If a category has products, pick at least 1 (up to 3 from dress/top since those dominate the catalogue)
-- Do NOT worry about strict palette matching — vibe matters more than exact color
+- Be GENEROUS with interpretation — different pieces can express different facets of the same aesthetic
+- If a category has products, pick at least 1 (up to 3 from dress/top since those dominate)
+- Vibe matters more than exact palette match
 
 Return ONLY this JSON:
 {
@@ -375,7 +425,8 @@ Return ONLY this JSON:
       {
         role: "user",
         content: [
-          ...toImageBlocks(boardImages, 8),
+          ...toImageBlocks(boardImages, 6),
+          ...productImgBlocks,
           { type: "text" as const, text: promptText },
         ],
       },
@@ -459,7 +510,9 @@ async function buildOutfitsWithVision(
       `same fabric weight, brand tier, color story, silhouette. If a finalist closely matches a clicked product, prefer it.\n`
     : "";
 
-  const promptText = `You are a fashion editor making the final call on a curated edit. You can see the product images above. Trust what you see.
+  const promptText = `You are a fashion editor making the final call on a WOMEN'S ONLY curated edit. You can see the product images above. Trust what you see.
+
+ABSOLUTE RULE: If ANY product image shows a male model, a suit jacket with male lapels, or anything clearly designed for men — do NOT select it. Reject immediately regardless of the title.
 
 VOICE RULES — apply to every piece of text you write:
 - No em dashes. Use a period or rewrite the sentence instead.
