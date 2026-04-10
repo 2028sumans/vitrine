@@ -534,14 +534,63 @@ export async function curateProducts(
 
   const boardSection = B > 0
     ? `IMAGES 1–${B}: THE CLIENT'S PINTEREST BOARD
-These are the first ${B} images. Study them before looking at anything else.
-As you look, notice:
-  • COLOR TEMPERATURE — warm/cool? muted/saturated? which specific tones repeat?
-  • SILHOUETTES — fitted or relaxed? structured or fluid? long or cropped? body-conscious or draped?
-  • FABRIC WEIGHT & TEXTURE — linen-light? heavy knit? silk-smooth? raw/worn? polished?
-  • MOOD & ENERGY — is it quiet and unhurried, or sharp and considered? romantic or spare?
-  • WHAT IS CONSPICUOUSLY ABSENT — logos? color? shine? anything they are clearly avoiding?
-Hold this complete visual picture as your scoring reference for every product below.`
+Study every board image carefully before looking at any products.
+Build a complete visual vocabulary across all 8 dimensions below.
+Note what REPEATS — anything appearing 2+ times is a strong preference signal.
+Note what is ABSENT — missing things are avoids just as much as stated ones.
+
+  1. COLOR
+     • Specific tones (not "beige" — warm oat? cool stone? dusty blush?)
+     • Temperature: warm-leaning or cool-leaning overall?
+     • Saturation: muted/tonal or rich/saturated?
+     • Range: tight monochromatic or broader palette?
+     • Metals/neutrals if present: gold or silver? warm or cool hardware?
+
+  2. PATTERN
+     • Dominant surface: solid, or patterned?
+     • If patterns appear: what types? (floral, stripe, check/plaid, abstract, animal, geometric, botanical, paisley)
+     • Scale of any patterns: micro/subtle or macro/bold?
+     • Pattern density: sparse and airy or dense and all-over?
+     • Does pattern repeat across the board, or is solid the norm with pattern as accent?
+
+  3. SILHOUETTE & PROPORTION
+     • Body relationship: body-conscious, relaxed, or oversized?
+     • Length language: mini, midi, maxi — or a mix?
+     • Waist: defined, dropped, or ignored?
+     • Proportion play: cropped top + high-waist? long + long? structured + loose?
+     • Does the board favor volume somewhere (sleeve, skirt, wide leg)?
+
+  4. FABRIC & TEXTURE
+     • Weight: sheer and light, medium-weight, or substantial and heavy?
+     • Hand: fluid and drapey, crisp and structured, or textured and tactile?
+     • Finish: matte (linen, cotton, suede) or sheen (satin, silk, leather, patent)?
+     • Texture language: smooth, ribbed, napped, woven, knit, rough?
+
+  5. CONSTRUCTION & DETAIL
+     • Tailored/structured pieces vs unstructured/relaxed?
+     • Embellishment language: minimal, subtle detail, or decorated?
+     • Hardware: are zippers, buttons, buckles visible? what finish?
+     • Finishing: raw hems? pressed seams? exposed stitching? polished or undone?
+     • Specific recurring details (wrap ties, pleating, ruching, smocking, cut-outs, ruffles)?
+
+  6. STYLING LOGIC
+     • How are pieces layered or combined in the board images?
+     • Tucked or untucked? belted or unbelted? knotted?
+     • Shoe/bag energy that recurs: heeled or flat? structured or slouchy? minimal or statement?
+     • Accessories: jewelry tone, scale, presence or absence?
+
+  7. SETTING & CONTEXT
+     • Where are these images shot? (studio, urban, natural, interior, editorial)
+     • Lighting mood: bright and airy, moody and dim, warm golden, cool clinical?
+     • Does the setting suggest a particular lifestyle or world?
+
+  8. WHAT IS CONSPICUOUSLY ABSENT
+     • Logos, branding, heavy graphics?
+     • Neon or very saturated colors?
+     • Particular silhouettes that simply do not appear (bodycon, oversized, etc.)?
+     • Any category that appears zero times?
+
+Hold this complete vocabulary as your scoring rubric. Every product gets scored against it.`
     : `(No board images — use the StyleDNA text as your sole reference.)`;
 
   const productSection = productImgBlocks.length > 0
@@ -553,7 +602,7 @@ ${labelMap.filter((e) => e.imgSlot !== null).map((e) => `  Img ${B + e.imgSlot!}
 `You are a senior fashion editor. This is a WOMEN'S FASHION curation. No menswear, ever.
 
 ═══════════════════════════════════════
-STEP 1 — READ THE BOARD (images 1–${B || "?"})
+STEP 1 — BUILD THE BOARD'S VISUAL VOCABULARY (images 1–${B || "?"})
 ═══════════════════════════════════════
 ${boardSection}
 
@@ -562,17 +611,19 @@ STEP 2 — SCORE EVERY PRODUCT IMAGE
 ═══════════════════════════════════════
 ${productSection}
 
-For each product image, run this visual checklist against what you saw in the board:
+For each product image, check it against the board vocabulary you built:
 
-  ✓ COLOR: Is the specific tone/warmth/saturation in this image consistent with the board's color story?
-    (Not just "is it beige" — does this particular shade of beige match the board's warmth or coolness?)
-  ✓ SILHOUETTE: Does this cut, drape, and proportion belong in the board's visual world?
-  ✓ TEXTURE/WEIGHT: Does this fabric feel like it could appear on this board? Same lightness or heaviness?
-  ✓ MOOD: Does this piece carry the same energy as the board — same level of polish, restraint, or drama?
+  ✓ COLOR MATCH: Does the specific tone/warmth/saturation align with the board's color story?
+  ✓ PATTERN MATCH: Does the surface language match? (solid board → solid or very subtle products; patterned board → what type/scale of pattern fits?)
+  ✓ SILHOUETTE MATCH: Does this cut, length, and proportion belong in the board's world?
+  ✓ FABRIC/TEXTURE MATCH: Same weight class? Same finish family (matte vs sheen)?
+  ✓ DETAIL/CONSTRUCTION MATCH: Does the level of embellishment and finishing feel consistent?
+  ✓ MOOD MATCH: Same energy — same level of polish, restraint, drama, or ease?
 
-KEEP if it passes 3 of 4. DISCARD if it passes 1 or fewer.
-HARD DISCARD: male model visible, or clearly male-cut garment.
-HARD DISCARD: hits any item on the client's avoids list.
+KEEP if it passes 4 of 6. REJECT if it passes 2 or fewer.
+HARD REJECT: male model or clearly male-cut garment.
+HARD REJECT: matches any item on the client's avoids list.
+STRONG BONUS: product shares a specific element that REPEATS on the board (a recurring color, a recurring pattern type, a recurring silhouette).
 
 ═══════════════════════════════════════
 STEP 3 — BUILD TWO OUTFITS
