@@ -611,7 +611,14 @@ export default function DashboardPage() {
               <div className="absolute inset-0 rounded-full border border-transparent border-t-foreground/60 animate-spin" style={{ animationDuration: "1.4s" }} />
             </div>
             <h2 className="font-display font-light text-4xl text-foreground mb-2">Building your edit.</h2>
-            <p className="font-sans text-base text-muted-strong mb-16">About 35 seconds — being thorough.</p>
+            <p className="font-sans text-base text-muted-strong mb-16">
+              Musing
+              <span className="inline-flex ml-0.5">
+                <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
+                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
+                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
+              </span>
+            </p>
             <div className="flex flex-col gap-6 text-left max-w-xs w-full">
               {ANALYZING_STEPS.map(({ label, sub }, i) => (
                 <div key={i} className="flex items-start gap-4">
