@@ -334,10 +334,9 @@ export function filterByAvoids(
   };
 }
 
-// ── Step 3a: Visual shortlist (48 → 12) ──────────────────────────────────────
-// Board images ARE the reference. Claude asks: "could this product appear on that board?"
+// (shortlistCandidates removed — we go straight to image-first outfit build)
 
-async function shortlistCandidates(
+async function _unused_shortlistCandidates(
   dna:         StyleDNA,
   candidates:  CategoryCandidates,
   client:      Anthropic,
@@ -463,67 +462,101 @@ Return ONLY this JSON:
   return finalists;
 }
 
-// ── Step 3b: Outfit build with vision + narrative arc + click history ─────────
+// ── Step 3: Curate — direct image-first outfit build (no shortlist stage) ────
+// Every product with an image is shown directly to Claude.
+// Decision weight: 80% what Claude sees in the image, 20% text metadata.
 
-async function buildOutfitsWithVision(
+export async function curateProducts(
   dna:          StyleDNA,
-  finalists:    CategoryCandidates,
-  client:       Anthropic,
-  clickSignals: ClickSignal[] = [],
-  trendsBlock:  string = ""
+  candidates:   CategoryCandidates,
+  boardImages:  VisionImage[]  = [],
+  clickSignals: ClickSignal[]  = [],
+  trendsBlock:  string         = ""
 ): Promise<CurationResult> {
   const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
 
-  const labelMap: Array<{ label: string; product: AlgoliaProduct }> = [];
+  const totalCandidates = categories.reduce((sum, cat) => sum + candidates[cat].length, 0);
+  if (totalCandidates === 0) {
+    return { products: [], editorial_intro: "", edit_rationale: "", outfit_arc: "", outfit_a_role: "", outfit_b_role: "" };
+  }
+
+  const client = getClient();
+
+  // ── Build label map + image blocks ──────────────────────────────────────────
+  // Label: "DRESS-3", "TOP-0", etc. — numeric index per category.
+  // Cap at 10 per category (60 total product images) to stay well within context.
+  // Products without images are still listed in text so Claude knows they exist.
+
+  type Entry = { label: string; product: AlgoliaProduct; imgSlot: number | null };
+  const labelMap: Entry[] = [];
+  const productImgBlocks: Array<{ type: "image"; source: { type: "url"; url: string } }> = [];
+
   for (const cat of categories) {
-    finalists[cat].forEach((product, si) => {
-      labelMap.push({ label: `${cat.toUpperCase()}-${si === 0 ? "A" : "B"}`, product });
+    candidates[cat].forEach((product, idx) => {
+      const hasImg = product.image_url?.startsWith("http") && productImgBlocks.length < 60;
+      const label  = `${cat.toUpperCase()}-${idx}`;
+      if (hasImg) {
+        productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: product.image_url } });
+        labelMap.push({ label, product, imgSlot: productImgBlocks.length }); // 1-based
+      } else {
+        labelMap.push({ label, product, imgSlot: null });
+      }
     });
   }
 
-  const imageEntries = labelMap.filter((e) => e.product.image_url?.startsWith("http"));
+  // Board images come first, then product images
+  const boardImgBlocks = toImageBlocks(boardImages, 6);
 
-  const imageBlocks = imageEntries.map((e) => ({
-    type:   "image" as const,
-    source: { type: "url" as const, url: e.product.image_url },
-  }));
-
-  const imageKeyText = imageEntries.length > 0
-    ? `PRODUCT IMAGES (above, in this order):\n${imageEntries.map((e, i) =>
-        `  Image ${i + 1} → ${e.label}: "${e.product.title}" by ${e.product.brand}`).join("\n")}`
-    : "(No product images — rely on text descriptions only.)";
-
-  const catalogueText = categories.map((cat) => {
-    const pool = finalists[cat];
-    if (pool.length === 0) return null; // skip empty categories
-    return pool.map((p, si) => {
-      const label = `${cat.toUpperCase()}-${si === 0 ? "A" : "B"}`;
-      return `  ${label}: "${p.title}" — ${p.brand} | colour: ${p.color || "unspecified"} | material: ${(p.material || "unknown").slice(0, 60)} | ${p.price_range} | ${p.retailer}`;
-    }).join("\n");
-  }).filter(Boolean).join("\n\n");
-
-  // Click history block — confirmed positive taste signals
-  const clickBlock = clickSignals.length > 0
-    ? `\nCONFIRMED TASTE SIGNALS — products this person has previously clicked through to:\n` +
-      clickSignals.slice(0, 10).map((s) =>
-        `  • "${s.title}" — ${s.brand} | ${s.color} | ${s.category} | ${s.price_range}`
-      ).join("\n") +
-      `\n\nThese are not aspirational — they are proven taste. Bias your selections toward similar choices: ` +
-      `same fabric weight, brand tier, color story, silhouette. If a finalist closely matches a clicked product, prefer it.\n`
+  const boardImgNote = boardImgBlocks.length > 0
+    ? `The first ${boardImgBlocks.length} image(s) are the client's Pinterest board — your aesthetic reference.`
     : "";
 
-  const promptText = `You are a fashion editor making the final call on a WOMEN'S ONLY curated edit. You can see the product images above. Trust what you see.
+  const productImgNote = productImgBlocks.length > 0
+    ? `The next ${productImgBlocks.length} image(s) are product photos, in this order:\n` +
+      labelMap
+        .filter((e) => e.imgSlot !== null)
+        .map((e) => `  Img ${boardImgBlocks.length + e.imgSlot!} → ${e.label}: "${e.product.title}" (${e.product.brand})`)
+        .join("\n")
+    : "";
 
-ABSOLUTE RULE: If ANY product image shows a male model, a suit jacket with male lapels, or anything clearly designed for men — do NOT select it. Reject immediately regardless of the title.
+  // Text rows for all products (image-verified ones + text-only ones)
+  const catalogueText = categories.map((cat) => {
+    const pool = candidates[cat];
+    if (!pool.length) return null;
+    const rows = pool.map((p, idx) => {
+      const label   = `${cat.toUpperCase()}-${idx}`;
+      const entry   = labelMap.find((e) => e.label === label);
+      const imgMark = entry?.imgSlot != null ? `[Img ${boardImgBlocks.length + entry.imgSlot}]` : "[no image]";
+      return `  ${label} ${imgMark}: "${p.title}" — ${p.brand} | ${p.color || "?"} | ${(p.material || "").slice(0, 50)} | ${p.price_range} | ${p.retailer}`;
+    }).join("\n");
+    return `${cat.toUpperCase()}:\n${rows}`;
+  }).filter(Boolean).join("\n\n");
 
-VOICE RULES — apply to every piece of text you write:
-- No em dashes. Use a period or rewrite the sentence instead.
-- No superlatives: not "perfect", "stunning", "elevated", "effortless", "impeccable", "iconic".
-- No hype language: not "statement piece" as a cliche, not "takes it to the next level", not "the epitome of".
-- Write like someone who already knows — quiet confidence, not persuasion.
-- Short sentences. Specific observations. No filler.
+  const clickBlock = clickSignals.length > 0
+    ? `CONFIRMED TASTE SIGNALS (products this person has clicked before — proven taste, not aspirational):\n` +
+      clickSignals.slice(0, 8).map((s) =>
+        `  • "${s.title}" — ${s.brand} | ${s.color} | ${s.category} | ${s.price_range}`
+      ).join("\n") + `\nBias toward similar silhouette, fabric weight, brand tier, color story.\n\n`
+    : "";
 
-CLIENT PROFILE:
+  const promptText =
+`You are a fashion editor curating a WOMEN'S ONLY personal edit. ${boardImgNote}
+
+${productImgNote}
+
+HOW TO DECIDE — strictly in this order:
+1. IMAGE (80%): Look at each product photo. Ask: does this silhouette, drape, texture, and color feel right for this person? Trust your eye completely.
+2. TEXT (20%): Use the label, brand, material and price only as a tiebreaker when two images feel equally strong.
+
+HARD ELIMINATES — no exceptions:
+- Any product image showing a male model or clearly male-cut garment → skip it.
+- Anything matching the client's hard avoids list → skip it.
+
+VOICE RULES (for all written copy):
+- No em dashes. No superlatives (perfect, stunning, elevated, effortless, iconic). No hype.
+- Write like someone who already knows. Quiet confidence, short sentences, specific observations.
+
+CLIENT:
 Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? `, ${dna.secondary_aesthetic}` : ""}
 Mood: ${dna.mood}
 Palette: ${dna.color_palette.join(", ")}
@@ -531,43 +564,33 @@ Silhouettes: ${(dna.silhouettes ?? []).join(", ")}
 Reaches for: ${dna.key_pieces.join(", ")}
 Hard avoids: ${dna.avoids.join(", ")}
 Budget: ${dna.price_range}
-Style summary: ${dna.summary}
 ${dna.style_references?.length ? `References: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
-${clickBlock}${trendsBlock ? `\n${trendsBlock}\n` : ""}
-${imageKeyText}
+${dna.summary ? `In their own words: ${dna.summary}` : ""}
 
-FINALISTS BY CATEGORY:
+${clickBlock}${trendsBlock ? `${trendsBlock}\n` : ""}FULL PRODUCT POOL:
 ${catalogueText}
 
-YOUR TASK:
-1. Look at the images first. Judge every product visually — silhouette, drape, color, texture, vibe. Text is only a tiebreaker.
-2. Select 4 products for Outfit A and 4 for Outfit B (8 total). You can use two dresses across different outfits if that's what works.
-3. Each outfit should represent a different side of this client's taste.
-4. ABSOLUTE RULE: If an image shows a male model or a clearly male-cut garment → do not select it.
-
-OUTFIT ARC:
-The two outfits should have a natural relationship. Name it plainly: "day / night", "soft / sharp", "easy / considered", etc. Keep it to 3-4 words. Give each outfit a short phrase that captures its feeling, not its occasion.
-
-Rules:
-- ONLY select labels that exist in the FINALISTS list. Never invent labels.
-- Each outfit needs 4 pieces.
-- Hard eliminate anything that hits the avoids list.
-- how_to_wear: one specific, practical styling idea. Reference another selected product by its full title if it makes sense.
+TASK:
+- Select 4 products for Outfit A and 4 for Outfit B (8 total).
+- Each outfit captures a different facet of this client's world.
+- You can use two dresses across outfits if that's what the images call for.
+- Outfits should have a named arc: "day / night", "soft / sharp", "easy / considered", etc. (3-4 words).
+- ONLY use labels that appear in the product pool above. Never invent a label.
 
 Return ONLY valid JSON:
 {
-  "outfit_arc": "3-4 words, e.g. 'soft / sharp'",
-  "outfit_a_role": "a short phrase for Outfit A, e.g. 'something to wear slowly'",
-  "outfit_b_role": "a short phrase for Outfit B, e.g. 'when you want to be looked at'",
-  "editorial_intro": "2 sentences. Quiet, specific, no hype. No em dashes. Describe what this edit is actually for.",
+  "outfit_arc": "3-4 words",
+  "outfit_a_role": "a short phrase, e.g. 'something to wear slowly'",
+  "outfit_b_role": "a short phrase, e.g. 'when you want to be looked at'",
+  "editorial_intro": "2 sentences. Quiet, specific, no hype. No em dashes.",
   "edit_rationale": "1 sentence. Plain language. What connects these pieces.",
   "selections": [
     {
       "category": "dress",
-      "label": "DRESS-A",
+      "label": "DRESS-2",
       "outfit_group": "outfit_a",
       "outfit_role": "the anchor | the layer | the detail | the easy one | the considered one",
-      "style_note": "One sentence. Specific to this piece and this person. No em dashes, no superlatives.",
+      "style_note": "One sentence. Specific to this piece and this client. No em dashes, no superlatives.",
       "how_to_wear": "One practical styling idea. Specific, not generic."
     }
   ]
@@ -575,16 +598,15 @@ Return ONLY valid JSON:
 
   const message = await client.messages.create({
     model:      "claude-sonnet-4-6",
-    max_tokens: 2500,
-    messages: [
-      {
-        role: "user",
-        content: [
-          ...imageBlocks,
-          { type: "text" as const, text: promptText },
-        ],
-      },
-    ],
+    max_tokens: 2800,
+    messages: [{
+      role: "user",
+      content: [
+        ...boardImgBlocks,
+        ...productImgBlocks,
+        { type: "text" as const, text: promptText },
+      ],
+    }],
   });
 
   const rawText = message.content[0].type === "text" ? message.content[0].text : "";
@@ -606,28 +628,26 @@ Return ONLY valid JSON:
     }>;
   };
 
+  const clean = (s: string) => (s ?? "").replace(/\s*—\s*/g, ". ").replace(/\s*–\s*/g, ", ").trim();
+
   let raw: RawResult;
   try {
     raw = JSON.parse(json) as RawResult;
   } catch {
+    // Fallback: first product per category alternating outfits
     const fallback = categories.flatMap((cat, ci) =>
-      finalists[cat].slice(0, 1).map((p) => ({
+      candidates[cat].slice(0, 1).map((p) => ({
         ...p,
         style_note:   `A considered pick for your ${dna.primary_aesthetic} aesthetic.`,
         outfit_role:  "versatile staple",
         outfit_group: (ci % 2 === 0 ? "outfit_a" : "outfit_b") as OutfitGroup,
-        how_to_wear:  "Style with other pieces from your edit.",
+        how_to_wear:  "Style with the other pieces from your edit.",
       }))
     );
     return { products: fallback, editorial_intro: "", edit_rationale: "", outfit_arc: "", outfit_a_role: "", outfit_b_role: "" };
   }
 
-  const byLabel = new Map<string, AlgoliaProduct>(
-    labelMap.map(({ label, product }) => [label, product])
-  );
-
-  // Strip em dashes from all text fields — belt-and-suspenders on top of the prompt rule
-  const clean = (s: string) => (s ?? "").replace(/\s*—\s*/g, ". ").replace(/\s*–\s*/g, ", ").trim();
+  const byLabel = new Map<string, AlgoliaProduct>(labelMap.map(({ label, product }) => [label, product]));
 
   const products: CuratedProduct[] = (raw.selections ?? [])
     .filter((s) => byLabel.has(s.label))
@@ -640,19 +660,19 @@ Return ONLY valid JSON:
       how_to_wear:  clean(s.how_to_wear),
     }));
 
-  // Also clean top-level narrative fields
   raw.editorial_intro = clean(raw.editorial_intro ?? "");
   raw.edit_rationale  = clean(raw.edit_rationale  ?? "");
   raw.outfit_arc      = clean(raw.outfit_arc      ?? "");
   raw.outfit_a_role   = clean(raw.outfit_a_role   ?? "");
   raw.outfit_b_role   = clean(raw.outfit_b_role   ?? "");
 
+  // Fallback fill if Claude returned fewer than 8
   if (products.length < 8) {
     const usedIds      = new Set(products.map((p) => p.objectID));
     const outfitACount = products.filter((p) => p.outfit_group === "outfit_a").length;
     for (const cat of categories) {
       if (products.length >= 8) break;
-      for (const extra of finalists[cat]) {
+      for (const extra of candidates[cat]) {
         if (products.length >= 8) break;
         if (usedIds.has(extra.objectID)) continue;
         usedIds.add(extra.objectID);
@@ -670,31 +690,6 @@ Return ONLY valid JSON:
     outfit_a_role:   raw.outfit_a_role   ?? "",
     outfit_b_role:   raw.outfit_b_role   ?? "",
   };
-}
-
-// ── Step 3: Curate — orchestrates Stage 1 + Stage 2 ─────────────────────────
-
-export async function curateProducts(
-  dna:          StyleDNA,
-  candidates:   CategoryCandidates,
-  boardImages:  VisionImage[]  = [],
-  clickSignals: ClickSignal[]  = [],
-  trendsBlock:  string         = ""
-): Promise<CurationResult> {
-  const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
-
-  const totalCandidates = categories.reduce((sum, cat) => sum + candidates[cat].length, 0);
-  if (totalCandidates === 0) {
-    return { products: [], editorial_intro: "", edit_rationale: "", outfit_arc: "", outfit_a_role: "", outfit_b_role: "" };
-  }
-
-  const client = getClient();
-
-  // Stage 1: visual shortlist — board images ground the elimination pass (48 → 12)
-  const finalists = await shortlistCandidates(dna, candidates, client, boardImages);
-
-  // Stage 2: outfit build with product images + click history + narrative arc + trends
-  return buildOutfitsWithVision(dna, finalists, client, clickSignals, trendsBlock);
 }
 
 // ── Legacy alias ──────────────────────────────────────────────────────────────
