@@ -19,3 +19,5 @@ dist/
 # OS
 .DS_Store
 .claude/settings.local.json
+scripts/channel3-cache.json
+tsconfig.tsbuildinfo
