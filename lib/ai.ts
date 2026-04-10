@@ -484,8 +484,8 @@ export async function curateProducts(
 
   // ── Build label map + image blocks ──────────────────────────────────────────
   // Label: "DRESS-3", "TOP-0", etc. — numeric index per category.
-  // Cap at 10 per category (60 total product images) to stay well within context.
-  // Products without images are still listed in text so Claude knows they exist.
+  // Cap at 100 product images (well within 200K context at ~1K tokens/image).
+  // Products without images are still listed as text so Claude knows they exist.
 
   type Entry = { label: string; product: AlgoliaProduct; imgSlot: number | null };
   const labelMap: Entry[] = [];
@@ -493,7 +493,7 @@ export async function curateProducts(
 
   for (const cat of categories) {
     candidates[cat].forEach((product, idx) => {
-      const hasImg = product.image_url?.startsWith("http") && productImgBlocks.length < 60;
+      const hasImg = product.image_url?.startsWith("http") && productImgBlocks.length < 100;
       const label  = `${cat.toUpperCase()}-${idx}`;
       if (hasImg) {
         productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: product.image_url } });
@@ -504,94 +504,122 @@ export async function curateProducts(
     });
   }
 
-  // Board images come first, then product images
-  const boardImgBlocks = toImageBlocks(boardImages, 6);
+  // Board images come first (up to 8), then product images
+  const boardImgBlocks = toImageBlocks(boardImages, 8);
+  const B = boardImgBlocks.length; // offset so product img numbers are unambiguous
 
-  const boardImgNote = boardImgBlocks.length > 0
-    ? `The first ${boardImgBlocks.length} image(s) are the client's Pinterest board — your aesthetic reference.`
-    : "";
-
-  const productImgNote = productImgBlocks.length > 0
-    ? `The next ${productImgBlocks.length} image(s) are product photos, in this order:\n` +
-      labelMap
-        .filter((e) => e.imgSlot !== null)
-        .map((e) => `  Img ${boardImgBlocks.length + e.imgSlot!} → ${e.label}: "${e.product.title}" (${e.product.brand})`)
-        .join("\n")
-    : "";
-
-  // Text rows for all products (image-verified ones + text-only ones)
+  // Text catalogue — every product, with its image number or [no image]
   const catalogueText = categories.map((cat) => {
     const pool = candidates[cat];
     if (!pool.length) return null;
     const rows = pool.map((p, idx) => {
       const label   = `${cat.toUpperCase()}-${idx}`;
       const entry   = labelMap.find((e) => e.label === label);
-      const imgMark = entry?.imgSlot != null ? `[Img ${boardImgBlocks.length + entry.imgSlot}]` : "[no image]";
+      const imgMark = entry?.imgSlot != null ? `[Img ${B + entry.imgSlot}]` : "[no image]";
       return `  ${label} ${imgMark}: "${p.title}" — ${p.brand} | ${p.color || "?"} | ${(p.material || "").slice(0, 50)} | ${p.price_range} | ${p.retailer}`;
     }).join("\n");
     return `${cat.toUpperCase()}:\n${rows}`;
   }).filter(Boolean).join("\n\n");
 
   const clickBlock = clickSignals.length > 0
-    ? `CONFIRMED TASTE SIGNALS (products this person has clicked before — proven taste, not aspirational):\n` +
+    ? `CONFIRMED TASTE SIGNALS — products this person clicked before (proven preference, not aspiration):\n` +
       clickSignals.slice(0, 8).map((s) =>
         `  • "${s.title}" — ${s.brand} | ${s.color} | ${s.category} | ${s.price_range}`
-      ).join("\n") + `\nBias toward similar silhouette, fabric weight, brand tier, color story.\n\n`
+      ).join("\n") + `\nWeight these heavily. Same silhouette family, fabric weight, color temperature, brand tier.\n\n`
+    : "";
+
+  // ── Prompt ───────────────────────────────────────────────────────────────────
+  // Structure: (1) internalize the board visually, (2) score each product on 4
+  // specific axes against what you saw, (3) build outfits from the best matches.
+
+  const boardSection = B > 0
+    ? `IMAGES 1–${B}: THE CLIENT'S PINTEREST BOARD
+These are the first ${B} images. Study them before looking at anything else.
+As you look, notice:
+  • COLOR TEMPERATURE — warm/cool? muted/saturated? which specific tones repeat?
+  • SILHOUETTES — fitted or relaxed? structured or fluid? long or cropped? body-conscious or draped?
+  • FABRIC WEIGHT & TEXTURE — linen-light? heavy knit? silk-smooth? raw/worn? polished?
+  • MOOD & ENERGY — is it quiet and unhurried, or sharp and considered? romantic or spare?
+  • WHAT IS CONSPICUOUSLY ABSENT — logos? color? shine? anything they are clearly avoiding?
+Hold this complete visual picture as your scoring reference for every product below.`
+    : `(No board images — use the StyleDNA text as your sole reference.)`;
+
+  const productSection = productImgBlocks.length > 0
+    ? `IMAGES ${B + 1}–${B + productImgBlocks.length}: PRODUCT PHOTOS (in label order)
+${labelMap.filter((e) => e.imgSlot !== null).map((e) => `  Img ${B + e.imgSlot!} = ${e.label}`).join("\n")}`
     : "";
 
   const promptText =
-`You are a fashion editor curating a WOMEN'S ONLY personal edit. ${boardImgNote}
+`You are a senior fashion editor. This is a WOMEN'S FASHION curation. No menswear, ever.
 
-${productImgNote}
+═══════════════════════════════════════
+STEP 1 — READ THE BOARD (images 1–${B || "?"})
+═══════════════════════════════════════
+${boardSection}
 
-HOW TO DECIDE — strictly in this order:
-1. IMAGE (80%): Look at each product photo. Ask: does this silhouette, drape, texture, and color feel right for this person? Trust your eye completely.
-2. TEXT (20%): Use the label, brand, material and price only as a tiebreaker when two images feel equally strong.
+═══════════════════════════════════════
+STEP 2 — SCORE EVERY PRODUCT IMAGE
+═══════════════════════════════════════
+${productSection}
 
-HARD ELIMINATES — no exceptions:
-- Any product image showing a male model or clearly male-cut garment → skip it.
-- Anything matching the client's hard avoids list → skip it.
+For each product image, run this visual checklist against what you saw in the board:
 
-VOICE RULES (for all written copy):
-- No em dashes. No superlatives (perfect, stunning, elevated, effortless, iconic). No hype.
-- Write like someone who already knows. Quiet confidence, short sentences, specific observations.
+  ✓ COLOR: Is the specific tone/warmth/saturation in this image consistent with the board's color story?
+    (Not just "is it beige" — does this particular shade of beige match the board's warmth or coolness?)
+  ✓ SILHOUETTE: Does this cut, drape, and proportion belong in the board's visual world?
+  ✓ TEXTURE/WEIGHT: Does this fabric feel like it could appear on this board? Same lightness or heaviness?
+  ✓ MOOD: Does this piece carry the same energy as the board — same level of polish, restraint, or drama?
 
-CLIENT:
-Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? `, ${dna.secondary_aesthetic}` : ""}
+KEEP if it passes 3 of 4. DISCARD if it passes 1 or fewer.
+HARD DISCARD: male model visible, or clearly male-cut garment.
+HARD DISCARD: hits any item on the client's avoids list.
+
+═══════════════════════════════════════
+STEP 3 — BUILD TWO OUTFITS
+═══════════════════════════════════════
+From your kept products, assemble two outfits (4 pieces each, 8 total).
+Each outfit should feel like a different scene from the same person's life.
+The two outfits together should express the full range of the board's vibe — not two identical looks.
+
+CLIENT PROFILE (use this to calibrate Steps 1 and 2, not override them):
+Aesthetic: ${dna.primary_aesthetic}${dna.secondary_aesthetic ? ` / ${dna.secondary_aesthetic}` : ""}
 Mood: ${dna.mood}
 Palette: ${dna.color_palette.join(", ")}
-Silhouettes: ${(dna.silhouettes ?? []).join(", ")}
-Reaches for: ${dna.key_pieces.join(", ")}
+Silhouettes she reaches for: ${(dna.silhouettes ?? []).join(", ")}
+Key pieces: ${dna.key_pieces.join(", ")}
 Hard avoids: ${dna.avoids.join(", ")}
 Budget: ${dna.price_range}
-${dna.style_references?.length ? `References: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
-${dna.summary ? `In their own words: ${dna.summary}` : ""}
+${dna.style_references?.length ? `Style references: ${dna.style_references.map((r) => `${r.name} (${r.era})`).join(", ")}` : ""}
+${dna.summary ? `\n"${dna.summary}"` : ""}
 
-${clickBlock}${trendsBlock ? `${trendsBlock}\n` : ""}FULL PRODUCT POOL:
+${clickBlock}${trendsBlock ? `${trendsBlock}\n` : ""}FULL PRODUCT CATALOGUE (all categories):
 ${catalogueText}
 
-TASK:
-- Select 4 products for Outfit A and 4 for Outfit B (8 total).
-- Each outfit captures a different facet of this client's world.
-- You can use two dresses across outfits if that's what the images call for.
-- Outfits should have a named arc: "day / night", "soft / sharp", "easy / considered", etc. (3-4 words).
-- ONLY use labels that appear in the product pool above. Never invent a label.
+OUTFIT ARC: name the relationship between the two outfits in 3–4 words (e.g. "soft / sharp", "day / night", "easy / considered").
+Each outfit gets a short phrase capturing its feeling, not its occasion.
+
+COPY RULES — apply to every sentence you write:
+- No em dashes. No superlatives (perfect, stunning, effortless, elevated, iconic, impeccable).
+- Write like someone who already knows — quiet confidence, specific observations, no persuasion.
+- One sentence per field. Short. Dense with meaning.
+
+ONLY use labels that exist in the catalogue. Never invent a label.
 
 Return ONLY valid JSON:
 {
-  "outfit_arc": "3-4 words",
-  "outfit_a_role": "a short phrase, e.g. 'something to wear slowly'",
-  "outfit_b_role": "a short phrase, e.g. 'when you want to be looked at'",
-  "editorial_intro": "2 sentences. Quiet, specific, no hype. No em dashes.",
-  "edit_rationale": "1 sentence. Plain language. What connects these pieces.",
+  "outfit_arc": "3–4 words",
+  "outfit_a_role": "short phrase for Outfit A",
+  "outfit_b_role": "short phrase for Outfit B",
+  "editorial_intro": "2 sentences. Quiet and specific. No em dashes.",
+  "edit_rationale": "1 sentence. What visually connects these 8 pieces.",
   "selections": [
     {
       "category": "dress",
       "label": "DRESS-2",
       "outfit_group": "outfit_a",
       "outfit_role": "the anchor | the layer | the detail | the easy one | the considered one",
-      "style_note": "One sentence. Specific to this piece and this client. No em dashes, no superlatives.",
-      "how_to_wear": "One practical styling idea. Specific, not generic."
+      "style_note": "One sentence. Reference something specific you saw in the product image.",
+      "how_to_wear": "One concrete styling idea. Name another selected piece by label if it helps."
     }
   ]
 }`;
