@@ -522,10 +522,12 @@ function ProductScrollCard({
   activeIdx: number;
   userToken: string;
 }) {
-  const price = product.price != null ? `$${product.price.toFixed(0)}` : null;
-  const isNear = Math.abs(index - activeIdx) <= 2; // eager-load nearby cards
+  const price  = product.price != null ? `$${product.price.toFixed(0)}` : null;
+  const isNear = Math.abs(index - activeIdx) <= 2;
+  const [liked, setLiked] = useState(false);
 
-  const handleClick = () => {
+  const handleProductClick = () => {
+    // Track organic tap-through
     trackProductClick({ userToken, objectID: product.objectID, queryID: product._queryID ?? "", position: index + 1 });
     fetch("/api/taste/click", {
       method: "POST",
@@ -534,12 +536,28 @@ function ProductScrollCard({
     }).catch(() => {});
   };
 
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const nowLiked = !liked;
+    setLiked(nowLiked); // instant optimistic update — zero latency
+    if (nowLiked) {
+      // fire-and-forget — never blocks the UI
+      trackProductClick({ userToken, objectID: product.objectID, queryID: product._queryID ?? "", position: index + 1 });
+      fetch("/api/taste/click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userToken, product: { objectID: product.objectID, title: product.title, brand: product.brand, color: product.color, category: product.category, retailer: product.retailer, price_range: product.price_range, image_url: product.image_url } }),
+      }).catch(() => {});
+    }
+  };
+
   return (
     <a
       href={product.product_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={handleClick}
+      onClick={handleProductClick}
       className="relative flex flex-col bg-background block"
       style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
       data-card-index={index}
@@ -562,17 +580,38 @@ function ProductScrollCard({
       </div>
 
       {/* Top — retailer */}
-      <div className="absolute top-14 left-5 z-10 pointer-events-none">
+      <div className="absolute top-14 left-4 z-10 pointer-events-none">
         <span className="font-sans text-[8px] tracking-widest uppercase text-white/40">{product.retailer}</span>
       </div>
 
+      {/* Like button — right rail, above bottom info */}
+      <button
+        onClick={handleLike}
+        className="absolute right-3 bottom-36 z-20 flex flex-col items-center gap-1 group"
+        aria-label={liked ? "Unlike" : "Like"}
+      >
+        <span
+          className="text-2xl leading-none transition-transform duration-100 group-active:scale-75"
+          style={{
+            transform: liked ? "scale(1.2)" : "scale(1)",
+            transition: "transform 0.12s cubic-bezier(0.34,1.56,0.64,1)",
+            filter: liked ? "drop-shadow(0 0 6px rgba(255,100,100,0.7))" : "none",
+          }}
+        >
+          {liked ? "♥" : "♡"}
+        </span>
+        <span className="font-sans text-[7px] tracking-widest uppercase text-white/40">
+          {liked ? "loved" : "like"}
+        </span>
+      </button>
+
       {/* Bottom overlay — product info + shop */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-7 bg-gradient-to-t from-background via-background/70 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-4 py-6 bg-gradient-to-t from-background via-background/70 to-transparent">
         {product.brand && (
           <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>
         )}
-        <p className="font-display font-light text-2xl text-foreground leading-snug mb-1">{product.title}</p>
-        {price && <p className="font-sans text-sm text-muted-strong mb-4">{price}</p>}
+        <p className="font-display font-light text-xl text-foreground leading-snug mb-1">{product.title}</p>
+        {price && <p className="font-sans text-sm text-muted-strong mb-3">{price}</p>}
         <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">
           Shop →
         </span>
