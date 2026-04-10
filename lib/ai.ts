@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   searchByCategory,
   searchByMultipleQueries,
+  searchProducts,
   type AlgoliaProduct,
   type CategoryCandidates,
   type ClothingCategory,
@@ -206,13 +207,55 @@ export async function fetchCandidateProductsByCategory(
     };
   }
 
-  return searchByCategory(
+  const result = await searchByCategory(
     queries as Record<ClothingCategory, string[]>,
     dna.style_keywords,
     dna.price_range,
-    12,   // 12 per category — more buffer since 75% of index lacks images
+    12,
     userToken
   );
+
+  // Emergency guarantee: if we have very few products with images across all categories,
+  // supplement with simple palette-color searches that reliably match the available inventory.
+  // Hello Molly (our best-image retailer) titles look like "Flirt Hour Mini Dress Red" —
+  // so "red dress", "black dress", "midi dress" always work; aesthetic keywords don't.
+  const cats: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
+  const total = cats.reduce((s, c) => s + result[c].length, 0);
+
+  if (total < 6) {
+    const existingIds = new Set(cats.flatMap((c) => result[c].map((p) => p.objectID)));
+
+    // Extract simple base colors from the palette (last word: "red", "black", "ivory")
+    const baseColors = (dna.color_palette ?? [])
+      .slice(0, 4)
+      .map((c) => c.toLowerCase().split(" ").pop() ?? c)
+      .filter((c) => c.length > 2);
+
+    // Also add silhouette keywords as fallback queries
+    const silhouetteWords = (dna.silhouettes ?? [])
+      .slice(0, 2)
+      .map((s) => s.toLowerCase().split(" ").pop() ?? s);
+
+    const fallbackQueries = [
+      ...baseColors.map((c) => `${c} dress`),
+      ...silhouetteWords.map((s) => `${s} dress`),
+      "midi dress",
+      "mini dress",
+    ];
+
+    for (const q of fallbackQueries) {
+      if (result.dress.length >= 8) break;
+      const extras = await searchProducts(q, [], dna.price_range, 6, undefined, userToken).catch(() => [] as AlgoliaProduct[]);
+      for (const p of extras) {
+        if (!existingIds.has(p.objectID)) {
+          existingIds.add(p.objectID);
+          result.dress.push(p);
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 // ── Step 2b: Avoids filter ────────────────────────────────────────────────────
@@ -509,16 +552,26 @@ Return ONLY valid JSON:
     labelMap.map(({ label, product }) => [label, product])
   );
 
+  // Strip em dashes from all text fields — belt-and-suspenders on top of the prompt rule
+  const clean = (s: string) => (s ?? "").replace(/\s*—\s*/g, ". ").replace(/\s*–\s*/g, ", ").trim();
+
   const products: CuratedProduct[] = (raw.selections ?? [])
     .filter((s) => byLabel.has(s.label))
     .slice(0, 6)
     .map((s) => ({
       ...byLabel.get(s.label)!,
-      style_note:   s.style_note   ?? "",
+      style_note:   clean(s.style_note),
       outfit_role:  s.outfit_role  ?? "versatile staple",
       outfit_group: s.outfit_group ?? "outfit_a",
-      how_to_wear:  s.how_to_wear  ?? "",
+      how_to_wear:  clean(s.how_to_wear),
     }));
+
+  // Also clean top-level narrative fields
+  raw.editorial_intro = clean(raw.editorial_intro ?? "");
+  raw.edit_rationale  = clean(raw.edit_rationale  ?? "");
+  raw.outfit_arc      = clean(raw.outfit_arc      ?? "");
+  raw.outfit_a_role   = clean(raw.outfit_a_role   ?? "");
+  raw.outfit_b_role   = clean(raw.outfit_b_role   ?? "");
 
   if (products.length < 6) {
     const usedIds = new Set(products.map((p) => p.objectID));

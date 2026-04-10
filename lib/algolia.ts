@@ -171,9 +171,12 @@ async function searchCategory(
 
   if (merged.length >= 2) return merged.slice(0, maxPerCategory);
 
-  // Fallback 2 — broadest: use just color/style keywords, no category constraint
-  // This ensures we always return at least some products with images
-  const broadTerms = aestheticTags.slice(0, 3).join(" ") || queries[0]?.split(" ")[0] || "dress";
+  // Fallback 2 — broadest: strip to the last 1-2 words of the first query (usually color/type)
+  // e.g. "cherry red satin slip dress" → "dress", "black mini skirt" → "skirt"
+  // This reliably matches inventory like "Flirt Hour Mini Dress Red"
+  const lastWord = queries[0]?.trim().split(" ").pop() ?? "dress";
+  const secondWord = queries[0]?.trim().split(" ").slice(-2, -1)[0];
+  const broadTerms = secondWord ? `${secondWord} ${lastWord}` : lastWord;
   const broadResults = await searchProducts(broadTerms, [], priceRange, maxPerCategory, undefined, userToken).catch(() => [] as AlgoliaProduct[]);
   for (const product of broadResults) {
     if (!seen.has(product.objectID)) { seen.add(product.objectID); merged.push(product); }
