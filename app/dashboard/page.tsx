@@ -509,6 +509,162 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
   );
 }
 
+// ── Product scroll card (single item, full screen) ───────────────────────────
+
+function ProductScrollCard({
+  product,
+  index,
+  activeIdx,
+  userToken,
+}: {
+  product:   AlgoliaProduct;
+  index:     number;
+  activeIdx: number;
+  userToken: string;
+}) {
+  const price = product.price != null ? `$${product.price.toFixed(0)}` : null;
+  const isNear = Math.abs(index - activeIdx) <= 2; // eager-load nearby cards
+
+  const handleClick = () => {
+    trackProductClick({ userToken, objectID: product.objectID, queryID: product._queryID ?? "", position: index + 1 });
+    fetch("/api/taste/click", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userToken, product: { objectID: product.objectID, title: product.title, brand: product.brand, color: product.color, category: product.category, retailer: product.retailer, price_range: product.price_range, image_url: product.image_url } }),
+    }).catch(() => {});
+  };
+
+  return (
+    <a
+      href={product.product_url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={handleClick}
+      className="relative flex flex-col bg-background block"
+      style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
+      data-card-index={index}
+    >
+      {/* Full-bleed image */}
+      <div className="absolute inset-0 bg-white/5">
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt={product.title}
+            fill
+            className="object-cover"
+            unoptimized
+            priority={isNear}
+            sizes="100vw"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
+        )}
+      </div>
+
+      {/* Top — retailer */}
+      <div className="absolute top-14 left-5 z-10 pointer-events-none">
+        <span className="font-sans text-[8px] tracking-widest uppercase text-white/40">{product.retailer}</span>
+      </div>
+
+      {/* Bottom overlay — product info + shop */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-7 bg-gradient-to-t from-background via-background/70 to-transparent">
+        {product.brand && (
+          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>
+        )}
+        <p className="font-display font-light text-2xl text-foreground leading-snug mb-1">{product.title}</p>
+        {price && <p className="font-sans text-sm text-muted-strong mb-4">{price}</p>}
+        <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">
+          Shop →
+        </span>
+      </div>
+    </a>
+  );
+}
+
+// ── Product scroll view ───────────────────────────────────────────────────────
+
+function ProductScrollView({
+  products,
+  onClose,
+  userToken,
+}: {
+  products:  AlgoliaProduct[];
+  onClose:   () => void;
+  userToken: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current) return;
+    const { scrollTop, clientHeight } = containerRef.current;
+    setActiveIdx(Math.round(scrollTop / clientHeight));
+  }, []);
+
+  // Preload next 3 images whenever active card changes
+  useEffect(() => {
+    products.slice(activeIdx + 1, activeIdx + 4).forEach((p) => {
+      if (!p.image_url) return;
+      const img = new window.Image();
+      img.src = p.image_url;
+    });
+  }, [activeIdx, products]);
+
+  return (
+    /* Dimmed backdrop — click outside to close */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Centered portrait card */}
+      <div
+        className="relative flex flex-col overflow-hidden rounded-sm shadow-2xl"
+        style={{ width: "min(88vw, 400px)", height: "min(88vh, 720px)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Mini header */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-background/90 to-transparent pointer-events-none">
+          <button
+            onClick={onClose}
+            className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/60 hover:text-foreground transition-colors"
+          >
+            ← Grid
+          </button>
+          <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/30">
+            {activeIdx + 1} / {products.length}
+          </span>
+        </div>
+
+        {/* Scroll container — explicit h-full so children can use height:100% for snap */}
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="w-full h-full overflow-y-scroll"
+          style={{ scrollSnapType: "y mandatory" }}
+        >
+          {products.map((p, i) => (
+            <ProductScrollCard
+              key={p.objectID}
+              product={p}
+              index={i}
+              activeIdx={activeIdx}
+              userToken={userToken}
+            />
+          ))}
+        </div>
+
+        {/* Scroll hint */}
+        {activeIdx === 0 && products.length > 1 && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
+            <span className="font-sans text-[8px] tracking-widest uppercase text-white/20">scroll</span>
+            <span className="text-white/20 text-xs">↓</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Outfit scroll card ────────────────────────────────────────────────────────
 
 function OutfitScrollCard({
@@ -527,7 +683,7 @@ function OutfitScrollCard({
   return (
     <div
       className="relative flex flex-col bg-background"
-      style={{ height: "100svh", scrollSnapAlign: "start" }}
+      style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
       data-card-index={index}
     >
       {/* Product images — equal columns */}
@@ -646,62 +802,84 @@ function OutfitScrollView({
   // Reset nearEnd gate when new cards arrive
   useEffect(() => { nearEndFired.current = false; }, [cards.length]);
 
+  // Preload next outfit images to eliminate scroll latency
+  useEffect(() => {
+    cards.slice(activeIdx + 1, activeIdx + 3).forEach((card) => {
+      card.products.forEach((p) => {
+        if (!p.image_url) return;
+        const img = new window.Image();
+        img.src = p.image_url;
+      });
+    });
+  }, [activeIdx, cards]);
+
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Mini header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-background/80 to-transparent pointer-events-none">
-        <button
-          onClick={onClose}
-          className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/60 hover:text-foreground transition-colors"
-        >
-          ← Grid
-        </button>
-        <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/30">
-          {activeIdx + 1} / {cards.length}
-        </span>
-      </div>
-
-      {/* Scroll container */}
+    /* Dimmed backdrop — click outside to close */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Centered portrait card */}
       <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-scroll"
-        style={{ scrollSnapType: "y mandatory", scrollBehavior: "smooth" }}
+        className="relative flex flex-col overflow-hidden rounded-sm shadow-2xl"
+        style={{ width: "min(88vw, 400px)", height: "min(88vh, 720px)" }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {cards.map((card, i) => (
-          <OutfitScrollCard
-            key={card.id}
-            card={card}
-            index={i}
-            onLike={() => onLike(card.id)}
-            userToken={userToken}
-          />
-        ))}
-
-        {/* Generating more indicator */}
-        {isGeneratingMore && (
-          <div
-            className="flex items-center justify-center bg-background"
-            style={{ height: "100svh", scrollSnapAlign: "start" }}
+        {/* Mini header */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-background/90 to-transparent pointer-events-none">
+          <button
+            onClick={onClose}
+            className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/60 hover:text-foreground transition-colors"
           >
-            <p className="font-display italic text-xl text-muted">
-              Musing<span className="inline-flex ml-0.5">
-                <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
-                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
-                <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
-              </span>
-            </p>
+            ← Grid
+          </button>
+          <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/30">
+            {activeIdx + 1} / {cards.length}
+          </span>
+        </div>
+
+        {/* Scroll container */}
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="w-full h-full overflow-y-scroll"
+          style={{ scrollSnapType: "y mandatory" }}
+        >
+          {cards.map((card, i) => (
+            <OutfitScrollCard
+              key={card.id}
+              card={card}
+              index={i}
+              onLike={() => onLike(card.id)}
+              userToken={userToken}
+            />
+          ))}
+
+          {/* Generating more indicator */}
+          {isGeneratingMore && (
+            <div
+              className="flex items-center justify-center bg-background"
+              style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
+            >
+              <p className="font-display italic text-xl text-muted">
+                Musing<span className="inline-flex ml-0.5">
+                  <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
+                  <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
+                  <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Scroll hint on first card */}
+        {activeIdx === 0 && cards.length > 1 && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
+            <span className="font-sans text-[8px] tracking-widest uppercase text-white/20">scroll</span>
+            <span className="text-white/20 text-xs">↓</span>
           </div>
         )}
       </div>
-
-      {/* Scroll hint on first card */}
-      {activeIdx === 0 && cards.length > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
-          <span className="font-sans text-[8px] tracking-widest uppercase text-white/20">scroll</span>
-          <span className="text-white/20 text-xs">↓</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -744,6 +922,7 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
   const [viewMode, setViewMode]             = useState<ViewMode>("grid");
+  const [shopViewMode, setShopViewMode]     = useState<ViewMode>("grid");
   const [scrollCards, setScrollCards]       = useState<OutfitCard[]>([]);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
 
@@ -951,6 +1130,7 @@ export default function DashboardPage() {
     setShoppingStep(0);
     setEditStep(0);
     setViewMode("grid");
+    setShopViewMode("grid");
     setScrollCards([]);
     setIsGeneratingMore(false);
   };
@@ -1055,88 +1235,118 @@ export default function DashboardPage() {
         )}
 
         {/* ── Shopping results ── */}
-        {step === "shopping" && aesthetic && candidates && (
-          <div className="fade-in-up">
-            <div className="mb-10">
-              <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">
-                {selectedBoard?.name} — {CATEGORIES.reduce((n, c) => n + candidates[c].length, 0)} picks
-              </p>
-              <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight capitalize mb-1">
-                {aesthetic.primary_aesthetic}
-              </h1>
-              {aesthetic.mood && (
-                <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>
-              )}
-              {aesthetic.summary && (
-                <p className="font-sans text-base text-muted-strong leading-relaxed mt-4 max-w-2xl">{aesthetic.summary}</p>
-              )}
-            </div>
+        {step === "shopping" && aesthetic && candidates && (() => {
+          const terms = [
+            ...(aesthetic.style_keywords ?? []),
+            ...(aesthetic.color_palette ?? []).map((c) => c.toLowerCase().split(" ").pop() ?? c),
+            aesthetic.primary_aesthetic?.toLowerCase() ?? "",
+          ].map((t) => t.toLowerCase());
 
-            {/* Palette */}
-            <div className="flex flex-wrap gap-4 mb-10">
-              {(aesthetic.color_palette ?? []).map((color) => (
-                <div key={color} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ backgroundColor: colorToCSS(color) }} />
-                  <span className="font-sans text-xs text-muted-strong capitalize">{color}</span>
+          const scored = CATEGORIES.flatMap((cat) => candidates[cat]).map((p) => {
+            const haystack = [
+              ...(p.aesthetic_tags ?? []),
+              (p.title ?? "").toLowerCase(),
+              (p.description ?? "").toLowerCase(),
+            ].join(" ");
+            const score = terms.filter((t) => t.length > 2 && haystack.includes(t)).length;
+            return { product: p, score };
+          });
+          scored.sort((a, b) => b.score - a.score);
+          const sortedProducts = scored.map(({ product }) => product);
+
+          return (
+            <>
+              {/* TikTok scroll overlay for shopping page */}
+              {shopViewMode === "scroll" && (
+                <ProductScrollView
+                  products={sortedProducts}
+                  onClose={() => setShopViewMode("grid")}
+                  userToken={userToken}
+                />
+              )}
+
+              <div className="fade-in-up">
+                <div className="flex items-start justify-between mb-8 gap-6">
+                  <div>
+                    <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">
+                      {selectedBoard?.name} — {sortedProducts.length} picks
+                    </p>
+                    <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight capitalize mb-1">
+                      {aesthetic.primary_aesthetic}
+                    </h1>
+                    {aesthetic.mood && (
+                      <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>
+                    )}
+                    {aesthetic.summary && (
+                      <p className="font-sans text-base text-muted-strong leading-relaxed mt-4 max-w-2xl">{aesthetic.summary}</p>
+                    )}
+                  </div>
+                  {/* Grid / Scroll toggle */}
+                  <div className="flex border border-border overflow-hidden flex-shrink-0 mt-1">
+                    <button
+                      onClick={() => setShopViewMode("grid")}
+                      className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 ${
+                        shopViewMode === "grid" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      Grid
+                    </button>
+                    <button
+                      onClick={() => setShopViewMode("scroll")}
+                      className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 border-l border-border ${
+                        shopViewMode === "scroll" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      Scroll
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Build my edit CTA */}
-            <div className="mb-14 flex items-center gap-6">
-              <button
-                onClick={() => handleBuildEdit()}
-                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
-              >
-                Build my edit →
-              </button>
-              <p className="font-sans text-[11px] text-muted">
-                Claude will shortlist and style the best finds into a curated edit.
-              </p>
-            </div>
+                {/* Palette */}
+                <div className="flex flex-wrap gap-4 mb-10">
+                  {(aesthetic.color_palette ?? []).map((color) => (
+                    <div key={color} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ backgroundColor: colorToCSS(color) }} />
+                      <span className="font-sans text-xs text-muted-strong capitalize">{color}</span>
+                    </div>
+                  ))}
+                </div>
 
-            {/* All products — ranked by aesthetic relevance */}
-            {(() => {
-              const terms = [
-                ...(aesthetic.style_keywords ?? []),
-                ...(aesthetic.color_palette ?? []).map((c) => c.toLowerCase().split(" ").pop() ?? c),
-                aesthetic.primary_aesthetic?.toLowerCase() ?? "",
-              ].map((t) => t.toLowerCase());
+                {/* Build my edit CTA */}
+                <div className="mb-14 flex items-center gap-6">
+                  <button
+                    onClick={() => handleBuildEdit()}
+                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
+                  >
+                    Build my edit →
+                  </button>
+                  <p className="font-sans text-[11px] text-muted">
+                    Claude will shortlist and style the best finds into a curated edit.
+                  </p>
+                </div>
 
-              const scored = CATEGORIES.flatMap((cat) => candidates[cat]).map((p) => {
-                const haystack = [
-                  ...(p.aesthetic_tags ?? []),
-                  (p.title ?? "").toLowerCase(),
-                  (p.description ?? "").toLowerCase(),
-                ].join(" ");
-                const score = terms.filter((t) => t.length > 2 && haystack.includes(t)).length;
-                return { product: p, score };
-              });
-
-              scored.sort((a, b) => b.score - a.score);
-
-              return (
+                {/* All products — ranked by aesthetic relevance */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-14">
-                  {scored.map(({ product }) => (
+                  {sortedProducts.map((product) => (
                     <ShopCard key={product.objectID} product={product} userToken={userToken} />
                   ))}
                 </div>
-              );
-            })()}
 
-            <div className="border-t border-border pt-7 flex items-center justify-between mt-4">
-              <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
-                MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
-              </p>
-              <button
-                onClick={() => handleBuildEdit()}
-                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
-              >
-                Build my edit →
-              </button>
-            </div>
-          </div>
-        )}
+                <div className="border-t border-border pt-7 flex items-center justify-between mt-4">
+                  <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
+                    MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
+                  </p>
+                  <button
+                    onClick={() => handleBuildEdit()}
+                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
+                  >
+                    Build my edit →
+                  </button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* ── Edit loading ── */}
         {step === "edit_loading" && (
