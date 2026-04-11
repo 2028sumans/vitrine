@@ -4,11 +4,20 @@ import {
   fetchCandidateProductsByCategory,
   filterByAvoids,
   filterMensItems,
+  textQueryToAesthetic,
+  questionnaireToAesthetic,
 }                                               from "@/lib/ai";
 import { getProductsByIds, groupByCategory }    from "@/lib/algolia";
-import { searchByBoardImages }                  from "@/lib/embeddings";
+import {
+  searchByBoardImages,
+  searchByUploadedImages,
+  searchByEmbeddings,
+  blendCentroids,
+  clusterEmbeddings,
+  embedImageUrls,
+}                                               from "@/lib/embeddings";
 import { loadTasteMemory, saveStyleDNA }        from "@/lib/taste-memory";
-import type { VisionImage }                     from "@/lib/types";
+import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
 
 // Use visual search if Pinecone is configured; fall back to Algolia text search
 const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
@@ -30,26 +39,43 @@ async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
 }
 
 export async function POST(request: Request) {
-  const { boardId, boardName, pins, pinImageUrls, userToken } = await request.json();
+  const {
+    // Mode selector
+    mode = "pinterest",
+    // Pinterest mode
+    boardId, boardName, pins, pinImageUrls,
+    // Text mode
+    textQuery,
+    // Images mode
+    uploadedImages,
+    // Quiz mode
+    answers,
+    // Common
+    userToken,
+  }: {
+    mode?:           "pinterest" | "text" | "images" | "quiz";
+    boardId?:        string;
+    boardName?:      string;
+    pins?:           Array<{ title?: string; description?: string }>;
+    pinImageUrls?:   string[];
+    textQuery?:      string;
+    uploadedImages?: VisionImage[];
+    answers?:        QuestionnaireAnswers;
+    userToken?:      string;
+  } = await request.json();
 
-  if (!boardId || !boardName) {
+  // Validate required fields per mode
+  if (mode === "pinterest" && (!boardId || !boardName)) {
     return NextResponse.json({ error: "Missing boardId or boardName" }, { status: 400 });
   }
-
-  const pinDescriptions: string[] = (pins ?? [])
-    .map((p: { title?: string; description?: string }) =>
-      [p.title, p.description].filter(Boolean).join(" — ")
-    )
-    .filter((d: string) => d.trim().length > 0);
-
-  const uploadedImages: VisionImage[] = pinImageUrls?.length
-    ? await fetchPinImages(pinImageUrls)
-    : [];
-
-  if (pinDescriptions.length === 0 && uploadedImages.length === 0) {
-    pinDescriptions.push(
-      `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
-    );
+  if (mode === "text" && !textQuery?.trim()) {
+    return NextResponse.json({ error: "Missing textQuery" }, { status: 400 });
+  }
+  if (mode === "images" && !uploadedImages?.length) {
+    return NextResponse.json({ error: "Missing uploadedImages" }, { status: 400 });
+  }
+  if (mode === "quiz" && !answers) {
+    return NextResponse.json({ error: "Missing answers" }, { status: 400 });
   }
 
   const token: string = userToken || "anon";
@@ -57,56 +83,105 @@ export async function POST(request: Request) {
   try {
     const tasteMemory = await loadTasteMemory(token);
 
-    // ── Aesthetic analysis (always runs — needed for StyleDNA + Claude prompt) ─
-    const aesthetic = await analyzeAesthetic(
-      boardName,
-      pinDescriptions,
-      uploadedImages,
-      tasteMemory.previousDNAs
-    );
+    // ── Aesthetic analysis ────────────────────────────────────────────────────
+    let aesthetic: import("@/lib/types").StyleDNA;
+
+    if (mode === "pinterest") {
+      const pinDescriptions: string[] = (pins ?? [])
+        .map((p) => [p.title, p.description].filter(Boolean).join(" — "))
+        .filter((d) => d.trim().length > 0);
+
+      const uploadedImages: VisionImage[] = pinImageUrls?.length
+        ? await fetchPinImages(pinImageUrls)
+        : [];
+
+      if (pinDescriptions.length === 0 && uploadedImages.length === 0) {
+        pinDescriptions.push(
+          `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
+        );
+      }
+
+      aesthetic = await analyzeAesthetic(
+        boardName!,
+        pinDescriptions,
+        uploadedImages,
+        tasteMemory.previousDNAs
+      );
+    } else if (mode === "text") {
+      aesthetic = await textQueryToAesthetic(textQuery!.trim(), tasteMemory.previousDNAs);
+    } else if (mode === "images") {
+      // Use Claude vision on uploaded images to extract aesthetic
+      aesthetic = await analyzeAesthetic(
+        "uploaded images",
+        [],
+        (uploadedImages ?? []).slice(0, 10),
+        tasteMemory.previousDNAs
+      );
+    } else {
+      // quiz
+      aesthetic = await questionnaireToAesthetic(answers!, tasteMemory.previousDNAs);
+    }
 
     const allAvoids = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
 
-    // ── Product retrieval: visual search OR text search ────────────────────────
+    // ── Product retrieval ─────────────────────────────────────────────────────
     let rawCandidates: import("@/lib/algolia").CategoryCandidates;
 
-    if (USE_VISUAL_SEARCH && (pinImageUrls ?? []).length > 0) {
-      console.log("[shop] Using visual embedding search via Pinecone…");
+    if (USE_VISUAL_SEARCH && mode === "images" && uploadedImages?.length) {
+      // Image upload → CLIP embed → Pinecone visual search
+      console.log("[shop] Visual search: uploaded images");
+      const objectIDs = await searchByUploadedImages(
+        uploadedImages.slice(0, 10),
+        120,
+        aesthetic.price_range
+      );
+      console.log(`[shop] Pinecone returned ${objectIDs.length} objectIDs`);
+      const products = await getProductsByIds(objectIDs);
+      rawCandidates  = groupByCategory(products, 20);
 
-      // Embed board images → cluster by repetition → weighted Pinecone queries
-      const objectIDs = await searchByBoardImages(
+    } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
+      // Pinterest → CLIP embed → Pinecone visual search (existing path)
+      console.log("[shop] Visual search: Pinterest board images");
+
+      let objectIDs = await searchByBoardImages(
         pinImageUrls.slice(0, 20),
-        120,                     // retrieve 120 visually nearest products
+        120,
         aesthetic.price_range
       );
 
+      // If user has a cross-session style centroid, nudge results toward it
+      if (tasteMemory.styleCentroid && objectIDs.length > 0) {
+        console.log("[shop] Blending cross-session style centroid");
+        const { embedImageUrls: embed } = await import("@/lib/embeddings");
+        const pinEmbeddings = await embed(pinImageUrls.slice(0, 20));
+        const validEmbeddings = pinEmbeddings.filter((e) => e.length > 0);
+        if (validEmbeddings.length > 0) {
+          const nudgedEmbeddings = validEmbeddings.map((emb) =>
+            blendCentroids(emb, [tasteMemory.styleCentroid!], 0.15)
+          );
+          objectIDs = await searchByEmbeddings(nudgedEmbeddings, 120, aesthetic.price_range);
+        }
+      }
+
       console.log(`[shop] Pinecone returned ${objectIDs.length} objectIDs`);
+      const products = await getProductsByIds(objectIDs);
+      rawCandidates  = groupByCategory(products, 20);
 
-      // Fetch full product records from Algolia (preserves ranking order)
-      const products  = await getProductsByIds(objectIDs);
-      rawCandidates   = groupByCategory(products, 20);
-
-      console.log("[shop] Visual candidates by category:",
-        Object.fromEntries(
-          (["dress","top","bottom","jacket","shoes","bag"] as const).map((c) => [c, rawCandidates[c].length])
-        )
-      );
     } else {
-      // Fallback: classic Algolia text search (runs before Pinecone is set up,
-      // or when no board images are available)
-      console.log("[shop] Using Algolia text search (Pinecone not configured or no board images).");
+      // Text / quiz / no-Pinecone fallback → Algolia text search
+      console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
       rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
     }
 
-    // ── Filters (same regardless of retrieval method) ─────────────────────────
-    const afterAvoids  = filterByAvoids(rawCandidates, allAvoids);
-    const candidates   = filterMensItems(afterAvoids);
+    // ── Filters ───────────────────────────────────────────────────────────────
+    const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
+    const candidates  = filterMensItems(afterAvoids);
 
-    const cats = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
-    console.log("[shop] Final candidates:", Object.fromEntries(cats.map((c) => [c, candidates[c].length])));
-
-    void saveStyleDNA(token, boardId, boardName, aesthetic)
-      .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));
+    // ── Persist StyleDNA (fire and forget, Pinterest boards only) ─────────────
+    if (mode === "pinterest" && boardId && boardName) {
+      void saveStyleDNA(token, boardId, boardName, aesthetic)
+        .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));
+    }
 
     return NextResponse.json({ aesthetic, candidates });
   } catch (err) {

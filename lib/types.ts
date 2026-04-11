@@ -61,7 +61,20 @@ export interface ClickSignal {
 }
 
 export interface TasteMemory {
-  previousDNAs: StyleDNA[];
-  clickSignals: ClickSignal[];
-  softAvoids:   string[];
+  previousDNAs:  StyleDNA[];
+  clickSignals:  ClickSignal[];
+  softAvoids:    string[];
+  styleCentroid: number[] | null;  // 512-dim CLIP vector, cross-session preference
+}
+
+// ── Search input modes ────────────────────────────────────────────────────────
+
+export type InputMode = "pinterest" | "text" | "images" | "quiz";
+
+export interface QuestionnaireAnswers {
+  occasions:  string[];
+  vibes:      string[];
+  colors:     string[];
+  fits:       string[];
+  priceRange: "budget" | "mid" | "luxury";
 }

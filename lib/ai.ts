@@ -7,7 +7,7 @@ import {
   type CategoryCandidates,
   type ClothingCategory,
 } from "@/lib/algolia";
-import type { StyleDNA, ClickSignal, VisionImage } from "@/lib/types";
+import type { StyleDNA, ClickSignal, VisionImage, QuestionnaireAnswers } from "@/lib/types";
 
 // Re-export so consumers can import from either place
 export type {
@@ -16,6 +16,7 @@ export type {
   CategoryQueries,
   ClickSignal,
   VisionImage,
+  QuestionnaireAnswers,
 } from "@/lib/types";
 
 // ── Types local to ai.ts ──────────────────────────────────────────────────────
@@ -778,4 +779,118 @@ export async function findProducts(dna: StyleDNA): Promise<AlgoliaProduct[]> {
   const filtered   = filterByAvoids(candidates, dna.avoids ?? []);
   const result     = await curateProducts(dna, filtered);
   return result.products;
+}
+
+// ── Text query → StyleDNA ─────────────────────────────────────────────────────
+// Used when the user types a free-text search instead of using a Pinterest board.
+// Returns the same StyleDNA shape so the rest of the pipeline is unchanged.
+
+export async function textQueryToAesthetic(
+  query:        string,
+  previousDNAs: StyleDNA[] = []
+): Promise<StyleDNA> {
+  const client = getClient();
+  const historyBlock = buildHistoryBlock(previousDNAs);
+
+  const promptText =
+    `You are a fashion editor and stylist with a sharp, quiet eye.\n` +
+    (previousDNAs.length > 0 ? `\n${historyBlock}\n\n` : "") +
+    `A user is looking for fashion recommendations and described their style or intent in their own words:\n\n` +
+    `"${query}"\n\n` +
+    `Interpret this as a fashion brief. Infer aesthetic, palette, silhouettes, mood, and shopping intent from their words. ` +
+    `Be generous — they may be vague or use non-fashion language. ` +
+    `If they mention an occasion (dinner, vacation, work), let that shape the occasion_mix. ` +
+    `If they mention price signals ("affordable", "investment piece", "splurge"), set price_range accordingly.\n\n` +
+    `Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no superlatives. Return ONLY valid JSON:\n\n` +
+    JSON_SCHEMA_TEMPLATE;
+
+  const message = await client.messages.create({
+    model:      "claude-sonnet-4-6",
+    max_tokens: 2000,
+    messages:   [{ role: "user", content: promptText }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const json = text.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
+  return JSON.parse(json) as StyleDNA;
+}
+
+// ── Questionnaire answers → StyleDNA ─────────────────────────────────────────
+// Converts a structured style quiz response into a StyleDNA.
+
+export async function questionnaireToAesthetic(
+  answers:      QuestionnaireAnswers,
+  previousDNAs: StyleDNA[] = []
+): Promise<StyleDNA> {
+  const client = getClient();
+  const historyBlock = buildHistoryBlock(previousDNAs);
+
+  const brief = [
+    answers.occasions.length  ? `Occasions: ${answers.occasions.join(", ")}`          : null,
+    answers.vibes.length      ? `Aesthetic vibes: ${answers.vibes.join(", ")}`        : null,
+    answers.colors.length     ? `Color direction: ${answers.colors.join(", ")}`       : null,
+    answers.fits.length       ? `Fit preference: ${answers.fits.join(", ")}`          : null,
+    `Budget: ${answers.priceRange}`,
+  ].filter(Boolean).join("\n");
+
+  const promptText =
+    `You are a fashion editor and stylist with a sharp, quiet eye.\n` +
+    (previousDNAs.length > 0 ? `\n${historyBlock}\n\n` : "") +
+    `A user completed a style quiz with these answers:\n\n${brief}\n\n` +
+    `Synthesise these into a precise StyleDNA. Use the vibe labels as starting points but make the result specific and nuanced — ` +
+    `don't just echo the input labels back. A "clean girl + coastal" person is different from "clean girl + old money". ` +
+    `Color direction should translate into specific palette colors (not just "neutrals" — be precise: warm ivory, stone, etc.).\n\n` +
+    `Return ONLY valid JSON:\n\n` +
+    JSON_SCHEMA_TEMPLATE;
+
+  const message = await client.messages.create({
+    model:      "claude-sonnet-4-6",
+    max_tokens: 2000,
+    messages:   [{ role: "user", content: promptText }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const json = text.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
+  const dna  = JSON.parse(json) as StyleDNA;
+
+  // Honour the explicit price range from the quiz — don't let Claude override it
+  dna.price_range = answers.priceRange;
+  return dna;
+}
+
+// ── Comment refinement → updated StyleDNA ────────────────────────────────────
+// Used by /api/refine to tweak the aesthetic based on a user's "say more" comment.
+
+export async function refineAesthetic(
+  currentDNA: StyleDNA,
+  comment:    string
+): Promise<StyleDNA> {
+  const client = getClient();
+
+  const promptText =
+    `You are a fashion editor refining a style profile based on user feedback.\n\n` +
+    `Current style profile:\n${JSON.stringify(currentDNA, null, 2)}\n\n` +
+    `User feedback: "${comment}"\n\n` +
+    `Make targeted changes to the profile based on this feedback. The feedback might:\n` +
+    `- Request a different vibe ("more minimalist", "less formal", "edgier")\n` +
+    `- Adjust categories ("more bags", "fewer dresses")\n` +
+    `- Shift colors ("more earth tones", "no florals", "more black")\n` +
+    `- Change fit ("more flowy", "less fitted")\n\n` +
+    `Only change what the feedback explicitly or clearly implies. Return the full updated StyleDNA JSON. Return ONLY valid JSON.`;
+
+  const message = await client.messages.create({
+    model:      "claude-sonnet-4-6",
+    max_tokens: 2000,
+    messages:   [{ role: "user", content: promptText }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const json = text.match(/\{[\s\S]*\}/)?.[0];
+  if (!json) return currentDNA;
+
+  try {
+    return { ...currentDNA, ...JSON.parse(json) as StyleDNA };
+  } catch {
+    return currentDNA;
+  }
 }

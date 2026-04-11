@@ -1,102 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-
-// ── Waitlist form ─────────────────────────────────────────────────────────────
-
-function WaitlistForm({ onCream = false }: { onCream?: boolean }) {
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    try {
-      await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-    } catch {
-      // fail silently
-    } finally {
-      setLoading(false);
-      setSubmitted(true);
-    }
-  };
-
-  if (submitted) {
-    return (
-      <p className={`fade-in font-sans text-sm tracking-wide ${onCream ? "text-navy-muted" : "text-muted-strong"}`}>
-        You&apos;re on the list.
-      </p>
-    );
-  }
-
-  if (onCream) {
-    return (
-      <form onSubmit={handleSubmit} className="w-full max-w-sm">
-        <label className="sr-only">Email address</label>
-        <div className="flex">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            required
-            className="flex-1 px-4 py-3 text-sm font-sans bg-white/60 border border-navy-border text-navy placeholder-navy/30 focus:outline-none focus:border-navy-border-mid transition-colors"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-5 py-3 bg-navy text-cream font-sans text-[10px] tracking-widest uppercase font-medium whitespace-nowrap hover:bg-navy/80 transition-colors duration-200 disabled:opacity-50"
-          >
-            {loading ? "…" : "Join the waitlist"}
-          </button>
-        </div>
-      </form>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="w-full max-w-sm">
-      <label className="sr-only">Email address</label>
-      <div className="flex">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          required
-          className="flex-1 px-4 py-3 text-sm font-sans bg-white/6 border border-border text-foreground placeholder-foreground/25 focus:outline-none focus:border-border-mid transition-colors"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-5 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase font-medium whitespace-nowrap hover:bg-accent hover:text-background transition-colors duration-200 disabled:opacity-50"
-        >
-          {loading ? "…" : "Join the waitlist"}
-        </button>
-      </div>
-    </form>
-  );
-}
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const steps = [
   {
     num: "I",
-    title: "Connect your Pinterest",
-    body: "Link your account in one tap. We read your boards with your permission, and nothing else.",
+    title: "Tell us your taste",
+    body: "Share a Pinterest board, describe what you want in words, upload inspiration images, or answer a quick style quiz. However you think, we follow.",
   },
   {
     num: "II",
     title: "We decode your aesthetic",
-    body: "Our AI identifies the exact aesthetic, palette, silhouettes, and mood across your boards, with a fashion stylist's eye.",
+    body: "Our AI identifies the exact aesthetic, palette, silhouettes, and mood across your inputs — with a fashion editor's eye.",
   },
   {
     num: "III",
@@ -107,8 +24,8 @@ const steps = [
 
 const features = [
   {
-    label: "Named aesthetic",
-    body: "Not just 'minimalist'. Think quiet luxury, coastal grandmother, dark academia, clean girl. A real style identity.",
+    label: "Four ways to search",
+    body: "Pinterest board, free text, image upload, or a guided style quiz. Start however feels natural.",
   },
   {
     label: "Your color palette",
@@ -130,22 +47,22 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
 
-      {/* ── Nav — floats over hero (navy) ── */}
+      {/* ── Nav ── */}
       <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between">
         <span className="font-display font-light text-xl tracking-[0.22em] text-foreground">
           MUSE
         </span>
         <Link
-          href="/dashboard"
+          href="/login"
           className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
         >
-          Try demo
+          Get started →
         </Link>
       </header>
 
       <main className="flex-1">
 
-        {/* ══ 1. HERO — NAVY ══════════════════════════════════════════════════ */}
+        {/* ══ 1. HERO ══════════════════════════════════════════════════════════ */}
         <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pb-24 overflow-hidden bg-background">
 
           {/* Radial glow */}
@@ -161,10 +78,6 @@ export default function HomePage() {
           />
 
           <div className="relative z-10 max-w-4xl mx-auto">
-            <p className="fade-in font-sans text-[10px] tracking-widest uppercase text-muted mb-12">
-              Coming Soon
-            </p>
-
             <h1 className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] text-foreground mb-10">
               MUSE
             </h1>
@@ -174,13 +87,23 @@ export default function HomePage() {
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              MUSE reads your Pinterest boards and builds you a private
-              shopping page, curated by an AI stylist that understands exactly
-              what you love.
+              Describe your style in any way — a Pinterest board, an image, a feeling, or a few words.
+              MUSE builds you a private shopping page, curated by an AI stylist that understands exactly what you love.
             </p>
 
-            <div className="fade-in-up delay-400 flex flex-col items-center gap-4">
-              <WaitlistForm onCream={false} />
+            <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
+              <Link
+                href="/login"
+                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
+              >
+                Get started →
+              </Link>
+              <Link
+                href="/dashboard"
+                className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
+              >
+                Try demo
+              </Link>
             </div>
           </div>
         </section>
@@ -271,7 +194,7 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* ══ FOOTER — CREAM ══════════════════════════════════════════════════ */}
+      {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
       <footer className="bg-background border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <span className="font-display font-light tracking-[0.18em] text-sm text-muted">

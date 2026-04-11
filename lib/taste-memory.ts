@@ -203,23 +203,63 @@ export async function computeSoftAvoids(userToken: string): Promise<string[]> {
   return avoids;
 }
 
+// ── Style centroid (cross-session preference vector) ─────────────────────────
+// Stores the average CLIP embedding of all products the user has positively
+// engaged with across sessions. Used to nudge Pinecone queries toward their
+// established personal taste before they even input anything.
+//
+// Requires a `user_taste_centroids` table:
+//   user_token TEXT PRIMARY KEY, centroid JSONB, updated_at TIMESTAMPTZ
+// Fails silently if the table does not yet exist.
+
+export async function saveStyleCentroid(
+  userToken: string,
+  centroid:  number[]
+): Promise<void> {
+  try {
+    const sb = getServiceSupabase();
+    await sb.from("user_taste_centroids").upsert(
+      { user_token: userToken, centroid, updated_at: new Date().toISOString() },
+      { onConflict: "user_token" }
+    );
+  } catch {
+    // Table may not exist yet — fail silently
+  }
+}
+
+export async function getStyleCentroid(userToken: string): Promise<number[] | null> {
+  try {
+    const sb = getServiceSupabase();
+    const { data } = await sb
+      .from("user_taste_centroids")
+      .select("centroid")
+      .eq("user_token", userToken)
+      .single();
+    return (data?.centroid as number[] | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Full taste memory fetch ───────────────────────────────────────────────────
 // Single call that returns everything the pipeline needs for a given user.
 
 export async function loadTasteMemory(userToken: string): Promise<TasteMemory> {
   if (!userToken || userToken === "anon") {
-    return { previousDNAs: [], clickSignals: [], softAvoids: [] };
+    return { previousDNAs: [], clickSignals: [], softAvoids: [], styleCentroid: null };
   }
 
-  const [previousDNARows, clickSignals, softAvoids] = await Promise.all([
+  const [previousDNARows, clickSignals, softAvoids, styleCentroid] = await Promise.all([
     getPreviousStyleDNAs(userToken, 5),
     getClickSignals(userToken, 15),
     computeSoftAvoids(userToken),
+    getStyleCentroid(userToken),
   ]);
 
   return {
     previousDNAs: previousDNARows.map((r) => ({ ...r.dna, _boardName: r.board_name } as StyleDNA)),
     clickSignals,
     softAvoids,
+    styleCentroid,
   };
 }
