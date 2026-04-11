@@ -23,8 +23,17 @@ import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
 const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
 
 async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
+  // Claude multi-image requests cap each dimension at 2000px.
+  // Pinterest CDN supports size variants in the path — rewrite to 474x
+  // (max ~474px wide) which is well under the limit.
+  const safeUrls = urls.slice(0, 12).map((url) =>
+    url.includes("pinimg.com")
+      ? url.replace(/\/(?:originals|[0-9]+x)\//, "/474x/")
+      : url
+  );
+
   const results = await Promise.allSettled(
-    urls.slice(0, 20).map(async (url) => {
+    safeUrls.map(async (url) => {
       const res = await fetch(url);
       if (!res.ok) return null;
       const buffer   = await res.arrayBuffer();
