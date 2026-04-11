@@ -28,7 +28,7 @@ async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
   // (max ~474px wide) which is well under the limit.
   const safeUrls = urls.slice(0, 12).map((url) =>
     url.includes("pinimg.com")
-      ? url.replace(/\/(?:originals|[0-9]+x)\//, "/474x/")
+      ? url.replace(/\/(?:originals|[0-9]+x)\//, "/736x/")
       : url
   );
 
