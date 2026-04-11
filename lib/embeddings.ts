@@ -11,7 +11,6 @@
  *   PINECONE_INDEX     — e.g. "muse"
  */
 
-import { Pinecone } from "@pinecone-database/pinecone";
 import type { VisionImage } from "@/lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -189,16 +188,23 @@ export async function embedBase64Images(images: VisionImage[]): Promise<number[]
 }
 
 // ── Pinecone client (singleton) ───────────────────────────────────────────────
+// Dynamic import so webpack never statically resolves @pinecone-database/pinecone
+// (avoids "Module not found" in Vercel builds where the package is runtime-only).
 
-let _pinecone: Pinecone | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _pinecone: any = null;
 
-function getPinecone() {
-  if (!_pinecone) _pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+async function getPinecone() {
+  if (!_pinecone) {
+    const { Pinecone } = await import("@pinecone-database/pinecone");
+    _pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+  }
   return _pinecone;
 }
 
-export function getPineconeIndex() {
-  return getPinecone().index(process.env.PINECONE_INDEX ?? "muse");
+export async function getPineconeIndex() {
+  const pc = await getPinecone();
+  return pc.index(process.env.PINECONE_INDEX ?? "muse");
 }
 
 // ── Core search by pre-computed embeddings ────────────────────────────────────
@@ -216,7 +222,7 @@ export async function searchByEmbeddings(
   const clusters      = clusterEmbeddings(valid, 0.78);
   const pineconeFilter = buildPriceFilter(priceRange);
   const seen           = new Map<string, number>();
-  const index          = getPineconeIndex();
+  const index          = await getPineconeIndex();
 
   await Promise.all(
     clusters.map(async (cluster) => {
@@ -277,9 +283,9 @@ export async function searchByLikedProductIds(
 ): Promise<string[]> {
   if (objectIDs.length === 0) return [];
 
-  const index   = getPineconeIndex();
+  const index   = await getPineconeIndex();
   const fetched = await index.fetch({ ids: objectIDs });
-  const vectors = Object.values(fetched.records ?? {})
+  const vectors = (Object.values(fetched.records ?? {}) as Array<{ values?: number[] }>)
     .map((r) => Array.from(r.values ?? []))
     .filter((v) => v.length > 0);
 
