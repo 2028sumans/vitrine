@@ -565,13 +565,29 @@ function ProductScrollView({
   userToken:  string;
   onSayMore?: (comment: string) => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef  = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const isScrolling   = useRef(false);
 
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
     const { scrollTop, clientHeight } = containerRef.current;
     setActiveIdx(Math.round(scrollTop / clientHeight));
+  }, []);
+
+  // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isScrolling.current) return;
+      isScrolling.current = true;
+      el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
+      setTimeout(() => { isScrolling.current = false; }, 500);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
   useEffect(() => {
@@ -631,7 +647,7 @@ function OutfitScrollCard({
   };
 
   return (
-    <div className="relative flex flex-col bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }} data-card-index={index}>
+    <div className="relative flex flex-col bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start", scrollSnapStop: "always" }} data-card-index={index}>
       <div className="flex-1 grid gap-px overflow-hidden" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {card.products.map((p) => (
           <a key={p.objectID} href={p.product_url || "#"} target="_blank" rel="noopener noreferrer"
@@ -706,9 +722,10 @@ function OutfitScrollView({
   userToken:         string;
   onSayMore?:        (comment: string) => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef  = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
-  const nearEndFired = useRef(false);
+  const nearEndFired  = useRef(false);
+  const isScrolling   = useRef(false);
 
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
@@ -717,6 +734,21 @@ function OutfitScrollView({
     setActiveIdx(idx);
     if (!nearEndFired.current && idx >= cards.length - 2) { nearEndFired.current = true; onNearEnd(); }
   }, [cards.length, onNearEnd]);
+
+  // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isScrolling.current) return;
+      isScrolling.current = true;
+      el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
+      setTimeout(() => { isScrolling.current = false; }, 500);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   useEffect(() => { nearEndFired.current = false; }, [cards.length]);
 
