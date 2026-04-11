@@ -107,7 +107,7 @@ let _modelPromise:     Promise<unknown> | null = null;
 async function getModel(): Promise<{ processor: unknown; model: unknown } | null> {
   try {
     const { env, CLIPVisionModelWithProjection, AutoProcessor } = await import(
-      "@xenova/transformers"
+      /* webpackIgnore: true */ "@xenova/transformers"
     );
 
     const MODEL_ID = "Xenova/clip-vit-base-patch32";
@@ -134,7 +134,7 @@ export async function embedImageUrls(urls: string[]): Promise<number[][]> {
   const modelData = await getModel();
   if (!modelData) return [];
 
-  const { RawImage } = await import("@xenova/transformers").catch(() => ({ RawImage: null }));
+  const { RawImage } = await import(/* webpackIgnore: true */ "@xenova/transformers").catch(() => ({ RawImage: null }));
   if (!RawImage) return [];
 
   const { processor, model } = modelData;
@@ -162,7 +162,7 @@ export async function embedBase64Images(images: VisionImage[]): Promise<number[]
   const modelData = await getModel();
   if (!modelData) return [];
 
-  const { RawImage } = await import("@xenova/transformers").catch(() => ({ RawImage: null }));
+  const { RawImage } = await import(/* webpackIgnore: true */ "@xenova/transformers").catch(() => ({ RawImage: null }));
   if (!RawImage) return [];
 
   const { processor, model } = modelData;
@@ -196,7 +196,7 @@ let _pinecone: any = null;
 
 async function getPinecone() {
   if (!_pinecone) {
-    const { Pinecone } = await import("@pinecone-database/pinecone");
+    const { Pinecone } = await import(/* webpackIgnore: true */ "@pinecone-database/pinecone");
     _pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
   }
   return _pinecone;
