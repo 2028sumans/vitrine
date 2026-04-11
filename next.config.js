@@ -3,25 +3,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Don't bundle these — they need native Node.js resolution (WASM, ONNX runtime)
-  serverExternalPackages: ["@xenova/transformers", "onnxruntime-node"],
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // Belt-and-suspenders: also mark as webpack externals so the bundler
-      // never tries to resolve them even with dynamic imports.
-      const prev = config.externals || [];
-      config.externals = [
-        ...(Array.isArray(prev) ? prev : [prev]),
-        function ({ request }, callback) {
-          const skip = ["@xenova/transformers", "onnxruntime-node", "onnxruntime-web"];
-          if (skip.some((pkg) => request === pkg || request.startsWith(pkg + "/"))) {
-            return callback(null, "commonjs " + request);
-          }
-          callback();
-        },
-      ];
-    }
-    return config;
+  experimental: {
+    // Don't bundle these — they need native Node.js resolution (WASM, ONNX runtime)
+    serverComponentsExternalPackages: ["@xenova/transformers", "onnxruntime-node"],
   },
   images: {
     remotePatterns: [
