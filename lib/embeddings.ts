@@ -8,10 +8,11 @@
  *
  * Env vars required:
  *   PINECONE_API_KEY   — from pinecone.io (free account)
- *   PINECONE_INDEX     — e.g. "vitrine-products"
+ *   PINECONE_INDEX     — e.g. "muse"
  */
 
 import { Pinecone } from "@pinecone-database/pinecone";
+import type { VisionImage } from "@/lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,6 @@ function meanVector(vecs: number[][]): number[] {
 }
 
 // ── Clustering ────────────────────────────────────────────────────────────────
-// Greedy single-pass: assign each embedding to the nearest existing centroid
-// (if similarity > threshold), otherwise start a new cluster.
-// Repetition = size of cluster = weight = more search budget.
 
 export function clusterEmbeddings(
   embeddings: number[][],
@@ -87,40 +85,60 @@ export function clusterEmbeddings(
     .map((c) => ({ centroid: c.centroid, weight: c.members.length / total, size: c.members.length }));
 }
 
+// ── Centroid blending (session feedback loop) ─────────────────────────────────
+// Nudges a query centroid toward the average of liked product embeddings.
+// weight=0.3 → liked products shift the query by 30%.
+
+export function blendCentroids(
+  original: number[],
+  liked:    number[][],
+  weight = 0.3
+): number[] {
+  if (liked.length === 0 || original.length === 0) return original;
+  const likedMean = normalize(meanVector(liked));
+  if (likedMean.length === 0) return original;
+  return normalize(original.map((v, i) => (1 - weight) * v + weight * (likedMean[i] ?? 0)));
+}
+
 // ── Model loading (server-side singleton) ─────────────────────────────────────
-// The CLIP vision encoder loads once per Lambda warm instance (~200ms after
-// first cold-start download). Downloaded to /tmp and cached automatically.
 
 let _processorPromise: Promise<unknown> | null = null;
-let _modelPromise: Promise<unknown> | null = null;
+let _modelPromise:     Promise<unknown> | null = null;
 
-async function getModel() {
-  // Lazy-import so this module can be tree-shaken in browser builds
-  const { env, CLIPVisionModelWithProjection, AutoProcessor } = await import(
-        "@xenova/transformers"
-  );
+async function getModel(): Promise<{ processor: unknown; model: unknown } | null> {
+  try {
+    const { env, CLIPVisionModelWithProjection, AutoProcessor } = await import(
+      "@xenova/transformers"
+    );
 
-  const MODEL_ID = "Xenova/clip-vit-base-patch32";
-  env.allowLocalModels = false; // always pull from HuggingFace Hub
+    const MODEL_ID = "Xenova/clip-vit-base-patch32";
+    env.allowLocalModels = false;
 
-  if (!_processorPromise) _processorPromise = AutoProcessor.from_pretrained(MODEL_ID);
-  if (!_modelPromise)
-    _modelPromise = CLIPVisionModelWithProjection.from_pretrained(MODEL_ID, {
-      quantized: true, // ~80MB vs ~340MB; quality difference is negligible for retrieval
-    });
+    if (!_processorPromise) _processorPromise = AutoProcessor.from_pretrained(MODEL_ID);
+    if (!_modelPromise)
+      _modelPromise = CLIPVisionModelWithProjection.from_pretrained(MODEL_ID, {
+        quantized: true,
+      });
 
-  const [processor, model] = await Promise.all([_processorPromise, _modelPromise]);
-  return { processor, model };
+    const [processor, model] = await Promise.all([_processorPromise, _modelPromise]);
+    return { processor, model };
+  } catch {
+    // @xenova/transformers not available in this environment (e.g. Vercel build)
+    // Visual search will fall back to Algolia text search in the calling route.
+    return null;
+  }
 }
 
 // ── Embed image URLs ──────────────────────────────────────────────────────────
 
 export async function embedImageUrls(urls: string[]): Promise<number[][]> {
-  const { RawImage } = await import(
-        "@xenova/transformers"
-  );
-  const { processor, model } = await getModel();
+  const modelData = await getModel();
+  if (!modelData) return [];
 
+  const { RawImage } = await import("@xenova/transformers").catch(() => ({ RawImage: null }));
+  if (!RawImage) return [];
+
+  const { processor, model } = modelData;
   const results: number[][] = [];
 
   for (const url of urls) {
@@ -130,10 +148,39 @@ export async function embedImageUrls(urls: string[]): Promise<number[][]> {
       const inputs = await processor(image);
       // @ts-expect-error — dynamic model call
       const { image_embeds } = await model(inputs);
-      // image_embeds is already L2-normalized by CLIP — shape [1, 512]
       results.push(Array.from(image_embeds.data as Float32Array));
     } catch {
-      // Skip images that fail to load (broken URL, network error, etc.)
+      results.push([]);
+    }
+  }
+
+  return results;
+}
+
+// ── Embed base64 images (for user-uploaded files) ─────────────────────────────
+
+export async function embedBase64Images(images: VisionImage[]): Promise<number[][]> {
+  const modelData = await getModel();
+  if (!modelData) return [];
+
+  const { RawImage } = await import("@xenova/transformers").catch(() => ({ RawImage: null }));
+  if (!RawImage) return [];
+
+  const { processor, model } = modelData;
+  const results: number[][] = [];
+
+  for (const img of images) {
+    try {
+      const buffer = Buffer.from(img.base64, "base64");
+      const blob   = new Blob([buffer], { type: img.mimeType });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const image  = await (RawImage as any).fromBlob(blob);
+      // @ts-expect-error — dynamic model call
+      const inputs = await processor(image);
+      // @ts-expect-error — dynamic model call
+      const { image_embeds } = await model(inputs);
+      results.push(Array.from(image_embeds.data as Float32Array));
+    } catch {
       results.push([]);
     }
   }
@@ -150,38 +197,26 @@ function getPinecone() {
   return _pinecone;
 }
 
-function getPineconeIndex() {
-  return getPinecone().index(process.env.PINECONE_INDEX ?? "vitrine-products");
+export function getPineconeIndex() {
+  return getPinecone().index(process.env.PINECONE_INDEX ?? "muse");
 }
 
-// ── Main retrieval function ───────────────────────────────────────────────────
-// 1. Embed board pin images
-// 2. Cluster → weight clusters by size (repetition = preference signal)
-// 3. Query Pinecone once per cluster, budget proportional to weight
-// 4. Re-rank merged results by (similarity × cluster_weight)
-// 5. Return ordered objectIDs
+// ── Core search by pre-computed embeddings ────────────────────────────────────
+// Accepts any set of embeddings — URL-fetched, base64-embedded, or text-encoded.
+// Clusters them, allocates search budget by cluster size, merges results.
 
-export async function searchByBoardImages(
-  boardImageUrls: string[],
-  totalK         = 120,
-  priceRange?:   string   // "budget" | "mid" | "luxury" — optional Pinecone metadata filter
+export async function searchByEmbeddings(
+  embeddings: number[][],
+  totalK      = 120,
+  priceRange?: string
 ): Promise<string[]> {
-  if (!boardImageUrls.length) return [];
+  const valid = embeddings.filter((e) => e.length > 0);
+  if (valid.length === 0) return [];
 
-  // 1. Embed
-  const raw = await embedImageUrls(boardImageUrls);
-  const embeddings = raw.filter((e) => e.length > 0);
-  if (embeddings.length === 0) return [];
-
-  // 2. Cluster (threshold 0.78 — boards are diverse so we want loose clusters)
-  const clusters = clusterEmbeddings(embeddings, 0.78);
-
-  // Build Pinecone price filter if provided
+  const clusters      = clusterEmbeddings(valid, 0.78);
   const pineconeFilter = buildPriceFilter(priceRange);
-
-  // 3. Query each cluster, budget = totalK × cluster.weight (min 10 per cluster)
-  const seen    = new Map<string, number>(); // objectID → weighted score
-  const index   = getPineconeIndex();
+  const seen           = new Map<string, number>();
+  const index          = getPineconeIndex();
 
   await Promise.all(
     clusters.map(async (cluster) => {
@@ -200,12 +235,64 @@ export async function searchByBoardImages(
     })
   );
 
-  // 4. Re-rank: products that appear in multiple cluster results get score summed
   return Array.from(seen.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([id]) => id)
     .slice(0, totalK);
 }
+
+// ── Search by board image URLs (Pinterest / original flow) ───────────────────
+
+export async function searchByBoardImages(
+  boardImageUrls: string[],
+  totalK          = 120,
+  priceRange?:    string
+): Promise<string[]> {
+  if (!boardImageUrls.length) return [];
+  const embeddings = await embedImageUrls(boardImageUrls);
+  return searchByEmbeddings(embeddings, totalK, priceRange);
+}
+
+// ── Search by uploaded base64 images ─────────────────────────────────────────
+
+export async function searchByUploadedImages(
+  images:     VisionImage[],
+  totalK      = 120,
+  priceRange?: string
+): Promise<string[]> {
+  if (!images.length) return [];
+  const embeddings = await embedBase64Images(images);
+  return searchByEmbeddings(embeddings, totalK, priceRange);
+}
+
+// ── Search using liked product embeddings (for session feedback / refine) ─────
+// Fetches the stored CLIP vectors of liked products from Pinecone,
+// uses their average + clustering as the new query centroid.
+
+export async function searchByLikedProductIds(
+  objectIDs:  string[],
+  totalK      = 60,
+  priceRange?: string,
+  excludeIds?: string[]
+): Promise<string[]> {
+  if (objectIDs.length === 0) return [];
+
+  const index   = getPineconeIndex();
+  const fetched = await index.fetch({ ids: objectIDs });
+  const vectors = Object.values(fetched.records ?? {})
+    .map((r) => Array.from(r.values ?? []))
+    .filter((v) => v.length > 0);
+
+  if (vectors.length === 0) return [];
+
+  const ids = await searchByEmbeddings(vectors, totalK + (excludeIds?.length ?? 0), priceRange);
+
+  // Exclude products already shown
+  const excluded = new Set(excludeIds ?? []);
+  return ids.filter((id) => !excluded.has(id)).slice(0, totalK);
+}
+
+// ── Price filter helper ───────────────────────────────────────────────────────
 
 function buildPriceFilter(priceRange?: string): Record<string, unknown> | null {
   if (!priceRange) return null;
