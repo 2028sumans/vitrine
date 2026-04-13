@@ -21,3 +21,11 @@ dist/
 .claude/settings.local.json
 scripts/channel3-cache.json
 tsconfig.tsbuildinfo
+
+# CLIP model cache (large ONNX files — downloaded at runtime)
+.cache/
+
+# Embedding pipeline artifacts
+scripts/embed-checkpoint.json
+scripts/embed-log.txt
+scripts/check-embeddings.mjs
