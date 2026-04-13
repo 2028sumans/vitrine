@@ -53,7 +53,7 @@ export default function HomePage() {
           MUSE
         </span>
         <Link
-          href="/login"
+          href="/dashboard"
           className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
         >
           Get started →
@@ -93,16 +93,10 @@ export default function HomePage() {
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
               <Link
-                href="/login"
+                href="/dashboard"
                 className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
               >
                 Get started →
-              </Link>
-              <Link
-                href="/dashboard"
-                className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
-              >
-                Try demo
               </Link>
             </div>
           </div>

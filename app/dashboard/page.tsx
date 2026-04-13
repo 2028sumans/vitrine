@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut, signIn } from "next-auth/react";
 import type { StyleDNA, CuratedProduct } from "@/lib/ai";
 import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
@@ -1507,7 +1507,7 @@ export default function DashboardPage() {
                 What are we<br />shopping for?
               </h1>
               <p className="font-sans text-base text-muted-strong max-w-sm leading-relaxed">
-                Start with a Pinterest board, describe your style, upload some inspo, or take a quick quiz.
+                Start with a Pinterest board, describe your style, or upload some inspo.
               </p>
             </div>
 
@@ -1538,42 +1538,65 @@ export default function DashboardPage() {
                   {/* Block form */}
                   <div className="p-5">
                     {/* Pinterest block */}
-                    {block.type === "pinterest" && (
-                      <div>
-                        {selectedBoard ? (
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-sans text-sm text-foreground">{selectedBoard.name}</p>
-                              <p className="font-sans text-[11px] text-muted mt-0.5">{pinsLoading ? "Loading pins…" : `${pins.length} pins`}</p>
-                            </div>
-                            <button onClick={() => setSelectedBoard(null)}
-                              className="font-sans text-[9px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">
-                              Change
+                    {block.type === "pinterest" && (() => {
+                      const pinterestToken = (session as { accessToken?: string } | null)?.accessToken;
+                      // Not connected — show inline connect button
+                      if (!pinterestToken) {
+                        return (
+                          <div className="flex flex-col items-start gap-4">
+                            <p className="font-sans text-xs text-muted leading-relaxed max-w-xs">
+                              Connect your Pinterest to import your boards and pins.
+                            </p>
+                            <button
+                              onClick={() => signIn("pinterest", { callbackUrl: "/dashboard" })}
+                              className="flex items-center gap-2.5 px-5 py-2.5 bg-[#E60023] text-white font-sans text-[10px] tracking-widest uppercase hover:bg-[#c4001d] active:scale-[0.98] transition-all duration-150"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+                                <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z" />
+                              </svg>
+                              Connect Pinterest
                             </button>
                           </div>
-                        ) : (
-                          <div>
-                            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Your boards</p>
-                            <div className="flex flex-col gap-px border border-border max-h-64 overflow-y-auto">
-                              {boardsLoading ? (
-                                <div className="px-5 py-6 text-center">
-                                  <p className="font-sans text-xs text-muted">Loading your boards…</p>
-                                </div>
-                              ) : boards.length === 0 ? (
-                                <div className="px-5 py-6 text-center">
-                                  <p className="font-sans text-xs text-muted">No boards found.</p>
-                                </div>
-                              ) : (
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (boards as any[]).map((board: Board) => (
-                                  <BoardCard key={board.id} board={board} selected={false} onClick={() => setSelectedBoard(board)} />
-                                ))
-                              )}
+                        );
+                      }
+                      // Connected — show board picker or selected board
+                      return (
+                        <div>
+                          {selectedBoard ? (
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-sans text-sm text-foreground">{selectedBoard.name}</p>
+                                <p className="font-sans text-[11px] text-muted mt-0.5">{pinsLoading ? "Loading pins…" : `${pins.length} pins`}</p>
+                              </div>
+                              <button onClick={() => setSelectedBoard(null)}
+                                className="font-sans text-[9px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">
+                                Change
+                              </button>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          ) : (
+                            <div>
+                              <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Your boards</p>
+                              <div className="flex flex-col gap-px border border-border max-h-64 overflow-y-auto">
+                                {boardsLoading ? (
+                                  <div className="px-5 py-6 text-center">
+                                    <p className="font-sans text-xs text-muted">Loading your boards…</p>
+                                  </div>
+                                ) : boards.length === 0 ? (
+                                  <div className="px-5 py-6 text-center">
+                                    <p className="font-sans text-xs text-muted">No boards found.</p>
+                                  </div>
+                                ) : (
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  (boards as any[]).map((board: Board) => (
+                                    <BoardCard key={board.id} board={board} selected={false} onClick={() => setSelectedBoard(board)} />
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Text block */}
                     {block.type === "text" && (
