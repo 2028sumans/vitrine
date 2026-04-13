@@ -121,10 +121,11 @@ function buildHistoryBlock(previousDNAs: StyleDNA[]): string {
 }
 
 export async function analyzeAesthetic(
-  boardName:    string,
+  boardName:       string,
   pinDescriptions: string[],
-  images:       VisionImage[] = [],
-  previousDNAs: StyleDNA[]   = []
+  images:          VisionImage[] = [],
+  previousDNAs:    StyleDNA[]   = [],
+  extraContext?:   string
 ): Promise<StyleDNA> {
   const client = getClient();
 
@@ -163,16 +164,25 @@ Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no su
 
 ${JSON_SCHEMA_TEMPLATE}`;
 
+  const userContent: Anthropic.MessageParam["content"] = [
+    ...toImageBlocks(images),
+    { type: "text" as const, text: promptText },
+  ];
+
+  if (extraContext) {
+    userContent.push({
+      type: "text",
+      text: `\nAdditional context the user provided:\n${extraContext}`,
+    });
+  }
+
   const message = await client.messages.create({
     model:      "claude-sonnet-4-6",
     max_tokens: 2500,
     messages: [
       {
-        role: "user",
-        content: [
-          ...toImageBlocks(images),
-          { type: "text" as const, text: promptText },
-        ],
+        role:    "user",
+        content: userContent,
       },
     ],
   });

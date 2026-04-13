@@ -11,10 +11,10 @@
  *   ALGOLIA_APP_ID     — already in .env.local
  *   ALGOLIA_ADMIN_KEY  — from Algolia dashboard
  *   PINECONE_API_KEY   — from pinecone.io (free account, no credit card)
- *   PINECONE_INDEX     — your index name, e.g. "vitrine-products" (dim=512, metric=cosine)
+ *   PINECONE_INDEX     — your index name, e.g. "muse-products" (dim=512, metric=cosine)
  *
  * Run:
- *   ALGOLIA_ADMIN_KEY=xxx PINECONE_API_KEY=yyy PINECONE_INDEX=vitrine-products \
+ *   ALGOLIA_ADMIN_KEY=xxx PINECONE_API_KEY=yyy PINECONE_INDEX=muse-products \
  *   node scripts/embed-products.mjs
  *
  * Flags:
@@ -31,7 +31,7 @@ import { writeFileSync, readFileSync, existsSync } from "fs";
 const ALGOLIA_APP_ID    = process.env.ALGOLIA_APP_ID    ?? "BSDU5QFOT3";
 const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_ADMIN_KEY;
 const PINECONE_API_KEY  = process.env.PINECONE_API_KEY;
-const PINECONE_INDEX    = process.env.PINECONE_INDEX    ?? "vitrine-products";
+const PINECONE_INDEX    = process.env.PINECONE_INDEX    ?? "muse";
 const INDEX_NAME        = "vitrine_products";
 const MODEL_ID          = "Xenova/clip-vit-base-patch32";
 const CHECKPOINT_FILE   = "scripts/embed-checkpoint.json";
@@ -59,26 +59,22 @@ function saveCheckpoint(done) {
 async function loadAllProducts(client) {
   console.log("Loading products from Algolia…");
   const products = [];
-  let page = 0;
 
-  while (true) {
-    const res = await client.searchSingleIndex({
-      indexName: INDEX_NAME,
-      searchParams: {
-        query:       "",
-        hitsPerPage: 1000,
-        page,
-        attributesToRetrieve: [
-          "objectID", "image_url", "category", "price_range", "retailer",
-        ],
-      },
-    });
-
-    products.push(...res.hits);
-    if (res.hits.length < 1000) break;
-    page++;
-    process.stdout.write(`  ${products.length} loaded…\r`);
-  }
+  // browseObjects iterates cursor pages automatically — no 1000-result cap
+  await client.browseObjects({
+    indexName: INDEX_NAME,
+    browseParams: {
+      query:       "",
+      hitsPerPage: 1000,
+      attributesToRetrieve: [
+        "objectID", "image_url", "category", "price_range", "retailer",
+      ],
+    },
+    aggregator: (res) => {
+      products.push(...res.hits);
+      process.stdout.write(`  ${products.length} loaded…\r`);
+    },
+  });
 
   // Only keep products with a real image URL
   const withImages = products.filter(
@@ -106,15 +102,40 @@ async function loadModel() {
   console.log("Model ready.");
 }
 
+let _debugged = false;
+
 async function embedOne(imageUrl) {
-  const { RawImage } = await import("@xenova/transformers");
   try {
-    const image = await RawImage.fromURL(imageUrl);
+    const { RawImage } = await import("@xenova/transformers");
+    const image  = await RawImage.fromURL(imageUrl);
     const inputs = await processor(image);
-    const { image_embeds } = await model(inputs);
-    return Array.from(image_embeds.data); // Float32Array → plain array, length 512
-  } catch {
-    return null; // broken image — skip
+    const output = await model(inputs);
+
+    // Debug: log the full output shape on first call so we know what we're getting
+    if (!_debugged) {
+      _debugged = true;
+      console.log("\n[debug] model output keys:", Object.keys(output));
+      for (const [k, v] of Object.entries(output)) {
+        console.log(`  ${k}: dims=${JSON.stringify(v?.dims)}, data.length=${v?.data?.length}`);
+      }
+    }
+
+    // CLIPVisionModelWithProjection → image_embeds [1, 512]
+    if (output.image_embeds?.data?.length > 0) {
+      return Array.from(output.image_embeds.data);
+    }
+
+    // Fallback: last_hidden_state → take CLS token [0] → first hidden_size values
+    if (output.last_hidden_state?.data?.length > 0) {
+      const hiddenSize = output.last_hidden_state.dims[2];
+      return Array.from(output.last_hidden_state.data.slice(0, hiddenSize));
+    }
+
+    console.error("\n[embedOne] No usable output for", imageUrl, "— keys:", Object.keys(output));
+    return null;
+  } catch (err) {
+    console.error("\n[embedOne] Exception:", err.message, "| URL:", imageUrl.slice(0, 80));
+    return null;
   }
 }
 
@@ -151,14 +172,13 @@ async function main() {
   for (let i = 0; i < remaining.length; i += EMBED_BATCH) {
     const batch = remaining.slice(i, i + EMBED_BATCH);
 
-    // Embed all images in this batch concurrently
-    const embeddings = await Promise.all(batch.map((p) => embedOne(p.image_url)));
-
+    // Embed sequentially — ONNX/WASM runtime is not safe for concurrent inference
     for (let j = 0; j < batch.length; j++) {
       const product = batch[j];
-      const values  = embeddings[j];
+      const values  = await embedOne(product.image_url);
 
-      if (!values) { failed++; done.add(product.objectID); continue; }
+      // Mark failed images as done so we skip them on resume
+      if (!values || values.length === 0) { failed++; done.add(product.objectID); continue; }
 
       upsertBuffer.push({
         id:       product.objectID,
@@ -169,14 +189,15 @@ async function main() {
           retailer:    product.retailer    ?? "",
         },
       });
-      done.add(product.objectID);
       embedded++;
+      // NOTE: do NOT add to done yet — only after confirmed upsert below
     }
 
-    // Upsert when buffer is full
+    // Upsert when buffer is full — mark as done ONLY after Pinecone confirms
     while (upsertBuffer.length >= UPSERT_BATCH) {
       const toUpsert = upsertBuffer.splice(0, UPSERT_BATCH);
-      await index.upsert(toUpsert);
+      await index.upsert({ records: toUpsert });
+      for (const r of toUpsert) done.add(r.id);  // confirmed in Pinecone
     }
 
     // Progress
@@ -191,9 +212,15 @@ async function main() {
     if ((i + EMBED_BATCH) % 500 === 0) saveCheckpoint(done);
   }
 
-  // Flush remaining buffer
-  for (let i = 0; i < upsertBuffer.length; i += UPSERT_BATCH) {
-    await index.upsert(upsertBuffer.slice(i, i + UPSERT_BATCH));
+  // Flush remaining buffer — confirm each chunk before checkpointing
+  if (upsertBuffer.length > 0) {
+    for (let i = 0; i < upsertBuffer.length; i += UPSERT_BATCH) {
+      const chunk = upsertBuffer.slice(i, i + UPSERT_BATCH);
+      if (chunk.length > 0) {
+        await index.upsert({ records: chunk });
+        for (const r of chunk) done.add(r.id);
+      }
+    }
   }
 
   saveCheckpoint(done);

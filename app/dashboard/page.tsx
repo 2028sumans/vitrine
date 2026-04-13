@@ -1041,10 +1041,17 @@ export default function DashboardPage() {
   const [scrollCards, setScrollCards]       = useState<OutfitCard[]>([]);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
 
-  // New: input mode + search hub state
-  const [inputMode, setInputMode]           = useState<InputMode>("pinterest");
-  const [textQuery, setTextQuery]           = useState("");
-  const [uploadedFiles, setUploadedFiles]   = useState<Array<{ url: string; file: File }>>([]);
+  // Multi-context blocks (up to 4, each independently typed)
+  interface ContextBlock {
+    id:            string;
+    type:          InputMode;
+    textQuery:     string;
+    uploadedFiles: Array<{ url: string; file: File }>;
+    answers?:      QuestionnaireAnswers;
+  }
+  const [contextBlocks, setContextBlocks]   = useState<ContextBlock[]>([
+    { id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] },
+  ]);
   const [isRefining, setIsRefining]         = useState(false);
 
   // Session feedback loop
@@ -1092,122 +1099,90 @@ export default function DashboardPage() {
     }
   }, [step, products, userToken]);
 
-  // ── Helper: convert uploaded files to VisionImage[] for the API ───────────
-  const getUploadedVisionImages = useCallback(async (): Promise<VisionImage[]> => {
-    return Promise.all(
-      uploadedFiles.map(({ file }) =>
-        new Promise<VisionImage>((resolve) => {
+  // ── Block management ──────────────────────────────────────────────────────
+
+  const addBlock = useCallback(() => {
+    setContextBlocks((prev) => prev.length >= 4 ? prev : [
+      ...prev,
+      { id: Math.random().toString(36).slice(2), type: "text" as InputMode, textQuery: "", uploadedFiles: [] },
+    ]);
+  }, []);
+
+  const removeBlock = useCallback((id: string) => {
+    setContextBlocks((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  const updateBlock = useCallback((id: string, patch: Partial<{ type: InputMode; textQuery: string; uploadedFiles: Array<{ url: string; file: File }>; answers: QuestionnaireAnswers }>) => {
+    setContextBlocks((prev) => prev.map((b) => b.id === id ? { ...b, ...patch } : b));
+  }, []);
+
+  // ── Unified shop handler (all blocks → single API call) ───────────────────
+
+  const handleShopMulti = useCallback(async () => {
+    setStep("shopping_loading");
+    setErrorMsg("");
+    setShoppingStep(0);
+    const t1 = setTimeout(() => setShoppingStep(1), 15000);
+    try {
+      const fileToVision = (file: File): Promise<VisionImage> =>
+        new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
             resolve({ base64: dataUrl.split(",")[1], mimeType: file.type });
           };
           reader.readAsDataURL(file);
+        });
+
+      const contexts = (await Promise.all(
+        contextBlocks.map(async (b) => {
+          if (b.type === "pinterest") {
+            if (!selectedBoard) return null;
+            return {
+              mode:         "pinterest" as const,
+              boardId:      selectedBoard.id,
+              boardName:    selectedBoard.name,
+              pins:         pins.map((p) => ({ title: p.title, description: p.description })),
+              pinImageUrls: pins.slice(0, 20).map((p) => p.imageUrl),
+            };
+          }
+          if (b.type === "text") {
+            if (!b.textQuery.trim()) return null;
+            return { mode: "text" as const, textQuery: b.textQuery.trim() };
+          }
+          if (b.type === "images") {
+            if (!b.uploadedFiles.length) return null;
+            const uploadedImages = await Promise.all(b.uploadedFiles.map(({ file }) => fileToVision(file)));
+            return { mode: "images" as const, uploadedImages };
+          }
+          if (b.type === "quiz") {
+            if (!b.answers) return null;
+            return { mode: "quiz" as const, answers: b.answers };
+          }
+          return null;
         })
-      )
-    );
-  }, [uploadedFiles]);
+      )).filter((c): c is NonNullable<typeof c> => c !== null);
+
+      if (contexts.length === 0) { setStep("boards"); return; }
+
+      const res = await fetch("/api/shop", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ contexts, userToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
+      setAesthetic(data.aesthetic);
+      setCandidates(data.candidates);
+      setStep("shopping");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
+      setStep("error");
+    } finally { clearTimeout(t1); }
+  }, [contextBlocks, selectedBoard, pins, userToken]);
 
   // ── Shop handlers ─────────────────────────────────────────────────────────
 
-  const handleShop = useCallback(async () => {
-    if (!selectedBoard) return;
-    setStep("shopping_loading");
-    setErrorMsg("");
-    setShoppingStep(0);
-    const t1 = setTimeout(() => setShoppingStep(1), 15000);
-    try {
-      const res = await fetch("/api/shop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "pinterest",
-          boardId:      selectedBoard.id,
-          boardName:    selectedBoard.name,
-          pins:         pins.map((p) => ({ title: p.title, description: p.description })),
-          pinImageUrls: pins.slice(0, 20).map((p) => p.imageUrl),
-          userToken,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
-      setAesthetic(data.aesthetic);
-      setCandidates(data.candidates);
-      setStep("shopping");
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
-      setStep("error");
-    } finally { clearTimeout(t1); }
-  }, [selectedBoard, pins, userToken]);
-
-  const handleShopFromText = useCallback(async () => {
-    if (!textQuery.trim()) return;
-    setStep("shopping_loading");
-    setErrorMsg("");
-    setShoppingStep(0);
-    const t1 = setTimeout(() => setShoppingStep(1), 15000);
-    try {
-      const res = await fetch("/api/shop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "text", textQuery: textQuery.trim(), userToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
-      setAesthetic(data.aesthetic);
-      setCandidates(data.candidates);
-      setStep("shopping");
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
-      setStep("error");
-    } finally { clearTimeout(t1); }
-  }, [textQuery, userToken]);
-
-  const handleShopFromImages = useCallback(async () => {
-    if (!uploadedFiles.length) return;
-    setStep("shopping_loading");
-    setErrorMsg("");
-    setShoppingStep(0);
-    const t1 = setTimeout(() => setShoppingStep(1), 20000);
-    try {
-      const uploadedImages = await getUploadedVisionImages();
-      const res = await fetch("/api/shop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "images", uploadedImages, userToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
-      setAesthetic(data.aesthetic);
-      setCandidates(data.candidates);
-      setStep("shopping");
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
-      setStep("error");
-    } finally { clearTimeout(t1); }
-  }, [uploadedFiles, userToken, getUploadedVisionImages]);
-
-  const handleShopFromQuiz = useCallback(async (answers: import("@/lib/types").QuestionnaireAnswers) => {
-    setStep("shopping_loading");
-    setErrorMsg("");
-    setShoppingStep(0);
-    const t1 = setTimeout(() => setShoppingStep(1), 15000);
-    try {
-      const res = await fetch("/api/shop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "quiz", answers, userToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
-      setAesthetic(data.aesthetic);
-      setCandidates(data.candidates);
-      setStep("shopping");
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
-      setStep("error");
-    } finally { clearTimeout(t1); }
-  }, [userToken]);
 
   // ── Build edit ────────────────────────────────────────────────────────────
 
@@ -1359,8 +1334,7 @@ export default function DashboardPage() {
     setShopViewMode("grid");
     setScrollCards([]);
     setIsGeneratingMore(false);
-    setTextQuery("");
-    setUploadedFiles([]);
+    setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
     setSessionLikedIds([]);
     setIsRefining(false);
   };
@@ -1368,13 +1342,12 @@ export default function DashboardPage() {
   const outfitA = products.filter((p) => p.outfit_group === "outfit_a");
   const outfitB = products.filter((p) => p.outfit_group === "outfit_b");
 
-  // ── Input mode tab labels ─────────────────────────────────────────────────
+  // ── Context block type labels ─────────────────────────────────────────────
 
-  const INPUT_MODES: { mode: InputMode; label: string }[] = [
+  const BLOCK_TYPES: { mode: InputMode; label: string }[] = [
     { mode: "pinterest", label: "Pinterest" },
-    { mode: "text",      label: "Describe" },
-    { mode: "images",    label: "Upload" },
-    { mode: "quiz",      label: "Style quiz" },
+    { mode: "text",      label: "Describe"  },
+    { mode: "images",    label: "Upload"    },
   ];
 
   return (
@@ -1409,94 +1382,116 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Mode tabs */}
-            <div className="flex border border-border overflow-hidden mb-8 w-fit">
-              {INPUT_MODES.map(({ mode, label }) => (
-                <button key={mode} onClick={() => setInputMode(mode)}
-                  className={`px-5 py-2.5 font-sans text-[10px] tracking-widest uppercase transition-colors duration-150 border-l border-border first:border-l-0 ${
-                    inputMode === mode ? "bg-foreground text-background" : "text-muted hover:text-foreground"
-                  }`}>
-                  {label}
-                </button>
+            {/* Context blocks */}
+            <div className="flex flex-col gap-4 mb-6 max-w-2xl">
+              {contextBlocks.map((block) => (
+                <div key={block.id} className="border border-border">
+                  {/* Block type selector row */}
+                  <div className="flex items-center justify-between border-b border-border">
+                    <div className="flex">
+                      {BLOCK_TYPES.map(({ mode, label }) => (
+                        <button key={mode} onClick={() => updateBlock(block.id, { type: mode })}
+                          className={`px-4 py-2.5 font-sans text-[9px] tracking-widest uppercase border-r border-border transition-colors duration-150 ${
+                            block.type === mode ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {contextBlocks.length > 1 && (
+                      <button onClick={() => removeBlock(block.id)}
+                        className="px-4 py-2 font-sans text-[11px] text-muted hover:text-foreground transition-colors">
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Block form */}
+                  <div className="p-5">
+                    {/* Pinterest block */}
+                    {block.type === "pinterest" && (
+                      <div>
+                        {selectedBoard ? (
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-sans text-sm text-foreground">{selectedBoard.name}</p>
+                              <p className="font-sans text-[11px] text-muted mt-0.5">{pinsLoading ? "Loading pins…" : `${pins.length} pins`}</p>
+                            </div>
+                            <button onClick={() => setSelectedBoard(null)}
+                              className="font-sans text-[9px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">
+                              Change
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Your boards</p>
+                            <div className="flex flex-col gap-px border border-border max-h-64 overflow-y-auto">
+                              {boardsLoading ? (
+                                <div className="px-5 py-6 text-center">
+                                  <p className="font-sans text-xs text-muted">Loading your boards…</p>
+                                </div>
+                              ) : boards.length === 0 ? (
+                                <div className="px-5 py-6 text-center">
+                                  <p className="font-sans text-xs text-muted">No boards found.</p>
+                                </div>
+                              ) : (
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (boards as any[]).map((board: Board) => (
+                                  <BoardCard key={board.id} board={board} selected={false} onClick={() => setSelectedBoard(board)} />
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Text block */}
+                    {block.type === "text" && (
+                      <textarea
+                        value={block.textQuery}
+                        onChange={(e) => updateBlock(block.id, { textQuery: e.target.value })}
+                        placeholder="e.g. rooftop birthday dinner in LA, want to look effortless but elevated, warm weather, not too formal…"
+                        rows={3}
+                        className="w-full bg-transparent font-sans text-sm text-foreground placeholder-muted/50 focus:outline-none resize-none leading-relaxed"
+                      />
+                    )}
+
+                    {/* Upload block */}
+                    {block.type === "images" && (
+                      <ImageUploadZone
+                        images={block.uploadedFiles}
+                        onChange={(files) => updateBlock(block.id, { uploadedFiles: files })}
+                      />
+                    )}
+
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* Pinterest mode */}
-            {inputMode === "pinterest" && (
-              <div>
-                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Your boards</p>
-                <div className="flex flex-col gap-px mb-2 border border-border">
-                  {boardsLoading ? (
-                    <div className="px-5 py-8 text-center">
-                      <p className="font-sans text-xs text-muted">Loading your boards…</p>
-                    </div>
-                  ) : boards.length === 0 ? (
-                    <div className="px-5 py-8 text-center">
-                      <p className="font-sans text-xs text-muted">No boards found. Make sure your Pinterest account has public boards.</p>
-                    </div>
-                  ) : (
-                    boards.map((board) => (
-                      <BoardCard key={board.id} board={board} selected={selectedBoard?.id === board.id} onClick={() => setSelectedBoard(board)} />
-                    ))
-                  )}
-                </div>
-                {selectedBoard && (
-                  <div className="border border-t-0 border-border px-5 pb-6">
-                    <PinGrid pins={pins} loading={pinsLoading} />
-                  </div>
+            {/* Add more context */}
+            {contextBlocks.length < 4 && (
+              <button onClick={addBlock}
+                className="mb-8 font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors border border-dashed border-border px-5 py-2.5">
+                + Add more context
+              </button>
+            )}
+
+            {/* Submit */}
+            <div>
+              <button
+                onClick={handleShopMulti}
+                disabled={!contextBlocks.some((b) =>
+                  (b.type === "pinterest" && !!selectedBoard) ||
+                  (b.type === "text" && !!b.textQuery.trim()) ||
+                  (b.type === "images" && b.uploadedFiles.length > 0) ||
+                  (b.type === "quiz" && !!b.answers)
                 )}
-                <div className="mt-8">
-                  <button onClick={handleShop} disabled={!selectedBoard || pinsLoading}
-                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
-                    {!selectedBoard ? "Select a board" : pinsLoading ? "Loading pins…" : "Shop this board →"}
-                  </button>
-                  {selectedBoard && !pinsLoading && pins.length === 0 && (
-                    <p className="font-sans text-[11px] text-muted mt-3">No pins found — we&apos;ll infer your aesthetic from the board name.</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Text mode */}
-            {inputMode === "text" && (
-              <div className="max-w-xl">
-                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Describe your style or what you&apos;re looking for</p>
-                <textarea
-                  value={textQuery}
-                  onChange={(e) => setTextQuery(e.target.value)}
-                  placeholder="e.g. rooftop birthday dinner in LA, want to look effortless but elevated, warm weather, not too formal…"
-                  rows={4}
-                  className="w-full bg-white/[0.02] border border-border px-4 py-3 font-sans text-sm text-foreground placeholder-muted/50 focus:outline-none focus:border-border-mid resize-none leading-relaxed"
-                />
-                <div className="mt-4 flex items-center gap-4">
-                  <button onClick={handleShopFromText} disabled={!textQuery.trim()}
-                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
-                    Find my look →
-                  </button>
-                  <p className="font-sans text-[11px] text-muted">Be as specific or as vague as you like.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Images mode */}
-            {inputMode === "images" && (
-              <div className="max-w-xl">
-                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Upload inspiration images — up to 10</p>
-                <ImageUploadZone images={uploadedFiles} onChange={setUploadedFiles} />
-                <div className="mt-6 flex items-center gap-4">
-                  <button onClick={handleShopFromImages} disabled={uploadedFiles.length === 0}
-                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
-                    Find my look →
-                  </button>
-                  <p className="font-sans text-[11px] text-muted">Screenshots, runway photos, anything visual.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Quiz mode */}
-            {inputMode === "quiz" && (
-              <QuestionnaireFlow onComplete={handleShopFromQuiz} />
-            )}
+                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
+                Build my edit →
+              </button>
+            </div>
           </div>
         )}
 

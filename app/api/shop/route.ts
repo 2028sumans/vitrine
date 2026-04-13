@@ -47,45 +47,74 @@ async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
     .map((r) => r.value);
 }
 
-export async function POST(request: Request) {
-  const {
-    // Mode selector
-    mode = "pinterest",
-    // Pinterest mode
-    boardId, boardName, pins, pinImageUrls,
-    // Text mode
-    textQuery,
-    // Images mode
-    uploadedImages,
-    // Quiz mode
-    answers,
-    // Common
-    userToken,
-  }: {
-    mode?:           "pinterest" | "text" | "images" | "quiz";
-    boardId?:        string;
-    boardName?:      string;
-    pins?:           Array<{ title?: string; description?: string }>;
-    pinImageUrls?:   string[];
-    textQuery?:      string;
-    uploadedImages?: VisionImage[];
-    answers?:        QuestionnaireAnswers;
-    userToken?:      string;
-  } = await request.json();
+interface ContextPayload {
+  mode:            "pinterest" | "text" | "images" | "quiz";
+  boardId?:        string;
+  boardName?:      string;
+  pins?:           Array<{ title?: string; description?: string }>;
+  pinImageUrls?:   string[];
+  textQuery?:      string;
+  uploadedImages?: VisionImage[];
+  answers?:        QuestionnaireAnswers;
+}
 
-  // Validate required fields per mode
-  if (mode === "pinterest" && (!boardId || !boardName)) {
-    return NextResponse.json({ error: "Missing boardId or boardName" }, { status: 400 });
+export async function POST(request: Request) {
+  const body = await request.json();
+  const userToken: string = body.userToken ?? "";
+
+  // Support both new multi-context format { contexts: [...] } and legacy single-mode format
+  const contexts: ContextPayload[] = Array.isArray(body.contexts)
+    ? body.contexts
+    : [{ mode: body.mode ?? "pinterest", boardId: body.boardId, boardName: body.boardName,
+         pins: body.pins, pinImageUrls: body.pinImageUrls, textQuery: body.textQuery,
+         uploadedImages: body.uploadedImages, answers: body.answers }];
+
+  if (contexts.length === 0) {
+    return NextResponse.json({ error: "No contexts provided" }, { status: 400 });
   }
-  if (mode === "text" && !textQuery?.trim()) {
-    return NextResponse.json({ error: "Missing textQuery" }, { status: 400 });
+
+  // Merge all contexts into unified signals
+  const allPinImageUrls:   string[]      = [];
+  const allUploadedImages: VisionImage[] = [];
+  const textParts:         string[]      = [];
+  let   primaryBoardName                 = "your style";
+  let   primaryBoardId:   string | undefined;
+  const allPinDescriptions: string[]     = [];
+
+  for (const ctx of contexts) {
+    if (ctx.mode === "pinterest") {
+      if (ctx.boardName) primaryBoardName = ctx.boardName;
+      if (ctx.boardId)   primaryBoardId   = ctx.boardId;
+      allPinImageUrls.push(...(ctx.pinImageUrls ?? []));
+      allPinDescriptions.push(
+        ...(ctx.pins ?? []).map((p) => [p.title, p.description].filter(Boolean).join(" — "))
+      );
+    } else if (ctx.mode === "text") {
+      if (ctx.textQuery?.trim()) textParts.push(ctx.textQuery.trim());
+    } else if (ctx.mode === "images") {
+      allUploadedImages.push(...(ctx.uploadedImages ?? []));
+    } else if (ctx.mode === "quiz" && ctx.answers) {
+      // Convert quiz answers to text brief
+      const q = ctx.answers;
+      const brief = [
+        q.occasions?.length  ? `Occasions: ${q.occasions.join(", ")}`  : "",
+        q.vibes?.length      ? `Vibes: ${q.vibes.join(", ")}`          : "",
+        q.colors?.length     ? `Colors: ${q.colors.join(", ")}`        : "",
+        q.fits?.length       ? `Fit: ${q.fits.join(", ")}`             : "",
+        q.priceRange         ? `Budget: ${q.priceRange}`               : "",
+      ].filter(Boolean).join(". ");
+      if (brief) textParts.push(brief);
+    }
   }
-  if (mode === "images" && !uploadedImages?.length) {
-    return NextResponse.json({ error: "Missing uploadedImages" }, { status: 400 });
-  }
-  if (mode === "quiz" && !answers) {
-    return NextResponse.json({ error: "Missing answers" }, { status: 400 });
-  }
+
+  const extraTextContext = textParts.join("\n").trim() || undefined;
+
+  // Determine primary mode for backward-compat paths
+  const mode = contexts[0].mode;
+  const boardName    = primaryBoardName;
+  const boardId      = primaryBoardId;
+  const pinImageUrls = allPinImageUrls;
+  const uploadedImages = allUploadedImages;
 
   const token: string = userToken || "anon";
 
@@ -95,16 +124,14 @@ export async function POST(request: Request) {
     // ── Aesthetic analysis ────────────────────────────────────────────────────
     let aesthetic: import("@/lib/types").StyleDNA;
 
-    if (mode === "pinterest") {
-      const pinDescriptions: string[] = (pins ?? [])
-        .map((p) => [p.title, p.description].filter(Boolean).join(" — "))
-        .filter((d) => d.trim().length > 0);
+    if (mode === "pinterest" || allPinImageUrls.length > 0 || allPinDescriptions.length > 0) {
+      const pinDescriptions: string[] = allPinDescriptions.filter((d) => d.trim().length > 0);
 
-      const uploadedImages: VisionImage[] = pinImageUrls?.length
+      const pinImages: VisionImage[] = pinImageUrls.length
         ? await fetchPinImages(pinImageUrls)
         : [];
 
-      if (pinDescriptions.length === 0 && uploadedImages.length === 0) {
+      if (pinDescriptions.length === 0 && pinImages.length === 0) {
         pinDescriptions.push(
           `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
         );
@@ -113,22 +140,30 @@ export async function POST(request: Request) {
       aesthetic = await analyzeAesthetic(
         boardName!,
         pinDescriptions,
-        uploadedImages,
-        tasteMemory.previousDNAs
+        pinImages,
+        tasteMemory.previousDNAs,
+        extraTextContext
       );
     } else if (mode === "text") {
-      aesthetic = await textQueryToAesthetic(textQuery!.trim(), tasteMemory.previousDNAs);
+      aesthetic = await textQueryToAesthetic(
+        (extraTextContext ?? contexts[0].textQuery ?? "").trim(),
+        tasteMemory.previousDNAs
+      );
     } else if (mode === "images") {
       // Use Claude vision on uploaded images to extract aesthetic
       aesthetic = await analyzeAesthetic(
         "uploaded images",
         [],
-        (uploadedImages ?? []).slice(0, 10),
-        tasteMemory.previousDNAs
+        uploadedImages.slice(0, 10),
+        tasteMemory.previousDNAs,
+        extraTextContext
       );
     } else {
-      // quiz
-      aesthetic = await questionnaireToAesthetic(answers!, tasteMemory.previousDNAs);
+      // quiz — extraTextContext already contains the quiz brief
+      aesthetic = await textQueryToAesthetic(
+        extraTextContext ?? "classic casual style",
+        tasteMemory.previousDNAs
+      );
     }
 
     const allAvoids = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
