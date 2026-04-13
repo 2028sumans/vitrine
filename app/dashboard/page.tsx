@@ -600,7 +600,7 @@ function ProductScrollView({
       if (isScrolling.current) return;
       isScrolling.current = true;
       el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 650);
+      setTimeout(() => { isScrolling.current = false; }, 900);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -783,7 +783,7 @@ function OutfitScrollView({
 
     setActiveIdx(idx);
     onActiveChange?.(idx);
-    if (!nearEndFired.current && idx >= cards.length - 2) { nearEndFired.current = true; onNearEnd(); }
+    if (!nearEndFired.current && idx >= cards.length - 4) { nearEndFired.current = true; onNearEnd(); }
   }, [cards, onNearEnd, onActiveChange, onDwell]);
 
   // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
@@ -795,7 +795,7 @@ function OutfitScrollView({
       if (isScrolling.current) return;
       isScrolling.current = true;
       el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 650);
+      setTimeout(() => { isScrolling.current = false; }, 900);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -1283,6 +1283,25 @@ export default function DashboardPage() {
 
   // ── Build edit ────────────────────────────────────────────────────────────
 
+  // Helper: call /api/curate once and return outfit cards (or [])
+  const curateBatch = useCallback(async (label: string): Promise<OutfitCard[]> => {
+    const ts = Date.now() + Math.random(); // unique id
+    const res = await fetch("/api/curate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aesthetic, candidates, boardId: selectedBoard?.id, boardName: selectedBoard?.name, userToken }),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const ps: CuratedProduct[] = data.products ?? [];
+    const cards: OutfitCard[] = [];
+    const a = ps.filter((p) => p.outfit_group === "outfit_a");
+    const b = ps.filter((p) => p.outfit_group === "outfit_b");
+    if (a.length) cards.push({ id: `a-${label}-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
+    if (b.length) cards.push({ id: `b-${label}-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
+    return cards;
+  }, [aesthetic, candidates, selectedBoard, userToken]);
+
   const handleBuildEdit = useCallback(async (isAppend = false) => {
     if (!aesthetic || !candidates) return;
     setStep("edit_loading");
@@ -1290,6 +1309,7 @@ export default function DashboardPage() {
     const t1 = setTimeout(() => setEditStep(1), 8000);
     const t2 = setTimeout(() => setEditStep(2), 16000);
     try {
+      // Primary call — also sets editorial/grid data
       const res = await fetch("/api/curate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1306,44 +1326,66 @@ export default function DashboardPage() {
       setOutfitARole(data.outfit_a_role ?? "");
       setOutfitBRole(data.outfit_b_role ?? "");
 
+      // Build first 2 cards from primary response
       const ts = Date.now();
-      const newCards: OutfitCard[] = [];
-      const a = ps.filter((p) => p.outfit_group === "outfit_a");
-      const b = ps.filter((p) => p.outfit_group === "outfit_b");
-      if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
-      if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
-      setScrollCards((prev) => isAppend ? [...prev, ...newCards] : newCards);
+      const firstCards: OutfitCard[] = [];
+      const a0 = ps.filter((p) => p.outfit_group === "outfit_a");
+      const b0 = ps.filter((p) => p.outfit_group === "outfit_b");
+      if (a0.length) firstCards.push({ id: `a-0-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a0, liked: false });
+      if (b0.length) firstCards.push({ id: `b-0-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b0, liked: false });
 
+      // Show results immediately with first 2 cards
+      setScrollCards(isAppend ? (prev) => [...prev, ...firstCards] : firstCards);
       setStep("results");
+
+      // Fire 2 more batches in background to build up a pool the algorithm can rank
+      const [batch2, batch3] = await Promise.all([curateBatch("1"), curateBatch("2")]);
+      const morePools = [...batch2, ...batch3].filter((c) => c.products.length > 0);
+
+      // Dedup: drop any card whose product set is already in firstCards
+      const seenKeys = new Set(firstCards.map((c) => c.products.map((p) => p.objectID).sort().join(",")));
+      const fresh = morePools.filter((c) => {
+        const key = c.products.map((p) => p.objectID).sort().join(",");
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
+      });
+
+      if (fresh.length > 0) {
+        // Rank the combined upcoming pool and append
+        const signals = buildSignals();
+        const ranked = rankCards(fresh, signals);
+        setScrollCards((prev) => [...prev, ...ranked]);
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
       setStep("error");
     } finally { clearTimeout(t1); clearTimeout(t2); }
-  }, [aesthetic, candidates, selectedBoard, userToken]);
+  }, [aesthetic, candidates, selectedBoard, userToken, curateBatch, buildSignals]);
 
   const handleGenerateMore = useCallback(async () => {
     if (!aesthetic || !candidates || isGeneratingMore) return;
     setIsGeneratingMore(true);
     try {
-      const res = await fetch("/api/curate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aesthetic, candidates, boardId: selectedBoard?.id, boardName: selectedBoard?.name, userToken }),
+      // 2 parallel batches = 4 new cards, giving the ranker real material
+      const [batch1, batch2] = await Promise.all([curateBatch("m1"), curateBatch("m2")]);
+      const allNew = [...batch1, ...batch2];
+
+      // Dedup against existing scroll cards
+      setScrollCards((prev) => {
+        const seenKeys = new Set(prev.map((c) => c.products.map((p) => p.objectID).sort().join(",")));
+        const fresh = allNew.filter((c) => {
+          const key = c.products.map((p) => p.objectID).sort().join(",");
+          if (seenKeys.has(key)) return false;
+          seenKeys.add(key);
+          return true;
+        });
+        if (fresh.length === 0) return prev;
+        const ranked = rankCards(fresh, buildSignals());
+        return [...prev, ...ranked];
       });
-      const data = await res.json();
-      if (!res.ok) return;
-      const ps: CuratedProduct[] = data.products ?? [];
-      const ts = Date.now();
-      const a = ps.filter((p) => p.outfit_group === "outfit_a");
-      const b = ps.filter((p) => p.outfit_group === "outfit_b");
-      const newCards: OutfitCard[] = [];
-      if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
-      if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
-      // Score and rank new cards before appending (TikTok algorithm)
-      const ranked = rankCards(newCards, buildSignals());
-      setScrollCards((prev) => [...prev, ...ranked]);
     } finally { setIsGeneratingMore(false); }
-  }, [aesthetic, candidates, selectedBoard, userToken, isGeneratingMore, buildSignals]);
+  }, [aesthetic, candidates, isGeneratingMore, curateBatch, buildSignals]);
 
   // ── Session feedback: "say more" ──────────────────────────────────────────
 
