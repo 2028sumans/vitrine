@@ -669,26 +669,37 @@ function OutfitScrollCard({
       </div>
 
       {/* TikTok-style right rail */}
-      <div className="absolute right-3 bottom-36 z-10 flex flex-col items-center gap-6">
+      <div className="absolute right-3 bottom-40 z-10 flex flex-col items-center gap-5">
         {/* Like */}
-        <button onClick={onLike} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
-          <svg viewBox="0 0 24 24" className={`w-10 h-10 drop-shadow-lg transition-all duration-200 ${card.liked ? "fill-red-500" : "fill-white"}`}>
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-          <span className={`font-sans text-xs font-semibold drop-shadow ${card.liked ? "text-red-400" : "text-white"}`}>
+        <button
+          onClick={onLike}
+          className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
+          style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))" }}
+        >
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${card.liked ? "bg-red-500" : "bg-black/50 backdrop-blur-md"}`}>
+            <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white" style={{ filter: card.liked ? "none" : "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </div>
+          <span className="font-sans text-[11px] font-bold text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
             {card.liked ? "Liked" : "Like"}
           </span>
         </button>
 
         {/* Say more */}
         {onSayMore && (
-          <button onClick={(e) => { e.stopPropagation(); setShowSayMore((v) => !v); }}
-            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
-            <svg viewBox="0 0 24 24" className={`w-9 h-9 drop-shadow-lg transition-colors ${showSayMore ? "fill-white" : "fill-white/90"}`}>
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-            </svg>
-            <span className="font-sans text-xs font-semibold text-white drop-shadow">
-              {showSayMore ? "Cancel" : "Comment"}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowSayMore((v) => !v); }}
+            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
+            style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))" }}
+          >
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${showSayMore ? "bg-white/30 backdrop-blur-md" : "bg-black/50 backdrop-blur-md"}`}>
+              <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+              </svg>
+            </div>
+            <span className="font-sans text-[11px] font-bold text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+              {showSayMore ? "Cancel" : "Steer"}
             </span>
           </button>
         )}
