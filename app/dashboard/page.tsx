@@ -669,36 +669,35 @@ function OutfitScrollCard({
       </div>
 
       {/* TikTok-style right rail */}
-      <div className="absolute right-3 bottom-40 z-10 flex flex-col items-center gap-5">
+      <div className="absolute right-4 bottom-40 z-10 flex flex-col items-center gap-5">
         {/* Like */}
-        <button
-          onClick={onLike}
-          className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
-          style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))" }}
-        >
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${card.liked ? "bg-red-500" : "bg-black/50 backdrop-blur-md"}`}>
-            <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white" style={{ filter: card.liked ? "none" : "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        <button onClick={onLike} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
+          <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
+              fill={card.liked ? "#FF2D55" : "none"}
+              stroke={card.liked ? "#FF2D55" : "white"}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
           </div>
-          <span className="font-sans text-[11px] font-bold text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+          <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
             {card.liked ? "Liked" : "Like"}
           </span>
         </button>
 
-        {/* Say more */}
+        {/* Steer */}
         {onSayMore && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowSayMore((v) => !v); }}
-            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
-            style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))" }}
-          >
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${showSayMore ? "bg-white/30 backdrop-blur-md" : "bg-black/50 backdrop-blur-md"}`}>
-              <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+          <button onClick={(e) => { e.stopPropagation(); setShowSayMore((v) => !v); }}
+            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors duration-150 ${showSayMore ? "bg-white" : "bg-black"}`}>
+              <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
+                fill="none"
+                stroke={showSayMore ? "black" : "white"}
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
             </div>
-            <span className="font-sans text-[11px] font-bold text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+            <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
               {showSayMore ? "Cancel" : "Steer"}
             </span>
           </button>
