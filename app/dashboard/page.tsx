@@ -584,7 +584,7 @@ function ProductScrollView({
       if (isScrolling.current) return;
       isScrolling.current = true;
       el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 500);
+      setTimeout(() => { isScrolling.current = false; }, 650);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -667,20 +667,30 @@ function OutfitScrollCard({
         {card.role && <p className="font-display italic text-lg text-white/80 drop-shadow-sm">{card.role}</p>}
       </div>
 
-      {/* Right rail */}
-      <div className="absolute right-4 bottom-40 z-10 flex flex-col items-center gap-4">
+      {/* TikTok-style right rail */}
+      <div className="absolute right-3 bottom-36 z-10 flex flex-col items-center gap-6">
+        {/* Like */}
+        <button onClick={onLike} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
+          <svg viewBox="0 0 24 24" className={`w-10 h-10 drop-shadow-lg transition-all duration-200 ${card.liked ? "fill-red-500" : "fill-white"}`}>
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <span className={`font-sans text-xs font-semibold drop-shadow ${card.liked ? "text-red-400" : "text-white"}`}>
+            {card.liked ? "Liked" : "Like"}
+          </span>
+        </button>
+
+        {/* Say more */}
         {onSayMore && (
-          <button onClick={(e) => { e.stopPropagation(); setShowSayMore((v) => !v); }} className="flex flex-col items-center gap-1.5 group">
-            <span className={`text-xl ${showSayMore ? "text-white/90" : "text-white/40 group-hover:text-white/70"} transition-colors`}>💬</span>
-            <span className="font-sans text-[8px] tracking-widest uppercase text-white/30">more</span>
+          <button onClick={(e) => { e.stopPropagation(); setShowSayMore((v) => !v); }}
+            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
+            <svg viewBox="0 0 24 24" className={`w-9 h-9 drop-shadow-lg transition-colors ${showSayMore ? "fill-white" : "fill-white/90"}`}>
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+            <span className="font-sans text-xs font-semibold text-white drop-shadow">
+              {showSayMore ? "Cancel" : "Comment"}
+            </span>
           </button>
         )}
-        <button onClick={onLike} className="flex flex-col items-center gap-1.5 group">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${card.liked ? "bg-red-500/90 scale-110" : "bg-background/60 backdrop-blur-sm border border-white/10 group-hover:scale-105"}`}>
-            <span className={`text-xl leading-none transition-all duration-300 ${card.liked ? "text-white" : "text-white/60"}`}>{card.liked ? "♥" : "♡"}</span>
-          </div>
-          <span className="font-sans text-[8px] tracking-widest uppercase text-white/30">{card.liked ? "liked" : "like"}</span>
-        </button>
       </div>
 
       {/* Say more input */}
@@ -712,7 +722,7 @@ function OutfitScrollCard({
 // ── Outfit scroll view ────────────────────────────────────────────────────────
 
 function OutfitScrollView({
-  cards, onLike, onNearEnd, isGeneratingMore, onClose, userToken, onSayMore,
+  cards, onLike, onNearEnd, isGeneratingMore, onClose, userToken, onSayMore, onActiveChange,
 }: {
   cards:             OutfitCard[];
   onLike:            (cardId: string) => void;
@@ -721,6 +731,7 @@ function OutfitScrollView({
   onClose:           () => void;
   userToken:         string;
   onSayMore?:        (comment: string) => void;
+  onActiveChange?:   (idx: number) => void;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -732,8 +743,9 @@ function OutfitScrollView({
     const { scrollTop, clientHeight } = containerRef.current;
     const idx = Math.round(scrollTop / clientHeight);
     setActiveIdx(idx);
+    onActiveChange?.(idx);
     if (!nearEndFired.current && idx >= cards.length - 2) { nearEndFired.current = true; onNearEnd(); }
-  }, [cards.length, onNearEnd]);
+  }, [cards.length, onNearEnd, onActiveChange]);
 
   // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
   useEffect(() => {
@@ -744,7 +756,7 @@ function OutfitScrollView({
       if (isScrolling.current) return;
       isScrolling.current = true;
       el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 500);
+      setTimeout(() => { isScrolling.current = false; }, 650);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -1036,8 +1048,8 @@ export default function DashboardPage() {
   const [editStep, setEditStep]             = useState(0);
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
-  const [viewMode, setViewMode]             = useState<ViewMode>("grid");
-  const [shopViewMode, setShopViewMode]     = useState<ViewMode>("grid");
+  const [viewMode, setViewMode]             = useState<ViewMode>("scroll");
+  const [shopViewMode, setShopViewMode]     = useState<ViewMode>("scroll");
   const [scrollCards, setScrollCards]       = useState<OutfitCard[]>([]);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
 
@@ -1057,6 +1069,7 @@ export default function DashboardPage() {
   // Session feedback loop
   const [sessionLikedIds, setSessionLikedIds] = useState<string[]>([]);
   const [sessionId] = useState(() => Math.random().toString(36).slice(2));
+  const activeScrollIdxRef = useRef(0); // tracks current card in TikTok scroll
 
   useEffect(() => {
     if (session?.user?.id) setUserToken(session.user.id);
@@ -1261,19 +1274,49 @@ export default function DashboardPage() {
       const data = await res.json();
       if (!res.ok) return;
 
+      const newAesthetic = data.aesthetic ?? aesthetic;
       if (data.aesthetic) setAesthetic(data.aesthetic);
 
-      if (data.candidates) {
+      const newCandidates = data.candidates;
+      if (newCandidates) {
         setCandidates((prev) => {
-          if (!prev) return data.candidates;
+          if (!prev) return newCandidates;
           const seenIds = new Set(CATEGORIES.flatMap((c) => prev[c].map((p) => p.objectID)));
           const merged = { ...prev };
           for (const cat of CATEGORIES) {
-            const newItems = (data.candidates[cat] ?? []).filter((p: { objectID: string }) => !seenIds.has(p.objectID));
+            const newItems = (newCandidates[cat] ?? []).filter((p: { objectID: string }) => !seenIds.has(p.objectID));
             merged[cat] = [...prev[cat], ...newItems];
           }
           return merged;
         });
+
+        // ── Immediately curate new outfit cards from refined results ──────────
+        // This is what makes comments actually change what you see next.
+        const curateRes = await fetch("/api/curate", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ aesthetic: newAesthetic, candidates: newCandidates, userToken }),
+        });
+        if (curateRes.ok) {
+          const curateData = await curateRes.json();
+          const ps: CuratedProduct[] = curateData.products ?? [];
+          const ts = Date.now();
+          const a = ps.filter((p) => p.outfit_group === "outfit_a");
+          const b = ps.filter((p) => p.outfit_group === "outfit_b");
+          const newCards: OutfitCard[] = [];
+          if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: curateData.outfit_a_role ?? "", products: a, liked: false });
+          if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: curateData.outfit_b_role ?? "", products: b, liked: false });
+
+          if (newCards.length > 0) {
+            // Insert immediately AFTER the card the user is currently viewing
+            const insertAt = activeScrollIdxRef.current + 1;
+            setScrollCards((prev) => [
+              ...prev.slice(0, insertAt),
+              ...newCards,
+              ...prev.slice(insertAt),
+            ]);
+          }
+        }
       }
     } catch {}
     finally { setIsRefining(false); }
@@ -1330,8 +1373,8 @@ export default function DashboardPage() {
     setErrorMsg("");
     setShoppingStep(0);
     setEditStep(0);
-    setViewMode("grid");
-    setShopViewMode("grid");
+    setViewMode("scroll");
+    setShopViewMode("scroll");
     setScrollCards([]);
     setIsGeneratingMore(false);
     setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
@@ -1595,7 +1638,7 @@ export default function DashboardPage() {
         {step === "results" && aesthetic && (
           <>
             {viewMode === "scroll" && (
-              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} />
+              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} />
             )}
 
             <div className="fade-in-up">
