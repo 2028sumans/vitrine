@@ -8,6 +8,7 @@ import type { StyleDNA, CuratedProduct } from "@/lib/ai";
 import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
+import { rankCards, reRankUpcoming, interpretDwell, scoreCard, type ScoringSignals, type ClickSignalLike } from "@/lib/scoring";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -722,7 +723,7 @@ function OutfitScrollCard({
 // ── Outfit scroll view ────────────────────────────────────────────────────────
 
 function OutfitScrollView({
-  cards, onLike, onNearEnd, isGeneratingMore, onClose, userToken, onSayMore, onActiveChange,
+  cards, onLike, onNearEnd, isGeneratingMore, onClose, userToken, onSayMore, onActiveChange, onDwell,
 }: {
   cards:             OutfitCard[];
   onLike:            (cardId: string) => void;
@@ -732,20 +733,33 @@ function OutfitScrollView({
   userToken:         string;
   onSayMore?:        (comment: string) => void;
   onActiveChange?:   (idx: number) => void;
+  onDwell?:          (cardId: string, ms: number) => void;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const nearEndFired  = useRef(false);
   const isScrolling   = useRef(false);
+  // Dwell tracking
+  const cardEnteredAt = useRef<number>(Date.now());
+  const prevIdxRef    = useRef<number>(0);
 
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
     const { scrollTop, clientHeight } = containerRef.current;
     const idx = Math.round(scrollTop / clientHeight);
+
+    // Card changed → report dwell for the card we just left
+    if (idx !== prevIdxRef.current) {
+      const leaving = cards[prevIdxRef.current];
+      if (leaving) onDwell?.(leaving.id, Date.now() - cardEnteredAt.current);
+      cardEnteredAt.current = Date.now();
+      prevIdxRef.current    = idx;
+    }
+
     setActiveIdx(idx);
     onActiveChange?.(idx);
     if (!nearEndFired.current && idx >= cards.length - 2) { nearEndFired.current = true; onNearEnd(); }
-  }, [cards.length, onNearEnd, onActiveChange]);
+  }, [cards, onNearEnd, onActiveChange, onDwell]);
 
   // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
   useEffect(() => {
@@ -1071,6 +1085,40 @@ export default function DashboardPage() {
   const [sessionId] = useState(() => Math.random().toString(36).slice(2));
   const activeScrollIdxRef = useRef(0); // tracks current card in TikTok scroll
 
+  // ── TikTok scoring ────────────────────────────────────────────────────────
+  // dwellTimes: ms spent on each card (card.id → ms); used to compute session
+  // engagement multiplier and re-rank upcoming cards.
+  const [dwellTimes, setDwellTimes] = useState<Record<string, number>>({});
+  // click history loaded from taste memory at shop time (cross-session signal)
+  const clickHistoryRef = useRef<ClickSignalLike[]>([]);
+
+  const buildSignals = useCallback((): ScoringSignals => ({
+    likedProductIds: new Set(sessionLikedIds),
+    clickHistory:    clickHistoryRef.current,
+    dwellTimes,
+    aestheticPrice:  aesthetic?.price_range ?? "mid",
+  }), [sessionLikedIds, dwellTimes, aesthetic]);
+
+  // Called when the user scrolls past a card — ms = time spent on it.
+  // Fast swipe = implicit dislike; long linger = implicit like.
+  // On strong signals, re-rank the upcoming queue.
+  const handleDwell = useCallback((cardId: string, ms: number) => {
+    setDwellTimes((prev) => ({ ...prev, [cardId]: ms }));
+    const signal = interpretDwell(ms);
+    if (signal === "strong_positive" || signal === "negative") {
+      // Re-rank upcoming cards so the algorithm reflects the fresh signal
+      setScrollCards((prev) => {
+        const signals: ScoringSignals = {
+          likedProductIds: new Set(sessionLikedIds),
+          clickHistory:    clickHistoryRef.current,
+          dwellTimes:      { ...dwellTimes, [cardId]: ms },
+          aestheticPrice:  aesthetic?.price_range ?? "mid",
+        };
+        return reRankUpcoming(prev, activeScrollIdxRef.current, signals);
+      });
+    }
+  }, [sessionLikedIds, dwellTimes, aesthetic]);
+
   useEffect(() => {
     if (session?.user?.id) setUserToken(session.user.id);
     else setUserToken(getUserToken());
@@ -1187,6 +1235,17 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
       setAesthetic(data.aesthetic);
       setCandidates(data.candidates);
+      // Seed scoring engine with cross-session click history
+      if (Array.isArray(data.clickSignals)) {
+        clickHistoryRef.current = data.clickSignals.map((s: { object_id?: string; objectID?: string; category: string; brand: string; color: string; price_range: string; retailer?: string }) => ({
+          objectID: s.object_id ?? s.objectID,
+          category: s.category,
+          brand:    s.brand,
+          color:    s.color,
+          price_range: s.price_range,
+          retailer: s.retailer,
+        }));
+      }
       setStep("shopping");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
@@ -1255,9 +1314,11 @@ export default function DashboardPage() {
       const newCards: OutfitCard[] = [];
       if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
       if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
-      setScrollCards((prev) => [...prev, ...newCards]);
+      // Score and rank new cards before appending (TikTok algorithm)
+      const ranked = rankCards(newCards, buildSignals());
+      setScrollCards((prev) => [...prev, ...ranked]);
     } finally { setIsGeneratingMore(false); }
-  }, [aesthetic, candidates, selectedBoard, userToken, isGeneratingMore]);
+  }, [aesthetic, candidates, selectedBoard, userToken, isGeneratingMore, buildSignals]);
 
   // ── Session feedback: "say more" ──────────────────────────────────────────
 
@@ -1308,13 +1369,22 @@ export default function DashboardPage() {
           if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: curateData.outfit_b_role ?? "", products: b, liked: false });
 
           if (newCards.length > 0) {
-            // Insert immediately AFTER the card the user is currently viewing
-            const insertAt = activeScrollIdxRef.current + 1;
-            setScrollCards((prev) => [
-              ...prev.slice(0, insertAt),
-              ...newCards,
-              ...prev.slice(insertAt),
-            ]);
+            // Score the new cards and insert immediately after the current card.
+            // Also re-rank everything the user hasn't seen yet so the comment
+            // influences not just the next card but the entire upcoming queue.
+            const signals = buildSignals();
+            const rankedNew = rankCards(newCards, signals);
+            const insertAt  = activeScrollIdxRef.current + 1;
+            setScrollCards((prev) => {
+              const withInserted = [
+                ...prev.slice(0, insertAt),
+                ...rankedNew,
+                ...prev.slice(insertAt),
+              ];
+              // Re-rank everything from insertAt+rankedNew.length onward
+              const afterInsert = insertAt + rankedNew.length;
+              return reRankUpcoming(withInserted, afterInsert - 1, signals);
+            });
           }
         }
       }
@@ -1325,24 +1395,40 @@ export default function DashboardPage() {
   // ── Like card ─────────────────────────────────────────────────────────────
 
   const handleLikeCard = useCallback((cardId: string) => {
-    setScrollCards((prev) => prev.map((c) => {
-      if (c.id !== cardId) return c;
-      const nowLiked = !c.liked;
-      if (nowLiked) {
-        const ids = c.products.map((p) => p.objectID);
-        setSessionLikedIds((prev) => Array.from(new Set([...prev, ...ids])));
-        c.products.forEach((p) => {
-          trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: 1 });
-          fetch("/api/taste/click", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userToken, product: { objectID: p.objectID, title: p.title, brand: p.brand, color: p.color, category: p.category, retailer: p.retailer, price_range: p.price_range, image_url: p.image_url } }),
-          }).catch(() => {});
-        });
-      }
-      return { ...c, liked: nowLiked };
-    }));
-  }, [userToken]);
+    setScrollCards((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id !== cardId) return c;
+        const nowLiked = !c.liked;
+        if (nowLiked) {
+          const ids = c.products.map((p) => p.objectID);
+          // Update click history ref immediately so scoring picks it up
+          const newSignals = c.products.map((p): ClickSignalLike => ({
+            objectID: p.objectID, category: p.category ?? "", brand: p.brand ?? "",
+            color: p.color ?? "", price_range: p.price_range ?? "mid", retailer: p.retailer,
+          }));
+          clickHistoryRef.current = [...newSignals, ...clickHistoryRef.current].slice(0, 30);
+          setSessionLikedIds((s) => Array.from(new Set([...s, ...ids])));
+          c.products.forEach((p) => {
+            trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: 1 });
+            fetch("/api/taste/click", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userToken, product: { objectID: p.objectID, title: p.title, brand: p.brand, color: p.color, category: p.category, retailer: p.retailer, price_range: p.price_range, image_url: p.image_url } }),
+            }).catch(() => {});
+          });
+        }
+        return { ...c, liked: nowLiked };
+      });
+      // After a like, re-rank the upcoming queue with updated signals
+      const signals: ScoringSignals = {
+        likedProductIds: new Set(updated.filter((c) => c.liked).flatMap((c) => c.products.map((p) => p.objectID))),
+        clickHistory:    clickHistoryRef.current,
+        dwellTimes,
+        aestheticPrice:  aesthetic?.price_range ?? "mid",
+      };
+      return reRankUpcoming(updated, activeScrollIdxRef.current, signals);
+    });
+  }, [userToken, dwellTimes, aesthetic]);
 
   // ── Session end: persist style centroid ───────────────────────────────────
 
@@ -1638,7 +1724,7 @@ export default function DashboardPage() {
         {step === "results" && aesthetic && (
           <>
             {viewMode === "scroll" && (
-              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} />
+              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} onDwell={handleDwell} />
             )}
 
             <div className="fade-in-up">

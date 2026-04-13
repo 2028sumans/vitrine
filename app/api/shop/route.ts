@@ -227,7 +227,7 @@ export async function POST(request: Request) {
         .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));
     }
 
-    return NextResponse.json({ aesthetic, candidates });
+    return NextResponse.json({ aesthetic, candidates, clickSignals: tasteMemory.clickSignals });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[shop] Failed:", message);
