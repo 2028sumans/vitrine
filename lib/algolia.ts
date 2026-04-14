@@ -17,6 +17,7 @@ export interface AlgoliaProduct {
   retailer:       string;
   aesthetic_tags: string[];
   category?:      string;
+  scraped_at?:    string;
   // Set by search layer — needed for Insights click events
   _queryID?:      string;
   _position?:     number;
@@ -78,7 +79,7 @@ export async function searchProducts(
       attributesToRetrieve: [
         "objectID", "title", "brand", "price", "price_range",
         "color", "material", "description", "image_url", "images",
-        "product_url", "retailer", "aesthetic_tags", "category",
+        "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
       ],
     },
   });
@@ -241,7 +242,7 @@ export async function getProductsByIds(objectIDs: string[]): Promise<AlgoliaProd
       attributesToRetrieve: [
         "objectID", "title", "brand", "price", "price_range",
         "color", "material", "description", "image_url", "images",
-        "product_url", "retailer", "aesthetic_tags", "category",
+        "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
       ],
     })),
   });

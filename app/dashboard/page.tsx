@@ -655,6 +655,11 @@ function OutfitScrollCard({
   const [showSayMore, setShowSayMore] = useState(false);
   const [sayMoreText, setSayMoreText] = useState("");
 
+  const hasNewProduct = card.products.some((p) => {
+    const sa = (p as { scraped_at?: string }).scraped_at;
+    return sa && (Date.now() - new Date(sa).getTime()) < 7 * 24 * 60 * 60 * 1000;
+  });
+
   const handleSayMoreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -679,7 +684,12 @@ function OutfitScrollCard({
       </div>
 
       <div className="absolute top-16 left-5 z-10 pointer-events-none">
-        <p className="font-sans text-[8px] tracking-widest uppercase text-white/40 mb-0.5">{card.label}</p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="font-sans text-[8px] tracking-widest uppercase text-white/40">{card.label}</p>
+          {hasNewProduct && (
+            <span className="font-sans text-[7px] tracking-widest uppercase bg-accent text-background px-1.5 py-0.5">New</span>
+          )}
+        </div>
         {card.role && <p className="font-display italic text-lg text-white/80 drop-shadow-sm">{card.role}</p>}
       </div>
 
@@ -837,6 +847,182 @@ function OutfitScrollView({
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
             <span className="font-sans text-[8px] tracking-widest uppercase text-white/20">scroll</span>
             <span className="text-white/20 text-xs">↓</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Onboarding quiz (first-visit fullscreen overlay) ─────────────────────────
+
+const ONBOARDING_VIBES = [
+  "Quiet Luxury", "Clean Girl", "Boho Free Spirit", "Dark Romance",
+  "Coastal Cool", "Old Money", "Y2K Revival", "Romantic Feminine", "Streetwear Edge",
+];
+
+const ONBOARDING_OCCASIONS = [
+  "Everyday looks", "Work & meetings", "Going out", "Vacation", "Special occasions",
+];
+
+const ONBOARDING_BUDGETS = ["Under $80", "$80–$250", "$250+", "Mix it up"];
+
+function OnboardingQuiz({ onComplete }: { onComplete: () => void }) {
+  const [screen, setScreen]           = useState(0);
+  const [vibes, setVibes]             = useState<string[]>([]);
+  const [occasions, setOccasions]     = useState<string[]>([]);
+  const [budget, setBudget]           = useState<string>("");
+
+  const toggleVibes = (v: string) =>
+    setVibes((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
+
+  const toggleOccasions = (o: string) =>
+    setOccasions((prev) => prev.includes(o) ? prev.filter((x) => x !== o) : [...prev, o]);
+
+  const handleComplete = () => {
+    const data = { vibes, occasions, budget };
+    localStorage.setItem("muse_onboarding_v1", JSON.stringify(data));
+    onComplete();
+  };
+
+  const canNext0 = vibes.length >= 2;
+  const canNext1 = occasions.length >= 1;
+  const canNext2 = budget !== "";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
+      <div className="w-full max-w-lg">
+        {/* Progress dots */}
+        <div className="flex items-center justify-center gap-2.5 mb-12">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={`rounded-full transition-all duration-300 ${
+                i === screen
+                  ? "w-2 h-2 bg-foreground"
+                  : i < screen
+                  ? "w-1.5 h-1.5 bg-foreground/40"
+                  : "w-1.5 h-1.5 bg-border"
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Screen 0 — Vibes */}
+        {screen === 0 && (
+          <div className="fade-in">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Step 1 of 3</p>
+            <h2 className="font-display font-light text-4xl text-foreground mb-2 leading-snug">
+              What&apos;s your signature vibe?
+            </h2>
+            <p className="font-sans text-sm text-muted mb-8">Pick 2 or 3 that feel most like you</p>
+            <div className="grid grid-cols-3 gap-2 mb-10">
+              {ONBOARDING_VIBES.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => toggleVibes(v)}
+                  className={`px-3 py-4 text-center border font-sans text-xs leading-snug transition-colors duration-150 ${
+                    vibes.includes(v)
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted hover:border-border/60 hover:text-foreground"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setScreen(1)}
+              disabled={!canNext0}
+              className="w-full px-8 py-3.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+            {vibes.length === 1 && (
+              <p className="font-sans text-[11px] text-muted text-center mt-3">Pick at least 2</p>
+            )}
+          </div>
+        )}
+
+        {/* Screen 1 — Occasions */}
+        {screen === 1 && (
+          <div className="fade-in">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Step 2 of 3</p>
+            <h2 className="font-display font-light text-4xl text-foreground mb-2 leading-snug">
+              What are you shopping for?
+            </h2>
+            <p className="font-sans text-sm text-muted mb-8">Pick everything that applies</p>
+            <div className="flex flex-col gap-2 mb-10">
+              {ONBOARDING_OCCASIONS.map((o) => (
+                <button
+                  key={o}
+                  onClick={() => toggleOccasions(o)}
+                  className={`w-full px-5 py-4 text-left border font-sans text-sm transition-colors duration-150 ${
+                    occasions.includes(o)
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted hover:border-border/60 hover:text-foreground"
+                  }`}
+                >
+                  {o}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setScreen(0)}
+                className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => setScreen(2)}
+                disabled={!canNext1}
+                className="flex-1 px-8 py-3.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Screen 2 — Budget */}
+        {screen === 2 && (
+          <div className="fade-in">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Step 3 of 3</p>
+            <h2 className="font-display font-light text-4xl text-foreground mb-2 leading-snug">
+              Your budget per piece?
+            </h2>
+            <p className="font-sans text-sm text-muted mb-8">We&apos;ll curate results accordingly</p>
+            <div className="grid grid-cols-2 gap-2 mb-10">
+              {ONBOARDING_BUDGETS.map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setBudget(b)}
+                  className={`px-5 py-6 text-center border font-sans text-sm transition-colors duration-150 ${
+                    budget === b
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted hover:border-border/60 hover:text-foreground"
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setScreen(1)}
+                className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handleComplete}
+                disabled={!canNext2}
+                className="flex-1 px-8 py-3.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
+              >
+                Build my edit →
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1068,6 +1254,13 @@ const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const
 export default function DashboardPage() {
   const { data: session } = useSession();
 
+  // Onboarding
+  const [onboardingDone, setOnboardingDone] = useState(false);
+
+  useEffect(() => {
+    setOnboardingDone(!!localStorage.getItem("muse_onboarding_v1"));
+  }, []);
+
   // Core state
   const [step, setStep]                     = useState<Step>("boards");
   const [boards, setBoards]                 = useState<Board[]>([]);
@@ -1248,6 +1441,20 @@ export default function DashboardPage() {
           return null;
         })
       )).filter((c): c is NonNullable<typeof c> => c !== null);
+
+      // Inject onboarding answers as extra text context if available
+      const onboardingRaw = localStorage.getItem("muse_onboarding_v1");
+      if (onboardingRaw) {
+        try {
+          const { vibes, occasions, budget } = JSON.parse(onboardingRaw) as { vibes: string[]; occasions: string[]; budget: string };
+          if (vibes?.length || occasions?.length || budget) {
+            contexts.push({
+              mode: "text" as const,
+              textQuery: `User's stated preferences: vibes=[${vibes?.join(", ")}], occasions=[${occasions?.join(", ")}], budget=[${budget}]`,
+            });
+          }
+        } catch {}
+      }
 
       if (contexts.length === 0) { setStep("boards"); return; }
 
@@ -1548,6 +1755,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {!onboardingDone && <OnboardingQuiz onComplete={() => setOnboardingDone(true)} />}
       <header className="px-8 py-5 border-b border-border sticky top-0 bg-background/90 backdrop-blur-md z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">MUSE</Link>

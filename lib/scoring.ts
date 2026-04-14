@@ -166,10 +166,21 @@ export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore
     0.10                         // base click-through rate
   );
 
+  // Freshness bonus: products scraped in the last 7 days get a small boost
+  // This ensures new inventory surfaces even if it doesn't match click history yet
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const isNewProduct = (p: ScoringProduct) => {
+    const sa = (p as { scraped_at?: string }).scraped_at;
+    return sa && (Date.now() - new Date(sa).getTime()) < SEVEN_DAYS_MS;
+  };
+  const hasNewProducts = products.some(isNewProduct);
+  const freshnessBonus = hasNewProducts ? 0.06 : 0;
+
   const score =
     predictedLike    * W_LIKE    +
     predictedComment * W_COMMENT +
-    predictedClick   * W_CLICK;
+    predictedClick   * W_CLICK   +
+    freshnessBonus;
 
   return { card, score, predictedLike, predictedComment, predictedClick };
 }
