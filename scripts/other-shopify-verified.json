@@ -1,0 +1,982 @@
+[
+  {
+    "brand": "3x1 Denim",
+    "domain": "3x1denim.com"
+  },
+  {
+    "brand": "7 For All Mankind",
+    "domain": "7forallmankind.com"
+  },
+  {
+    "brand": "A-COLD-WALL",
+    "domain": "a-cold-wall.com"
+  },
+  {
+    "brand": "Academy Brand",
+    "domain": "academybrand.com"
+  },
+  {
+    "brand": "Ace and Jig",
+    "domain": "aceandjig.com"
+  },
+  {
+    "brand": "Adina Reyter",
+    "domain": "adinareyter.com"
+  },
+  {
+    "brand": "AG Jeans",
+    "domain": "agjeans.com"
+  },
+  {
+    "brand": "Aiayu",
+    "domain": "aiayu.com"
+  },
+  {
+    "brand": "Aime Leon Dore",
+    "domain": "aimeleondore.com"
+  },
+  {
+    "brand": "Aje Athletica",
+    "domain": "ajeathletica.com"
+  },
+  {
+    "brand": "Alala",
+    "domain": "alala.store"
+  },
+  {
+    "brand": "Alberta Ferretti",
+    "domain": "albertaferretti.com"
+  },
+  {
+    "brand": "Alex Mill",
+    "domain": "alexmill.com"
+  },
+  {
+    "brand": "Allbirds",
+    "domain": "allbirds.com"
+  },
+  {
+    "brand": "Alo Yoga",
+    "domain": "alo-yoga.shop"
+  },
+  {
+    "brand": "Another Tomorrow",
+    "domain": "anothertomorrow.co"
+  },
+  {
+    "brand": "Aries Arise",
+    "domain": "ariesarise.com"
+  },
+  {
+    "brand": "Armed Angels",
+    "domain": "armedangels.com"
+  },
+  {
+    "brand": "Asceno",
+    "domain": "asceno.com"
+  },
+  {
+    "brand": "Ayr",
+    "domain": "ayr.com"
+  },
+  {
+    "brand": "Aztech Mountain",
+    "domain": "aztechmountain.com"
+  },
+  {
+    "brand": "B.YELLOWTAIL",
+    "domain": "byellowtail.com"
+  },
+  {
+    "brand": "Badgley Mischka",
+    "domain": "badgleymischka.com"
+  },
+  {
+    "brand": "Banjanan",
+    "domain": "banjanan.com"
+  },
+  {
+    "brand": "Bassike",
+    "domain": "bassike.com"
+  },
+  {
+    "brand": "Beaumont Organic",
+    "domain": "beaumontorganic.com"
+  },
+  {
+    "brand": "Bec and Bridge",
+    "domain": "becandbridge.com.au"
+  },
+  {
+    "brand": "Beckett Simonon",
+    "domain": "beckettsimonon.com"
+  },
+  {
+    "brand": "BEIS",
+    "domain": "shopbeis.com"
+  },
+  {
+    "brand": "Beyond Retro",
+    "domain": "beyondretro.com"
+  },
+  {
+    "brand": "Beyond Yoga",
+    "domain": "beyondyoga.com"
+  },
+  {
+    "brand": "Bode New York",
+    "domain": "bodenewyork.com"
+  },
+  {
+    "brand": "Bondi Born",
+    "domain": "bondiborn.com"
+  },
+  {
+    "brand": "Brother Vellies",
+    "domain": "brothervellies.com"
+  },
+  {
+    "brand": "By Far Store",
+    "domain": "byfar.com"
+  },
+  {
+    "brand": "Camilla and Marc",
+    "domain": "camillaandmarc.com"
+  },
+  {
+    "brand": "Canada Goose",
+    "domain": "canadagoose.com.au"
+  },
+  {
+    "brand": "Carbon38",
+    "domain": "carbon38.com"
+  },
+  {
+    "brand": "Cawley Studio",
+    "domain": "cawleystudio.com"
+  },
+  {
+    "brand": "Cecilie Bahnsen",
+    "domain": "ceciliebahnsen.com"
+  },
+  {
+    "brand": "Ceri Hoover",
+    "domain": "cerihoover.com"
+  },
+  {
+    "brand": "Cherry Los Angeles",
+    "domain": "cherrylosangeles.com"
+  },
+  {
+    "brand": "Chiara Boni",
+    "domain": "chiaraboni.com"
+  },
+  {
+    "brand": "Child of Wild",
+    "domain": "childofwild.com"
+  },
+  {
+    "brand": "Chinti and Parker",
+    "domain": "chintiandparker.com"
+  },
+  {
+    "brand": "Christy Dawn",
+    "domain": "christydawn.com"
+  },
+  {
+    "brand": "Ciao Lucia",
+    "domain": "ciaolucia.com"
+  },
+  {
+    "brand": "Citizens of Humanity",
+    "domain": "citizensofhumanity.com"
+  },
+  {
+    "brand": "Clare V",
+    "domain": "clarev.com"
+  },
+  {
+    "brand": "Coclico",
+    "domain": "coclico.com"
+  },
+  {
+    "brand": "Collina Strada",
+    "domain": "collinastrada.com"
+  },
+  {
+    "brand": "Colorful Standard",
+    "domain": "colorfulstandard.com"
+  },
+  {
+    "brand": "Comme des Garcons",
+    "domain": "comme-des-garcons.com.au"
+  },
+  {
+    "brand": "Current Air",
+    "domain": "shopcurrentair.com"
+  },
+  {
+    "brand": "Dagne Dover",
+    "domain": "dagnedover.com"
+  },
+  {
+    "brand": "Dear Denier",
+    "domain": "deardenier.com"
+  },
+  {
+    "brand": "Dear Frances",
+    "domain": "dearfrances.com"
+  },
+  {
+    "brand": "Deiji Studios",
+    "domain": "deijistudios.com.au"
+  },
+  {
+    "brand": "Denimist",
+    "domain": "denimist.com"
+  },
+  {
+    "brand": "Designers Remix",
+    "domain": "designersremix.com"
+  },
+  {
+    "brand": "Doen",
+    "domain": "shopdoen.com"
+  },
+  {
+    "brand": "Dries Van Noten",
+    "domain": "driesvannoten.com"
+  },
+  {
+    "brand": "Ecoalf",
+    "domain": "ecoalf.com"
+  },
+  {
+    "brand": "Eighth Generation",
+    "domain": "eighthgeneration.com"
+  },
+  {
+    "brand": "Elk The Label",
+    "domain": "elkthelabel.com"
+  },
+  {
+    "brand": "Encircled",
+    "domain": "encircled.co"
+  },
+  {
+    "brand": "Envelope1976",
+    "domain": "envelope1976.com"
+  },
+  {
+    "brand": "Everlane",
+    "domain": "everlane.com"
+  },
+  {
+    "brand": "Feit",
+    "domain": "feit.com"
+  },
+  {
+    "brand": "Finisterre",
+    "domain": "finisterre.com"
+  },
+  {
+    "brand": "Fortela",
+    "domain": "fortela.com"
+  },
+  {
+    "brand": "Frances May",
+    "domain": "francesmay.com"
+  },
+  {
+    "brand": "Frank and Oak",
+    "domain": "frankandoak.com"
+  },
+  {
+    "brand": "Frankies Bikinis",
+    "domain": "frankiesbikinis.com.au"
+  },
+  {
+    "brand": "Fusalp",
+    "domain": "fusalp.com"
+  },
+  {
+    "brand": "Galvan London",
+    "domain": "galvanlondon.com"
+  },
+  {
+    "brand": "Gentle Fawn",
+    "domain": "gentlefawn.com"
+  },
+  {
+    "brand": "Girlfriend",
+    "domain": "girlfriend.com"
+  },
+  {
+    "brand": "Goldbergh",
+    "domain": "goldbergh.com"
+  },
+  {
+    "brand": "Gorjana",
+    "domain": "gorjana.com"
+  },
+  {
+    "brand": "Gorman",
+    "domain": "gorman.com.au"
+  },
+  {
+    "brand": "Groceries Apparel",
+    "domain": "groceriesapparel.com"
+  },
+  {
+    "brand": "Halfdays",
+    "domain": "halfdays.com"
+  },
+  {
+    "brand": "Harmony Paris",
+    "domain": "harmonyparis.co"
+  },
+  {
+    "brand": "Harvest and Mill",
+    "domain": "harvestandmill.com"
+  },
+  {
+    "brand": "Heron Preston",
+    "domain": "heronpreston.com"
+  },
+  {
+    "brand": "HommeGirls",
+    "domain": "hommegirls.com"
+  },
+  {
+    "brand": "House of Sunny",
+    "domain": "houseofsunny.com"
+  },
+  {
+    "brand": "Hyein Seo",
+    "domain": "hyeinseo.com"
+  },
+  {
+    "brand": "Ienki Ienki",
+    "domain": "ienki-ienki.com"
+  },
+  {
+    "brand": "Industry of All Nations",
+    "domain": "industryofallnations.com"
+  },
+  {
+    "brand": "Isabel Marant",
+    "domain": "isabelmarant.com"
+  },
+  {
+    "brand": "Issey Miyake",
+    "domain": "isseymiyake.com"
+  },
+  {
+    "brand": "Jac and Jack",
+    "domain": "jacandjack.com"
+  },
+  {
+    "brand": "Jack Erwin",
+    "domain": "jackerwin.com"
+  },
+  {
+    "brand": "Jenni Kayne",
+    "domain": "jennikayne.com"
+  },
+  {
+    "brand": "Jenny Packham",
+    "domain": "jennypackham.com"
+  },
+  {
+    "brand": "Jerome Dreyfuss",
+    "domain": "jerome-dreyfuss.com"
+  },
+  {
+    "brand": "JNBY",
+    "domain": "jnby.com.au"
+  },
+  {
+    "brand": "Joah Brown",
+    "domain": "joahbrown.com"
+  },
+  {
+    "brand": "Joe's Jeans",
+    "domain": "joesjeans.com"
+  },
+  {
+    "brand": "Johanna Ortiz",
+    "domain": "johannaortiz.com"
+  },
+  {
+    "brand": "Jungmaven",
+    "domain": "jungmaven.com"
+  },
+  {
+    "brand": "JW Anderson",
+    "domain": "jwanderson.com"
+  },
+  {
+    "brand": "Kalmanovich",
+    "domain": "kalmanovich.net"
+  },
+  {
+    "brand": "Khaite",
+    "domain": "khaite.com"
+  },
+  {
+    "brand": "Kings of Indigo",
+    "domain": "kingsofindigo.com"
+  },
+  {
+    "brand": "Kith",
+    "domain": "kith.com"
+  },
+  {
+    "brand": "Knowledge Cotton Apparel",
+    "domain": "knowledgecottonapparel.com"
+  },
+  {
+    "brand": "Komodo",
+    "domain": "komodo.co.uk"
+  },
+  {
+    "brand": "Kule",
+    "domain": "kule.com"
+  },
+  {
+    "brand": "Lanius",
+    "domain": "lanius.com"
+  },
+  {
+    "brand": "Laura Lombardi",
+    "domain": "lauralombardi.com"
+  },
+  {
+    "brand": "Lauren Manoogian",
+    "domain": "laurenmanoogian.com"
+  },
+  {
+    "brand": "Lee Mathews",
+    "domain": "leemathews.com.au"
+  },
+  {
+    "brand": "Lemlem",
+    "domain": "lemlem.com"
+  },
+  {
+    "brand": "Leset",
+    "domain": "leset.shop"
+  },
+  {
+    "brand": "Lindsey Thornburg",
+    "domain": "lindseythornburg.com"
+  },
+  {
+    "brand": "Lirika Matoshi",
+    "domain": "lirikamatoshi.com"
+  },
+  {
+    "brand": "Little Liffner",
+    "domain": "littleliffner.com"
+  },
+  {
+    "brand": "Live Fashionable",
+    "domain": "livefashionable.com"
+  },
+  {
+    "brand": "Lo and Sons",
+    "domain": "loandsons.com"
+  },
+  {
+    "brand": "Loren Stewart",
+    "domain": "lorenstewart.com"
+  },
+  {
+    "brand": "Loup Charmant",
+    "domain": "loupcharmant.com"
+  },
+  {
+    "brand": "Lovechild 1979",
+    "domain": "lovechild1979.com"
+  },
+  {
+    "brand": "Lucy and Yak",
+    "domain": "lucyandyak.com"
+  },
+  {
+    "brand": "Lunya",
+    "domain": "lunya.shop"
+  },
+  {
+    "brand": "M.Gemi",
+    "domain": "mgemi.com"
+  },
+  {
+    "brand": "Mads Norgaard",
+    "domain": "madsnorgaard.com"
+  },
+  {
+    "brand": "Mansur Gavriel",
+    "domain": "mansurgavriel.com"
+  },
+  {
+    "brand": "Mara Hoffman",
+    "domain": "marahoffman.com"
+  },
+  {
+    "brand": "Marchesa",
+    "domain": "marchesa.com"
+  },
+  {
+    "brand": "Margaux NY",
+    "domain": "margauxny.com"
+  },
+  {
+    "brand": "Marques Almeida",
+    "domain": "marquesalmeida.com"
+  },
+  {
+    "brand": "Matt and Nat",
+    "domain": "mattandnat.com"
+  },
+  {
+    "brand": "Mavi",
+    "domain": "mavi.shop"
+  },
+  {
+    "brand": "MaXhosa",
+    "domain": "maxhosa.com"
+  },
+  {
+    "brand": "Melie Bianco",
+    "domain": "meliebianco.com"
+  },
+  {
+    "brand": "Mirth",
+    "domain": "mirth.co"
+  },
+  {
+    "brand": "Mirth Caftans",
+    "domain": "mirthcaftans.com"
+  },
+  {
+    "brand": "Misa Los Angeles",
+    "domain": "misalosangeles.com"
+  },
+  {
+    "brand": "Missoma",
+    "domain": "missoma.com"
+  },
+  {
+    "brand": "Monday Swimwear",
+    "domain": "mondayswimwear.com.au"
+  },
+  {
+    "brand": "Monique Lhuillier",
+    "domain": "moniquelhuillier.com"
+  },
+  {
+    "brand": "Monkee Genes",
+    "domain": "monkeegenes.com"
+  },
+  {
+    "brand": "Moschino",
+    "domain": "moschino.com"
+  },
+  {
+    "brand": "Moshi Moshi Mind",
+    "domain": "moshimoshimind.com"
+  },
+  {
+    "brand": "Mother of Pearl",
+    "domain": "motherofpearl.com"
+  },
+  {
+    "brand": "Mud Jeans",
+    "domain": "mudjeans.com"
+  },
+  {
+    "brand": "Munthe",
+    "domain": "munthe.com"
+  },
+  {
+    "brand": "Naadam",
+    "domain": "naadam.co"
+  },
+  {
+    "brand": "Naeem Khan",
+    "domain": "naeemkhan.com"
+  },
+  {
+    "brand": "Natasha Zinko",
+    "domain": "natashazinko.com"
+  },
+  {
+    "brand": "Nili Lotan",
+    "domain": "nililotan.com"
+  },
+  {
+    "brand": "Ninety Percent",
+    "domain": "ninetypercent.com"
+  },
+  {
+    "brand": "Nisolo",
+    "domain": "nisolo.com"
+  },
+  {
+    "brand": "Nobis",
+    "domain": "nobis.com"
+  },
+  {
+    "brand": "Nobody Denim",
+    "domain": "nobodydenim.com"
+  },
+  {
+    "brand": "Nudea",
+    "domain": "nudea.shop"
+  },
+  {
+    "brand": "NYDJ",
+    "domain": "nydj.com"
+  },
+  {
+    "brand": "Onia",
+    "domain": "theonia.com"
+  },
+  {
+    "brand": "Orenda Tribe",
+    "domain": "theorendatribe.com"
+  },
+  {
+    "brand": "Oscar de la Renta",
+    "domain": "oscardelarenta.com"
+  },
+  {
+    "brand": "Osei-Duro",
+    "domain": "oseiduro.com"
+  },
+  {
+    "brand": "Outdoor Voices",
+    "domain": "outdoorvoices.com"
+  },
+  {
+    "brand": "Outerknown",
+    "domain": "outerknown.com"
+  },
+  {
+    "brand": "Outland Denim",
+    "domain": "outlanddenim.com"
+  },
+  {
+    "brand": "P.E Nation",
+    "domain": "pe-nation.com"
+  },
+  {
+    "brand": "Pamella Roland",
+    "domain": "pamellaroland.com"
+  },
+  {
+    "brand": "Pari Desai",
+    "domain": "paridesai.com"
+  },
+  {
+    "brand": "Parker Clay",
+    "domain": "parkerclay.com"
+  },
+  {
+    "brand": "Pas Une Marque",
+    "domain": "pasunemarque.com"
+  },
+  {
+    "brand": "Pinqponq",
+    "domain": "pinqponq.com"
+  },
+  {
+    "brand": "Prabal Gurung",
+    "domain": "prabalgurung.com"
+  },
+  {
+    "brand": "Prada",
+    "domain": "theprada.shop"
+  },
+  {
+    "brand": "Proenza Schouler",
+    "domain": "proenzaschouler.com"
+  },
+  {
+    "brand": "Pucci",
+    "domain": "pucci.com"
+  },
+  {
+    "brand": "Pyer Moss",
+    "domain": "pyermoss.com"
+  },
+  {
+    "brand": "Rachel Comey",
+    "domain": "rachelcomey.com"
+  },
+  {
+    "brand": "Rahyma",
+    "domain": "rahyma.com"
+  },
+  {
+    "brand": "Re/Done",
+    "domain": "shopredone.com"
+  },
+  {
+    "brand": "Rebecca Vallance",
+    "domain": "rebeccavallance.com"
+  },
+  {
+    "brand": "Reem Acra",
+    "domain": "reemacra.com"
+  },
+  {
+    "brand": "Rejina Pyo",
+    "domain": "rejinapyo.com"
+  },
+  {
+    "brand": "Richer Poorer",
+    "domain": "richer-poorer.com"
+  },
+  {
+    "brand": "Riley Studio",
+    "domain": "riley.com.au"
+  },
+  {
+    "brand": "Rodebjer",
+    "domain": "rodebjer.com"
+  },
+  {
+    "brand": "Rokit",
+    "domain": "rokit.co.uk"
+  },
+  {
+    "brand": "Roksanda",
+    "domain": "roksanda.com"
+  },
+  {
+    "brand": "Roland Mouret",
+    "domain": "rolandmouret.com"
+  },
+  {
+    "brand": "Rosie Assoulin",
+    "domain": "rosieassoulin.com"
+  },
+  {
+    "brand": "Rothys",
+    "domain": "rothys.com"
+  },
+  {
+    "brand": "Rouje",
+    "domain": "rouje.com"
+  },
+  {
+    "brand": "Ryan Roche",
+    "domain": "ryan-roche.com"
+  },
+  {
+    "brand": "Sabina Musayev",
+    "domain": "sabinamusayev.com"
+  },
+  {
+    "brand": "Sarah Flint",
+    "domain": "sarahflint.com"
+  },
+  {
+    "brand": "Scanlan Theodore",
+    "domain": "scanlantheodore.com"
+  },
+  {
+    "brand": "Sea NY",
+    "domain": "sea-ny.com"
+  },
+  {
+    "brand": "Second Female",
+    "domain": "secondfemale.com"
+  },
+  {
+    "brand": "Seek Collective",
+    "domain": "seekcollective.com"
+  },
+  {
+    "brand": "Self Portrait",
+    "domain": "self-portrait.com"
+  },
+  {
+    "brand": "Sheike",
+    "domain": "sheike.com"
+  },
+  {
+    "brand": "Shona Joy",
+    "domain": "shonajoy.com.au"
+  },
+  {
+    "brand": "Silvia Tcherassi",
+    "domain": "silviatcherassi.com"
+  },
+  {
+    "brand": "Simone Rocha",
+    "domain": "simonerocha.com"
+  },
+  {
+    "brand": "Sir The Label",
+    "domain": "sirthelabel.com"
+  },
+  {
+    "brand": "Sister Jane",
+    "domain": "sisterjane.com"
+  },
+  {
+    "brand": "Skin Worldwide",
+    "domain": "skinworldwide.com"
+  },
+  {
+    "brand": "Sophie Buhai",
+    "domain": "sophiebuhai.com"
+  },
+  {
+    "brand": "Sophie Ratner",
+    "domain": "sophieratner.com"
+  },
+  {
+    "brand": "Splits59",
+    "domain": "splits59.com"
+  },
+  {
+    "brand": "St. Agni",
+    "domain": "st-agni.com"
+  },
+  {
+    "brand": "Standard Issue",
+    "domain": "standardissue.store"
+  },
+  {
+    "brand": "Stone and Strand",
+    "domain": "stoneandstrand.com"
+  },
+  {
+    "brand": "Sweaty Betty",
+    "domain": "sweatybetty.com.au"
+  },
+  {
+    "brand": "Taft Clothing",
+    "domain": "taftclothing.com"
+  },
+  {
+    "brand": "Tecovas",
+    "domain": "tecovas.com"
+  },
+  {
+    "brand": "Tentree",
+    "domain": "tentree.com"
+  },
+  {
+    "brand": "Teri Jon",
+    "domain": "terijon.com"
+  },
+  {
+    "brand": "The Frankie Shop",
+    "domain": "thefrankieshop.com"
+  },
+  {
+    "brand": "The Row",
+    "domain": "therow.com"
+  },
+  {
+    "brand": "The Vintage Twin",
+    "domain": "thevintagetwin.com"
+  },
+  {
+    "brand": "Thinking Mu",
+    "domain": "thinkingmu.com"
+  },
+  {
+    "brand": "Thokk Thokk",
+    "domain": "thokkthokk.com"
+  },
+  {
+    "brand": "Thom Browne",
+    "domain": "thombrowne.com"
+  },
+  {
+    "brand": "Threads 4 Thought",
+    "domain": "threads4thought.com"
+  },
+  {
+    "brand": "Tigerlily",
+    "domain": "tigerlily.com"
+  },
+  {
+    "brand": "Toast",
+    "domain": "toast.co.uk"
+  },
+  {
+    "brand": "Tonle",
+    "domain": "tonle.com"
+  },
+  {
+    "brand": "Toteme Studio",
+    "domain": "toteme-studio.com"
+  },
+  {
+    "brand": "Tradlands",
+    "domain": "tradlands.com"
+  },
+  {
+    "brand": "Tuck Shop Co",
+    "domain": "tuckshopco.com"
+  },
+  {
+    "brand": "Twisted X",
+    "domain": "twistedx.com"
+  },
+  {
+    "brand": "Ulla Johnson",
+    "domain": "ullajohnson.com"
+  },
+  {
+    "brand": "Universal Standard",
+    "domain": "universalstandard.com"
+  },
+  {
+    "brand": "Varley",
+    "domain": "varley.com"
+  },
+  {
+    "brand": "Venroy",
+    "domain": "venroy.com"
+  },
+  {
+    "brand": "Viktoria and Woods",
+    "domain": "viktoriaandwoods.com"
+  },
+  {
+    "brand": "Whimsy and Row",
+    "domain": "whimsyandrow.com"
+  },
+  {
+    "brand": "Wiederhoeft",
+    "domain": "wiederhoeft.com"
+  },
+  {
+    "brand": "Wolf and Shepherd",
+    "domain": "wolfandshepherd.com"
+  },
+  {
+    "brand": "Wwake",
+    "domain": "wwake.com"
+  },
+  {
+    "brand": "Xirena",
+    "domain": "xirena.com"
+  },
+  {
+    "brand": "Year of Ours",
+    "domain": "yearofours.com"
+  },
+  {
+    "brand": "Zhivago",
+    "domain": "shopzhivago.com"
+  }
+]
