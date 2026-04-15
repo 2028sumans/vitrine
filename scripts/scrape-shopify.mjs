@@ -31,6 +31,9 @@ const isDryRun    = args.includes("--dry-run");
 // ── Brand domains ─────────────────────────────────────────────────────────────
 
 const ALL_BRAND_DOMAINS = [
+  // ── User-requested additions ────────────────────────────────────────────
+  { domain: "morganelefay.com",        brand: "Morgane Le Fay" },
+  { domain: "chevignon.com",           brand: "Chevignon" },
   // ── Vintage / resale (verified Shopify) ─────────────────────────────────
   { domain: "shrimptoncouture.com",    brand: "Shrimpton Couture" },
   { domain: "nostandingnyc.com",       brand: "No Standing NYC" },
