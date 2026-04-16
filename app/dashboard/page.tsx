@@ -225,7 +225,7 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
     >
       <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-contain p-2 group-hover:scale-[1.03] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 25vw" unoptimized />
+          <Image src={product.image_url} alt={product.title} fill className="object-contain group-hover:scale-[1.03] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 25vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
@@ -292,7 +292,7 @@ function ProductCard({ product, position, userToken }: {
       className="group block border border-border hover:border-border-mid transition-colors duration-300 bg-white/[0.02]">
       <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-contain p-2 group-hover:scale-[1.03] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
+          <Image src={product.image_url} alt={product.title} fill className="object-contain group-hover:scale-[1.03] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
