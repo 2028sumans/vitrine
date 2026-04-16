@@ -9,13 +9,14 @@ import {
 }                                               from "@/lib/ai";
 import { getProductsByIds, groupByCategory }    from "@/lib/algolia";
 import {
-  searchByBoardImages,
-  searchByUploadedImages,
   searchByEmbeddings,
   blendCentroids,
   clusterEmbeddings,
   embedImageUrls,
+  embedBase64Images,
+  embedTextQuery,
 }                                               from "@/lib/embeddings";
+import { hybridSearch }                         from "@/lib/hybrid-search";
 import { loadTasteMemory, saveStyleDNA }        from "@/lib/taste-memory";
 import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
 
@@ -172,47 +173,38 @@ export async function POST(request: Request) {
     let rawCandidates: import("@/lib/algolia").CategoryCandidates;
 
     if (USE_VISUAL_SEARCH && mode === "images" && uploadedImages?.length) {
-      // Image upload → CLIP embed → Pinecone visual search
-      console.log("[shop] Visual search: uploaded images");
-      const objectIDs = await searchByUploadedImages(
-        uploadedImages.slice(0, 10),
-        120,
-        aesthetic.price_range
-      );
-      console.log(`[shop] Pinecone returned ${objectIDs.length} objectIDs`);
-      const products = await getProductsByIds(objectIDs);
-      rawCandidates  = groupByCategory(products, 20);
+      // Image upload → FashionCLIP embed (with bg removal) → Hybrid Pinecone + Algolia
+      console.log("[shop] Hybrid search: uploaded images");
+      const embeddings = await embedBase64Images(uploadedImages.slice(0, 10));
+      rawCandidates    = await hybridSearch(embeddings, aesthetic, token);
 
     } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
-      // Pinterest → CLIP embed → Pinecone visual search (existing path)
-      console.log("[shop] Visual search: Pinterest board images");
+      // Pinterest → FashionCLIP embed → Hybrid Pinecone + Algolia with optional centroid nudge
+      console.log("[shop] Hybrid search: Pinterest board images");
 
-      let objectIDs = await searchByBoardImages(
-        pinImageUrls.slice(0, 20),
-        120,
-        aesthetic.price_range
-      );
+      let embeddings = await embedImageUrls(pinImageUrls.slice(0, 20));
+      const validEmbeddings = embeddings.filter((e) => e.length > 0);
 
-      // If user has a cross-session style centroid, nudge results toward it
-      if (tasteMemory.styleCentroid && objectIDs.length > 0) {
+      // Nudge toward cross-session style centroid if available
+      if (tasteMemory.styleCentroid && validEmbeddings.length > 0) {
         console.log("[shop] Blending cross-session style centroid");
-        const { embedImageUrls: embed } = await import("@/lib/embeddings");
-        const pinEmbeddings = await embed(pinImageUrls.slice(0, 20));
-        const validEmbeddings = pinEmbeddings.filter((e) => e.length > 0);
-        if (validEmbeddings.length > 0) {
-          const nudgedEmbeddings = validEmbeddings.map((emb) =>
-            blendCentroids(emb, [tasteMemory.styleCentroid!], 0.15)
-          );
-          objectIDs = await searchByEmbeddings(nudgedEmbeddings, 120, aesthetic.price_range);
-        }
+        embeddings = validEmbeddings.map((emb) =>
+          blendCentroids(emb, [tasteMemory.styleCentroid!], 0.15)
+        );
       }
 
-      console.log(`[shop] Pinecone returned ${objectIDs.length} objectIDs`);
-      const products = await getProductsByIds(objectIDs);
-      rawCandidates  = groupByCategory(products, 20);
+      rawCandidates = await hybridSearch(embeddings, aesthetic, token);
+
+    } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
+      // Text/quiz → encode aesthetic as FashionCLIP text vector → Hybrid Pinecone + Algolia
+      // The shared image-text embedding space lets text queries retrieve visually matching products.
+      console.log("[shop] Hybrid search: text query via FashionCLIP text encoder");
+      const queryText = [aesthetic.primary_aesthetic, aesthetic.mood, ...(aesthetic.style_keywords ?? [])].join(", ");
+      const textVec   = await embedTextQuery(queryText).catch(() => [] as number[]);
+      rawCandidates   = await hybridSearch(textVec.length > 0 ? [textVec] : [], aesthetic, token);
 
     } else {
-      // Text / quiz / no-Pinecone fallback → Algolia text search
+      // No Pinecone → pure Algolia text search
       console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
       rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
     }

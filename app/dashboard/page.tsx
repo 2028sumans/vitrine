@@ -10,6 +10,13 @@ import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insi
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
 import { rankCards, reRankUpcoming, interpretDwell, scoreCard, type ScoringSignals, type ClickSignalLike } from "@/lib/scoring";
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Format a numeric price as "$1,481" with thousand separators. */
+function formatPrice(value: number): string {
+  return `$${Math.round(value).toLocaleString("en-US")}`;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Board    = { id: string; name: string };
@@ -196,7 +203,7 @@ function LoadingScreen({ title, steps, currentStep }: {
 
 function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: string }) {
   const price = product.price != null
-    ? `$${product.price.toFixed(0)}`
+    ? formatPrice(product.price)
     : product.price_range !== "unknown" ? product.price_range : null;
 
   const handleClick = () => {
@@ -218,7 +225,7 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
     >
       <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-cover group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 25vw" unoptimized />
+          <Image src={product.image_url} alt={product.title} fill className="object-contain p-2 group-hover:scale-[1.03] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 25vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
@@ -269,7 +276,7 @@ function ShoppingSection({ category, products, userToken }: {
 function ProductCard({ product, position, userToken }: {
   product: CuratedProduct; position: number; userToken: string;
 }) {
-  const price = product.price != null ? `$${product.price.toFixed(0)}` : product.price_range !== "unknown" ? product.price_range : null;
+  const price = product.price != null ? formatPrice(product.price) : product.price_range !== "unknown" ? product.price_range : null;
 
   const handleClick = () => {
     trackProductClick({ userToken, objectID: product.objectID, queryID: product._queryID ?? "", position });
@@ -285,7 +292,7 @@ function ProductCard({ product, position, userToken }: {
       className="group block border border-border hover:border-border-mid transition-colors duration-300 bg-white/[0.02]">
       <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-cover group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
+          <Image src={product.image_url} alt={product.title} fill className="object-contain p-2 group-hover:scale-[1.03] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
@@ -436,7 +443,7 @@ function ProductScrollCard({
   userToken:  string;
   onSayMore?: (comment: string) => void;
 }) {
-  const price  = product.price != null ? `$${product.price.toFixed(0)}` : null;
+  const price  = product.price != null ? formatPrice(product.price) : null;
   const isNear = Math.abs(index - activeIdx) <= 2;
   const [liked, setLiked]             = useState(false);
   const [showSayMore, setShowSayMore] = useState(false);
@@ -746,7 +753,7 @@ function OutfitScrollCard({
           {card.products.map((p) => (
             <a key={p.objectID} href={p.product_url || "#"} target="_blank" rel="noopener noreferrer" className="group/item">
               <p className="font-sans text-xs text-foreground/90 line-clamp-1 group-hover/item:text-accent transition-colors">{p.title}</p>
-              <p className="font-sans text-[10px] text-muted">{p.brand}{p.price != null ? ` · $${p.price.toFixed(0)}` : ""}</p>
+              <p className="font-sans text-[10px] text-muted">{p.brand}{p.price != null ? ` · ${formatPrice(p.price)}` : ""}</p>
             </a>
           ))}
         </div>
