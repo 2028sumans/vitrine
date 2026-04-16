@@ -31,7 +31,7 @@ function rrfMerge(lists: string[][], maxResults: number): string[] {
       scores.set(id, (scores.get(id) ?? 0) + 1 / (rank + RRF_K));
     });
   }
-  return [...scores.entries()]
+  return Array.from(scores.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([id]) => id)
     .slice(0, maxResults);
