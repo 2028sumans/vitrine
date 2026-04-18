@@ -177,10 +177,12 @@ ${JSON_SCHEMA_TEMPLATE}`;
   }
 
   const message = await client.messages.create({
-    // Haiku handles this structured-JSON profiling task well and is 2-3x faster
-    // than Sonnet for it. Biggest single latency win on initial load.
-    model:      "claude-haiku-4-5",
-    max_tokens: 2000,
+    // Opus — Pinterest boards can be visually complex (dozens of nuanced pins),
+    // and the resulting StyleDNA steers every downstream retrieval and curation
+    // step. Worth the extra seconds for the strongest profile.
+    // (Text and quiz modes below stay on Haiku — their inputs are far simpler.)
+    model:      "claude-opus-4-7",
+    max_tokens: 2500,
     messages: [
       {
         role:    "user",
