@@ -53,24 +53,30 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
 
-      {/* ── Nav — fixed, cream-backed; mirrors the /brands page. ── */}
-      <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between bg-background/80 backdrop-blur-sm">
+      {/* ── Nav — fixed, olive-backed, cream text, slim so it clears the hero wordmark. ── */}
+      <header
+        className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-2.5 flex items-center justify-between backdrop-blur-sm"
+        style={{ backgroundColor: `${HERO_BG}d9` /* ~85% alpha olive */ }}
+      >
         <Link
           href="/"
-          className="font-display font-light text-xl tracking-[0.22em] text-foreground"
+          className="font-display font-light text-base tracking-[0.22em] hover:opacity-80 transition-opacity duration-200"
+          style={{ color: HERO_TEXT }}
         >
           MUSE
         </Link>
         <div className="flex items-center gap-8">
           <Link
             href="/brands"
-            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` /* ~70% alpha */ }}
           >
             Brands
           </Link>
           <Link
             href="/dashboard"
-            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` }}
           >
             Get started →
           </Link>
