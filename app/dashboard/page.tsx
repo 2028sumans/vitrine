@@ -225,15 +225,15 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className="group block border border-border hover:border-border-mid transition-colors duration-300 bg-white/[0.02]"
+      className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300"
     >
-      <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(58,74,36,0.04)]">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 25vw" unoptimized />
+          <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-background/60 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-background/80 to-transparent">
           <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer}</p>
         </div>
       </div>
@@ -268,7 +268,7 @@ function ShoppingSection({ category, products, userToken }: {
         <h3 className="font-display font-light text-2xl text-foreground">{CATEGORY_LABELS[category] ?? category}</h3>
         <span className="font-sans text-[9px] tracking-widest uppercase text-muted">{products.length} found</span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
         {products.map((p) => <ShopCard key={p.objectID} product={p} userToken={userToken} />)}
       </div>
     </div>
@@ -293,8 +293,8 @@ function ProductCard({ product, position, userToken }: {
 
   return (
     <a href={product.product_url || "#"} target="_blank" rel="noopener noreferrer" onClick={handleClick}
-      className="group block border border-border hover:border-border-mid transition-colors duration-300 bg-white/[0.02]">
-      <div className="aspect-[3/4] relative overflow-hidden bg-white/5">
+      className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300">
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(58,74,36,0.04)]">
         {product.image_url ? (
           <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
@@ -345,7 +345,7 @@ function OutfitSection({ label, role, products, startPosition, userToken }: {
           ? <span className="font-display font-light italic text-base text-muted-strong">{role}</span>
           : <span className="font-sans text-[9px] tracking-widest uppercase text-muted">{products.length} pieces</span>}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
         {products.map((p, i) => <ProductCard key={p.objectID} product={p} position={startPosition + i} userToken={userToken} />)}
       </div>
     </div>
@@ -2226,7 +2226,7 @@ export default function DashboardPage() {
                   <p className="font-sans text-[11px] text-muted">Claude will style the best finds into a curated edit.</p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-14">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 mb-14">
                   {sortedProducts.map((product) => <ShopCard key={product.objectID} product={product} userToken={userToken} />)}
                 </div>
 
@@ -2300,7 +2300,7 @@ export default function DashboardPage() {
                     <h2 className="font-display font-light text-2xl text-foreground">Your curated edit</h2>
                     <p className="font-sans text-[9px] tracking-widest uppercase text-muted">{products.length} pieces</p>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-14">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 mb-14">
                     {products.map((p, i) => <ProductCard key={p.objectID} product={p} position={i + 1} userToken={userToken} />)}
                   </div>
                 </div>
