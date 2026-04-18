@@ -353,13 +353,7 @@ function OutfitSection({ label, role, products, startPosition, userToken }: {
 function StyleDNACard({ dna }: { dna: StyleDNA }) {
   return (
     <div className="border border-border bg-white/[0.02]">
-      <div className="px-7 pt-7 pb-6 border-b border-border">
-        <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-6">Your Style Profile</p>
-        <h2 className="font-display font-light text-4xl text-foreground capitalize leading-snug mb-1">{dna.primary_aesthetic}</h2>
-        {dna.secondary_aesthetic && <p className="font-display italic text-lg text-muted/70 capitalize">{dna.secondary_aesthetic}</p>}
-        <p className="font-sans text-base text-muted-strong leading-relaxed mt-5 max-w-2xl">{dna.summary}</p>
-      </div>
-      <div className="px-7 py-5 border-b border-border">
+      <div className="px-7 pt-6 pb-5 border-b border-border">
         <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Your palette</p>
         <div className="flex flex-wrap gap-5">
           {(dna.color_palette ?? []).map((color) => (
@@ -377,7 +371,6 @@ function StyleDNACard({ dna }: { dna: StyleDNA }) {
             {dna.style_references.map((ref) => (
               <div key={ref.name}>
                 <p className="font-sans text-sm text-foreground">{ref.name}<span className="text-muted ml-2 font-light">— {ref.era}</span></p>
-                {ref.why && <p className="font-sans text-xs text-muted/70 mt-0.5 leading-relaxed">{ref.why}</p>}
               </div>
             ))}
           </div>
@@ -2118,14 +2111,12 @@ export default function DashboardPage() {
               <div className="fade-in-up">
                 <div className="flex items-start justify-between mb-8 gap-6">
                   <div>
-                    <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">
-                      {selectedBoard?.name ?? "Your search"} — {sortedProducts.length} picks
+                    <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">
+                      {selectedBoard?.name ?? "Your search"}
                     </p>
-                    <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight capitalize mb-1">
-                      {aesthetic.primary_aesthetic}
+                    <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">
+                      {sortedProducts.length} picks
                     </h1>
-                    {aesthetic.mood && <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>}
-                    {aesthetic.summary && <p className="font-sans text-base text-muted-strong leading-relaxed mt-4 max-w-2xl">{aesthetic.summary}</p>}
                   </div>
                   <div className="flex border border-border overflow-hidden flex-shrink-0 mt-1">
                     <button onClick={() => setShopViewMode("grid")}
@@ -2198,9 +2189,8 @@ export default function DashboardPage() {
                 <div>
                   <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">Personal edit</p>
                   <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">
-                    {selectedBoard?.name ?? aesthetic.primary_aesthetic}
+                    {selectedBoard?.name ?? "Your edit"}
                   </h1>
-                  {aesthetic.mood && <p className="font-display italic text-xl text-muted mt-1.5 capitalize">{aesthetic.mood}</p>}
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 mt-1">
                   <div className="flex border border-border overflow-hidden">
@@ -2221,20 +2211,6 @@ export default function DashboardPage() {
               </div>
 
               <div className="mb-14"><StyleDNACard dna={aesthetic} /></div>
-
-              {(editorialIntro || editRationale) && (
-                <div className="mb-10 max-w-2xl">
-                  {editorialIntro && <p className="font-display font-light italic text-xl text-muted-strong leading-relaxed mb-3">{editorialIntro}</p>}
-                  {editRationale  && <p className="font-sans text-xs text-muted tracking-wide">{editRationale}</p>}
-                </div>
-              )}
-
-              {outfitArc && (
-                <div className="mb-8 flex items-center gap-4">
-                  <span className="font-sans text-[9px] tracking-widest uppercase text-muted">Edit arc</span>
-                  <span className="font-display font-light italic text-base text-muted-strong">{outfitArc}</span>
-                </div>
-              )}
 
               <OutfitSection label="Outfit A" role={outfitARole} products={outfitA} startPosition={1} userToken={userToken} />
               <OutfitSection label="Outfit B" role={outfitBRole} products={outfitB} startPosition={outfitA.length + 1} userToken={userToken} />
