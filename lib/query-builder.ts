@@ -20,7 +20,7 @@ import type { StyleDNA } from "@/lib/types";
 
 // Lower weight = subtle nudge; higher = aggressive steer.
 const NEGATIVE_WEIGHT       = 0.25;  // how hard to push away from `avoids`
-const AESTHETIC_ANCHOR_WT   = 0.10;  // how much StyleDNA text steers image vectors (Pinterest/uploads)
+const AESTHETIC_ANCHOR_WT   = 0.50;  // how much StyleDNA text steers image vectors (Pinterest/uploads)
 const MAX_AVOIDS_TO_ENCODE  = 5;
 const MAX_PHRASES_PER_CAT   = 2;
 
