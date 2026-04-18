@@ -613,6 +613,32 @@ function ProductScrollView({
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  // Keyboard navigation — arrow keys / J,K / space / Esc
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).isContentEditable)) return;
+      const step = (direction: 1 | -1) => {
+        if (isScrolling.current) return;
+        isScrolling.current = true;
+        el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
+        setTimeout(() => { isScrolling.current = false; }, 900);
+      };
+      switch (e.key) {
+        case "ArrowDown": case "j": case " ": case "PageDown":
+          e.preventDefault(); step(1); break;
+        case "ArrowUp": case "k": case "PageUp":
+          e.preventDefault(); step(-1); break;
+        case "Escape":
+          e.preventDefault(); onClose(); break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   useEffect(() => {
     products.slice(activeIdx + 1, activeIdx + 4).forEach((p) => {
       if (!p.image_url) return;
@@ -817,6 +843,38 @@ function OutfitScrollView({
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  // Keyboard navigation: ↑/↓ (or k/j) to move, space / PageDown also advance,
+  // l to like the current card, Esc to exit. Skips when typing in an input.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).isContentEditable)) return;
+      const step = (direction: 1 | -1) => {
+        if (isScrolling.current) return;
+        isScrolling.current = true;
+        el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
+        setTimeout(() => { isScrolling.current = false; }, 900);
+      };
+      switch (e.key) {
+        case "ArrowDown": case "j": case " ": case "PageDown":
+          e.preventDefault(); step(1); break;
+        case "ArrowUp": case "k": case "PageUp":
+          e.preventDefault(); step(-1); break;
+        case "l": {
+          const current = cards[activeIdx];
+          if (current) { e.preventDefault(); onLike(current.id); }
+          break;
+        }
+        case "Escape":
+          e.preventDefault(); onClose(); break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cards, activeIdx, onLike, onClose]);
 
   useEffect(() => { nearEndFired.current = false; }, [cards.length]);
 
