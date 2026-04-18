@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-18T18:20:06.391Z",
-  "totalProducts": 118241,
-  "totalBrands": 261,
+  "generatedAt": "2026-04-18T18:22:41.543Z",
+  "totalProducts": 117996,
+  "totalBrands": 257,
   "brands": [
     {
       "name": "Camilla",
@@ -579,11 +579,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0841/1824/1561/files/M2701_PTC1_1.jpg?v=1753176261"
     },
     {
-      "name": "Motherland pk",
-      "count": 167,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0660/1929/5478/products/motherland-pakistan-world-cup-vintage-jersey.jpg?v=1675579454"
-    },
-    {
       "name": "Beare Park",
       "count": 165,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0602/1300/2483/files/S29-CHARLESCOAT_CHC-26101-BearePark-1129_7035e6d0-cb59-4e52-829c-6bfc94db76fa.jpg?v=1771897193"
@@ -1064,16 +1059,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0821/7696/6996/files/IMG-7222.jpg?v=1767132499"
     },
     {
-      "name": "Archies Footwear | Usa",
-      "count": 28,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/1993/4531/files/AR_Slide_Brown_10-optimised.webp?v=1774407668"
-    },
-    {
-      "name": "Orebella",
-      "count": 27,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0815/9762/8735/files/Untitleddesign_11.png?v=1750437782"
-    },
-    {
       "name": "Lamarie",
       "count": 27,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0895/3344/8490/files/AEC26AC5-3AB1-42FA-BC3F-2D314E2A1E7C.jpg?v=1771214424"
@@ -1127,11 +1112,6 @@
       "name": "Lavantathelabel",
       "count": 22,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0780/0897/5656/files/595_Original.jpg?v=1754947000"
-    },
-    {
-      "name": "Oui The People",
-      "count": 21,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0980/9926/files/8_IS_WF.png?v=1775063715"
     },
     {
       "name": "Eadem",
@@ -1299,14 +1279,14 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0621/1010/5773/files/ByZoya_Toolbelt.jpg?v=1704289366"
     },
     {
-      "name": "Abi Amé",
-      "count": 3,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0625/2081/9897/files/winterbundlemain.jpg?v=1761666790"
+      "name": "Orebella",
+      "count": 2,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0815/9762/8735/files/100mLbundle_e9b2eec9-1d65-4d3d-82ed-a4fd2098e495.png?v=1762974357"
     },
     {
-      "name": "Byredo",
-      "count": 2,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0578/7798/7461/files/image_39g_77932f59-1289-41d4-8e93-ff166848b28b.jpg?v=1738126758"
+      "name": "Motherland pk",
+      "count": 1,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0660/1929/5478/products/motherland-nautical-pakistani-flag.jpg?v=1675556584"
     }
   ]
 }
