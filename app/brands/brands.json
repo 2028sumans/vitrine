@@ -1,17 +1,12 @@
 {
-  "generatedAt": "2026-04-18T18:11:08.122Z",
-  "totalProducts": 134802,
-  "totalBrands": 265,
+  "generatedAt": "2026-04-18T18:16:44.400Z",
+  "totalProducts": 120061,
+  "totalBrands": 263,
   "brands": [
     {
       "name": "Camilla",
       "count": 17957,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0069/1575/2054/files/CAMILLA_00043204_CROSS_OVER_COAT_MUSEUM_MEMOIRS_MODEL_1.jpg?v=1775698816"
-    },
-    {
-      "name": "Nicobar",
-      "count": 12018,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0270/5129/4854/files/NBI048199_1.jpg?v=1762773497"
     },
     {
       "name": "Shrimpton Couture",
@@ -42,11 +37,6 @@
       "name": "Manuka Global",
       "count": 2909,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0583/6642/7214/files/82567_8e829bbf-428d-4b84-a6b5-72538be9d1af.jpg?v=1773307367"
-    },
-    {
-      "name": "Mann",
-      "count": 2723,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0885/6141/8404/files/BackExtensionMachineMDC1016.jpg?v=1769014920"
     },
     {
       "name": "Nobody's Child",
