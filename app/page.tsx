@@ -205,7 +205,7 @@ export default function HomePage() {
         </section>
 
         {/* Transparency note */}
-        <div className="bg-background border-t border-border">
+        <div className="bg-background">
           <div className="max-w-6xl mx-auto px-8 py-10 flex items-start gap-8">
             <p className="font-sans text-[9px] tracking-widest uppercase text-muted-dim mt-0.5 whitespace-nowrap">
               Note
