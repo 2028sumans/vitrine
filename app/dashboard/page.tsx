@@ -357,17 +357,6 @@ function OutfitSection({ label, role, products, startPosition, userToken }: {
 function StyleDNACard({ dna }: { dna: StyleDNA }) {
   return (
     <div className="border border-border bg-white/[0.02]">
-      <div className="px-7 pt-6 pb-5 border-b border-border">
-        <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Your palette</p>
-        <div className="flex flex-wrap gap-5">
-          {(dna.color_palette ?? []).map((color) => (
-            <div key={color} className="flex items-center gap-2.5">
-              <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 ring-1 ring-white/10" style={{ backgroundColor: colorToCSS(color) }} />
-              <span className="font-sans text-sm text-muted-strong capitalize">{color}</span>
-            </div>
-          ))}
-        </div>
-      </div>
       {(dna.style_references ?? []).length > 0 && (
         <div className="px-7 py-5 border-b border-border">
           <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Inspired by</p>
@@ -2214,15 +2203,6 @@ export default function DashboardPage() {
                       Scroll
                     </button>
                   </div>
-                </div>
-
-                <div className="flex flex-wrap gap-4 mb-10">
-                  {(aesthetic.color_palette ?? []).map((color) => (
-                    <div key={color} className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ backgroundColor: colorToCSS(color) }} />
-                      <span className="font-sans text-xs text-muted-strong capitalize">{color}</span>
-                    </div>
-                  ))}
                 </div>
 
                 <div className="mb-14 flex items-center gap-6">
