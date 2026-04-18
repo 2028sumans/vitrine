@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { algoliasearch } from "algoliasearch";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,28 +18,12 @@ interface Product {
 
 type ViewMode = "grid" | "scroll";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const HITS_PER_PAGE = 48;
-const INDEX_NAME    = "vitrine_products";
-
 function formatPrice(p: number | null): string {
   if (p == null) return "";
   return `$${Math.round(p).toLocaleString("en-US")}`;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-
-// Lazy, memoized Algolia client. Constructed only when first needed (inside
-// loadMore on the client) so that Next.js can prerender the page HTML at
-// build time without the algoliasearch constructor throwing on a missing
-// appId. Same public app ID fallback as the rest of the app.
-function getClient() {
-  const appId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
-  const key   = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY;
-  if (!key) return null;
-  return algoliasearch(appId, key);
-}
 
 export default function ShopPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -50,32 +33,25 @@ export default function ShopPage() {
   const [hasMore, setHasMore]   = useState(true);
   const sentinelRef             = useRef<HTMLDivElement>(null);
 
+  // Data fetch goes through /api/shop-all — server-side Algolia call keeps
+  // the search key off the client bundle and works even if the NEXT_PUBLIC_*
+  // env vars aren't provisioned on Vercel.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
-    const client = getClient();
-    if (!client) {
-      console.error("[shop] NEXT_PUBLIC_ALGOLIA_SEARCH_KEY missing");
-      setHasMore(false);
-      return;
-    }
     setLoading(true);
     try {
-      const res = await client.searchSingleIndex({
-        indexName: INDEX_NAME,
-        searchParams: {
-          query:                "",
-          hitsPerPage:          HITS_PER_PAGE,
-          page,
-          attributesToRetrieve: ["objectID", "title", "brand", "retailer", "price", "image_url", "product_url"],
-        },
-      });
-      const fresh = (res.hits ?? []) as unknown as Product[];
-      // Filter out products with missing or non-http image URLs — those are the
-      // broken-URL stragglers the embed pipeline surfaces. Not worth showing.
-      const clean = fresh.filter((p) => typeof p.image_url === "string" && p.image_url.startsWith("http"));
-      setProducts((prev) => [...prev, ...clean]);
+      const res = await fetch(`/api/shop-all?page=${page}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error("[shop] non-ok:", res.status, body);
+        setHasMore(false);
+        return;
+      }
+      const data  = await res.json();
+      const fresh = (data.products ?? []) as Product[];
+      setProducts((prev) => [...prev, ...fresh]);
       setPage((p) => p + 1);
-      if (fresh.length < HITS_PER_PAGE) setHasMore(false);
+      if (!data.hasMore) setHasMore(false);
     } catch (err) {
       console.error("[shop] load failed:", err);
     } finally {
