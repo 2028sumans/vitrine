@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-18T18:16:44.400Z",
-  "totalProducts": 120061,
-  "totalBrands": 263,
+  "generatedAt": "2026-04-18T18:20:06.391Z",
+  "totalProducts": 118241,
+  "totalBrands": 261,
   "brands": [
     {
       "name": "Camilla",
@@ -144,11 +144,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0130/3137/4906/products/IA10172BILLIEJACKETTANF3.jpg?v=1634695239"
     },
     {
-      "name": "Cultstore",
-      "count": 1010,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0657/8110/4808/files/XLvh4TB7ATsD6wae9fzAtAn1.jpg?v=1726147026"
-    },
-    {
       "name": "Derschutze",
       "count": 959,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0520/8843/8949/files/2025-04-23-20-2_1.jpg?v=1746016101"
@@ -192,11 +187,6 @@
       "name": "Odaje",
       "count": 874,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0622/0333/0784/files/WEB_SD_JeanneH_Cuir_croco_noir_B0017102_5.jpg?v=1756202033"
-    },
-    {
-      "name": "Abe",
-      "count": 810,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0732/6924/8318/files/GR00125950GT1.jpg?v=1712154848"
     },
     {
       "name": "Anna Sui",
