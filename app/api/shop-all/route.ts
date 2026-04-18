@@ -43,29 +43,39 @@ export async function GET(request: Request) {
   try {
     const client = algoliasearch(appId, key);
 
-    // 8 offsets evenly spaced across the catalog. Each user-page walks
-    // PER_SLICE items forward within each slice.
+    // 8 starting positions evenly spaced across the catalog. We convert each
+    // offset into a (page, hitsPerPage) pair for the searchSingleIndex call,
+    // which is a more reliable shape than raw offset+length in a multi-query
+    // batch (the batch endpoint silently dropped most of our hits).
     const STRIDE = Math.floor(CATALOG_SIZE / NUM_SLICES);
     const offsets = Array.from({ length: NUM_SLICES }, (_, i) =>
       (page * PER_SLICE + i * STRIDE) % CATALOG_SIZE
     );
 
-    // Multi-query batch: 8 mini-searches in one HTTP round-trip.
-    // Algolia's `length` param caps at 1000 when using `offset`; 6 is fine.
-    const requests = offsets.map((off) => ({
-      indexName:            INDEX_NAME,
-      query:                "",
-      offset:               off,
-      length:               PER_SLICE,
-      attributesToRetrieve: [
-        "objectID", "title", "brand", "retailer", "price", "image_url", "product_url",
-      ],
-    }));
-
-    const batch = await client.search({ requests });
-    const sliceResults = (batch.results ?? []) as Array<{
-      hits?: Array<Record<string, unknown>>;
-    }>;
+    // Fire 8 slice queries in parallel. Each asks for a page whose
+    // hitsPerPage == PER_SLICE, so the N-th hitsPerPage page starting at
+    // offset O maps to algoliaPage = O / PER_SLICE.
+    const sliceResults = await Promise.all(
+      offsets.map(async (off) => {
+        try {
+          const res = await client.searchSingleIndex({
+            indexName: INDEX_NAME,
+            searchParams: {
+              query:                "",
+              hitsPerPage:          PER_SLICE,
+              page:                 Math.floor(off / PER_SLICE),
+              attributesToRetrieve: [
+                "objectID", "title", "brand", "retailer", "price", "image_url", "product_url",
+              ],
+            },
+          });
+          return { hits: (res.hits ?? []) as Array<Record<string, unknown>> };
+        } catch (e) {
+          console.warn("[shop-all] slice failed:", e instanceof Error ? e.message : e);
+          return { hits: [] };
+        }
+      }),
+    );
 
     // Round-robin interleave: take slice 0's item i, then slice 1's item i, ...
     // slice 7's item i; then i+1 round. Produces [s0_0, s1_0, ..., s7_0, s0_1, ...].
