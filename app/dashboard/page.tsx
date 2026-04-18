@@ -1610,6 +1610,9 @@ export default function DashboardPage() {
     if (!aesthetic || !candidates) return;
     setStep("edit_loading");
     setEditStep(0);
+    // Fresh shot at the catalog — a new regenerate is allowed to re-fetch
+    // more candidates even if a previous run had exhausted the pool.
+    exhaustedRef.current = false;
     const t1 = setTimeout(() => setEditStep(1), 8000);
     const t2 = setTimeout(() => setEditStep(2), 16000);
     try {
@@ -1667,18 +1670,56 @@ export default function DashboardPage() {
     } finally { clearTimeout(t1); clearTimeout(t2); }
   }, [aesthetic, candidates, selectedBoard, userToken, curateBatch, buildSignals]);
 
+  // Once the catalog has no more fresh products matching this aesthetic, flip
+  // this flag to true so we stop trying. Resets when the user starts a new
+  // search or regenerates.
+  const exhaustedRef = useRef(false);
+
   const handleGenerateMore = useCallback(async () => {
-    if (!aesthetic || !candidates || isGeneratingMore) return;
+    if (!aesthetic || !candidates || isGeneratingMore || exhaustedRef.current) return;
     setIsGeneratingMore(true);
     try {
-      // 2 parallel batches = 4 new cards, giving the ranker real material
-      const [batch1, batch2] = await Promise.all([curateBatch("m1"), curateBatch("m2")]);
-      const allNew = [...batch1, ...batch2];
+      // Collect every objectID already in the scroll queue OR the candidates
+      // buffer — server excludes these so we get genuinely new products.
+      const shownFromScroll     = scrollCards.flatMap((c) => c.products.map((p) => p.objectID));
+      const shownFromCandidates = CATEGORIES.flatMap((c) => candidates[c].map((p) => p.objectID));
+      const excludeIds = Array.from(new Set([...shownFromScroll, ...shownFromCandidates]));
 
-      // Dedup against existing scroll cards
+      const res = await fetch("/api/more-outfits", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ aesthetic, excludeIds, userToken }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.exhausted) {
+        console.log("[more-outfits] catalog exhausted for this aesthetic");
+        exhaustedRef.current = true;
+        return;
+      }
+
+      const batches = (data.batches ?? []) as Array<{
+        products:      CuratedProduct[];
+        outfit_a_role: string;
+        outfit_b_role: string;
+      }>;
+      if (batches.length === 0) return;
+
+      // Flatten batches into OutfitCards
+      const ts = Date.now();
+      const newCards: OutfitCard[] = [];
+      batches.forEach((batch, bIdx) => {
+        const a = batch.products.filter((p) => p.outfit_group === "outfit_a");
+        const b = batch.products.filter((p) => p.outfit_group === "outfit_b");
+        if (a.length) newCards.push({ id: `mo-a-${bIdx}-${ts}`, label: "Outfit A", role: batch.outfit_a_role, products: a, liked: false });
+        if (b.length) newCards.push({ id: `mo-b-${bIdx}-${ts}`, label: "Outfit B", role: batch.outfit_b_role, products: b, liked: false });
+      });
+
+      // Dedup against existing scroll cards (by product-set key)
       setScrollCards((prev) => {
         const seenKeys = new Set(prev.map((c) => c.products.map((p) => p.objectID).sort().join(",")));
-        const fresh = allNew.filter((c) => {
+        const fresh = newCards.filter((c) => {
           const key = c.products.map((p) => p.objectID).sort().join(",");
           if (seenKeys.has(key)) return false;
           seenKeys.add(key);
@@ -1689,7 +1730,7 @@ export default function DashboardPage() {
         return [...prev, ...ranked];
       });
     } finally { setIsGeneratingMore(false); }
-  }, [aesthetic, candidates, isGeneratingMore, curateBatch, buildSignals]);
+  }, [aesthetic, candidates, isGeneratingMore, scrollCards, userToken, buildSignals]);
 
   // ── Session feedback: "say more" ──────────────────────────────────────────
 
@@ -1936,6 +1977,9 @@ export default function DashboardPage() {
     setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
     setSessionLikedIds([]);
     setIsRefining(false);
+    // Reset session-only refs
+    exhaustedRef.current      = false;
+    dislikedSignalsRef.current = [];
   };
 
   const outfitA = products.filter((p) => p.outfit_group === "outfit_a");
