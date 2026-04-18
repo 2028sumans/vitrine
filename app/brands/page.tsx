@@ -17,15 +17,27 @@ type Sort = "popular" | "alpha";
 // instant page load, no runtime API call, no serverless timeout risk.
 const BRANDS: Brand[] = brandsData.brands as Brand[];
 
+// Brands that dominate by product count but shouldn't lead the visual grid.
+// Get sorted to the very end of every sort order (but still remain in filters
+// and searches so the user can find them intentionally).
+const PINNED_TO_END = new Set<string>([
+  "Shrimpton Couture",
+]);
+
 export default function BrandsPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort]     = useState<Sort>("popular");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let out = q ? BRANDS.filter((b) => b.name.toLowerCase().includes(q)) : BRANDS;
-    if (sort === "alpha") out = [...out].sort((a, b) => a.name.localeCompare(b.name));
-    return out;
+    let out = q ? BRANDS.filter((b) => b.name.toLowerCase().includes(q)) : [...BRANDS];
+    if (sort === "alpha") out = out.sort((a, b) => a.name.localeCompare(b.name));
+    // Always partition pinned-to-end brands after everything else
+    const [pinned, rest] = out.reduce<[Brand[], Brand[]]>(
+      (acc, b) => (PINNED_TO_END.has(b.name) ? [[...acc[0], b], acc[1]] : [acc[0], [...acc[1], b]]),
+      [[], []],
+    );
+    return [...rest, ...pinned];
   }, [search, sort]);
 
   return (
