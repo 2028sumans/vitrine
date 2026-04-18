@@ -95,10 +95,9 @@ export default function HomePage() {
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              Over 100,000 pieces from sustainable labels, vintage stores around the
-              world, preloved platforms, and ethical small-batch makers. Each one
-              stocks only a few items on its own site. We gathered them into a single
-              feed you can search by taste.
+              Over 100,000 pieces from vintage stores, eco-friendly labels, and
+              small-batch makers. Each one stocks only a few items on its own site.
+              We gathered them into a single feed you can search by taste.
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
