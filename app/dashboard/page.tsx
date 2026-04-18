@@ -1363,7 +1363,7 @@ export default function DashboardPage() {
     answers?:      QuestionnaireAnswers;
   }
   const [contextBlocks, setContextBlocks]   = useState<ContextBlock[]>([
-    { id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] },
+    { id: "b1", type: "text", textQuery: "", uploadedFiles: [] },
   ]);
   const [isRefining, setIsRefining]         = useState(false);
 
@@ -1981,7 +1981,7 @@ export default function DashboardPage() {
     setShopViewMode("scroll");
     setScrollCards([]);
     setIsGeneratingMore(false);
-    setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
+    setContextBlocks([{ id: "b1", type: "text", textQuery: "", uploadedFiles: [] }]);
     setSessionLikedIds([]);
     setIsRefining(false);
     // Reset session-only state/refs
@@ -1995,8 +1995,8 @@ export default function DashboardPage() {
   // ── Context block type labels ─────────────────────────────────────────────
 
   const BLOCK_TYPES: { mode: InputMode; label: string }[] = [
-    { mode: "pinterest", label: "Pinterest" },
     { mode: "text",      label: "Describe"  },
+    { mode: "pinterest", label: "Pinterest" },
     { mode: "images",    label: "Upload"    },
   ];
 
