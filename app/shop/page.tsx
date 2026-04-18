@@ -157,16 +157,18 @@ export default function ShopPage() {
           </>
         )}
 
-        {/* Scroll view — in-page, card centered, with Like + Steer rail */}
-        {viewMode === "scroll" && (
-          <ProductScrollView
-            products={products}
-            onNearEnd={loadMore}
-            loading={loading}
-            hasMore={hasMore}
-          />
-        )}
       </main>
+
+      {/* Scroll view — modal overlay with a single narrow centered column */}
+      {viewMode === "scroll" && (
+        <ProductScrollView
+          products={products}
+          onNearEnd={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          onClose={() => setViewMode("grid")}
+        />
+      )}
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -224,18 +226,20 @@ function GridTile({ product }: { product: Product }) {
   );
 }
 
-// ── Scroll view — in-page, card centered ─────────────────────────────────────
-// The scroll container sits below the page header (not a full-screen overlay).
-// Each product is its own scroll-snap item with a centered card, plus Like +
-// Steer buttons floating on the right edge of the viewport.
+// ── Scroll view — modal overlay, narrow centered scroll column ───────────────
+// Matches the dashboard tailored-page scroll exactly: dimmed/blurred page
+// backdrop, single column of product cards (~440px wide) centered on screen,
+// each card has a full-bleed image with Like + Steer buttons pinned to its
+// right edge and brand/title/price overlaid at the bottom.
 
 function ProductScrollView({
-  products, onNearEnd, loading, hasMore,
+  products, onNearEnd, loading, hasMore, onClose,
 }: {
   products: Product[];
   onNearEnd: () => void;
   loading:   boolean;
   hasMore:   boolean;
+  onClose:   () => void;
 }) {
   const router        = useRouter();
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -287,53 +291,73 @@ function ProductScrollView({
           e.preventDefault(); step(1); break;
         case "ArrowUp": case "k": case "PageUp":
           e.preventDefault(); step(-1); break;
+        case "Escape":
+          e.preventDefault(); onClose(); break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onClose]);
 
-  // Steer submit → jump into the tailored flow with the comment pre-seeded.
+  // Steer submit → route to /dashboard with the comment as ?describe=…
   const handleSteer = useCallback((comment: string) => {
     router.push(`/dashboard?describe=${encodeURIComponent(comment)}`);
   }, [router]);
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="relative w-full overflow-y-scroll border-t border-border"
-      style={{ height: "calc(100vh - 12rem)", scrollSnapType: "y mandatory" }}
-    >
-      {/* Live index indicator (fixed within the scroll view) */}
-      <span className="absolute top-4 right-4 z-40 font-sans text-[9px] tracking-widest uppercase text-muted bg-background/80 backdrop-blur-sm px-3 py-1.5 border border-border pointer-events-none">
-        {Math.min(activeIdx + 1, products.length)} / {products.length}
-      </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop — blurred view of the grid behind */}
+      <button
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute inset-0 bg-background/40 backdrop-blur-md cursor-default"
+      />
 
-      {products.map((p, i) => (
-        <ProductScrollCard
-          key={p.objectID}
-          product={p}
-          index={i}
-          activeIdx={activeIdx}
-          onSayMore={handleSteer}
-        />
-      ))}
-      {loading && (
-        <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-          <p className="font-display italic text-xl text-muted">Loading more…</p>
-        </div>
-      )}
-      {!hasMore && !loading && (
-        <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-          <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
-        </div>
-      )}
+      {/* Top bar overlay — sits above the backdrop, not over the card */}
+      <div className="absolute top-4 left-6 right-6 z-20 flex items-center justify-between pointer-events-none">
+        <button
+          onClick={onClose}
+          className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/70 hover:text-foreground transition-colors"
+        >
+          ← Grid
+        </button>
+        <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/40">
+          {Math.min(activeIdx + 1, products.length)} / {products.length}
+        </span>
+      </div>
+
+      {/* Narrow centered scroll column */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="relative z-10 w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll bg-background shadow-2xl"
+        style={{ scrollSnapType: "y mandatory" }}
+      >
+        {products.map((p, i) => (
+          <ProductScrollCard
+            key={p.objectID}
+            product={p}
+            index={i}
+            activeIdx={activeIdx}
+            onSayMore={handleSteer}
+          />
+        ))}
+        {loading && (
+          <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+            <p className="font-display italic text-xl text-muted">Loading more…</p>
+          </div>
+        )}
+        {!hasMore && !loading && (
+          <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+            <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── Scroll card — centered card, right-rail Like + Steer ─────────────────────
+// ── Scroll card — full-bleed image in the column, buttons on right edge ──────
 
 function ProductScrollCard({
   product, index, activeIdx, onSayMore,
@@ -366,47 +390,42 @@ function ProductScrollCard({
   };
 
   return (
-    <div
-      className="relative w-full flex items-center justify-center bg-background"
+    <a
+      href={product.product_url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="relative flex flex-col bg-background block"
       style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
       data-card-index={index}
     >
-      {/* Centered product card */}
-      <a
-        href={product.product_url || "#"}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="max-w-md w-full px-8 group"
-      >
-        <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] shadow-card mb-5">
-          {product.image_url ? (
-            <Image
-              src={product.image_url}
-              alt={product.title}
-              fill
-              unoptimized
-              priority={isNear}
-              className="object-cover object-top group-hover:scale-[1.02] transition-transform duration-700"
-              sizes="(max-width: 640px) 90vw, 448px"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
-          )}
-        </div>
-        {product.brand && <p className="font-sans text-[10px] tracking-widest uppercase text-accent mb-2">{product.brand}</p>}
-        <p className="font-display font-light text-xl text-foreground leading-snug mb-3">{product.title}</p>
-        <div className="flex items-center justify-between">
-          {product.price != null ? (
-            <span className="font-sans text-sm text-foreground">{formatPrice(product.price)}</span>
-          ) : <span />}
-          <span className="font-sans text-[10px] tracking-widest uppercase text-foreground group-hover:text-accent transition-colors">Shop →</span>
-        </div>
-      </a>
+      {/* Full-bleed image fills the card */}
+      <div className="absolute inset-0 bg-[rgba(42,51,22,0.04)]">
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt={product.title}
+            fill
+            unoptimized
+            priority={isNear}
+            className="object-cover"
+            sizes="440px"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
+        )}
+      </div>
 
-      {/* Right rail — floating next to the card */}
-      <div className="absolute right-8 top-1/2 -translate-y-1/2 flex flex-col items-center gap-5 z-20">
+      {/* Brand label top-left */}
+      {product.brand && (
+        <div className="absolute top-6 left-5 z-10 pointer-events-none">
+          <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/70">{product.brand}</span>
+        </div>
+      )}
+
+      {/* Right-edge rail: Like + Steer */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-5">
         <button onClick={handleLike} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform" aria-label={liked ? "Unlike" : "Like"}>
-          <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center shadow-lg">
             <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
               fill={liked ? "#FF2D55" : "none"}
               stroke={liked ? "#FF2D55" : "white"}
@@ -414,7 +433,7 @@ function ProductScrollCard({
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
           </div>
-          <span className="font-sans text-[11px] font-semibold text-foreground">
+          <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
             {liked ? "Liked" : "Like"}
           </span>
         </button>
@@ -425,15 +444,15 @@ function ProductScrollCard({
             className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
             aria-label="Steer"
           >
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors duration-150 ${showSayMore ? "bg-foreground" : "bg-black"}`}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors duration-150 shadow-lg ${showSayMore ? "bg-white" : "bg-black"}`}>
               <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
                 fill="none"
-                stroke={showSayMore ? "white" : "white"}
+                stroke={showSayMore ? "black" : "white"}
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
             </div>
-            <span className="font-sans text-[11px] font-semibold text-foreground">
+            <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
               {showSayMore ? "Cancel" : "Steer"}
             </span>
           </button>
@@ -445,7 +464,7 @@ function ProductScrollCard({
         <form
           onSubmit={handleSayMoreSubmit}
           onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-md px-8 z-30"
+          className="absolute bottom-28 left-3 right-3 z-30"
         >
           <div className="flex gap-2">
             <input
@@ -453,13 +472,21 @@ function ProductScrollCard({
               value={sayMoreText}
               onChange={(e) => setSayMoreText(e.target.value)}
               placeholder="more minimalist… no florals… show me bags…"
-              className="flex-1 bg-background border border-border-mid px-3 py-2 font-sans text-xs text-foreground placeholder-muted focus:outline-none focus:border-foreground/60"
+              className="flex-1 bg-background/95 backdrop-blur-sm border border-border-mid px-3 py-2 font-sans text-xs text-foreground placeholder-muted focus:outline-none focus:border-foreground/60"
             />
             <button type="submit" className="px-3 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">→</button>
           </div>
         </form>
       )}
-    </div>
+
+      {/* Bottom overlay — brand, title, price, shop */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-6 bg-gradient-to-t from-background via-background/85 to-transparent">
+        {product.brand && <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>}
+        <p className="font-display font-light text-xl text-foreground leading-snug mb-1">{product.title}</p>
+        {product.price != null && <p className="font-sans text-sm text-muted-strong mb-3">{formatPrice(product.price)}</p>}
+        <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">Shop →</span>
+      </div>
+    </a>
   );
 }
 
