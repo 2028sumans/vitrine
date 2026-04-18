@@ -8,36 +8,36 @@ const steps = [
   {
     num: "I",
     title: "Show us your eye",
-    body: "Share a Pinterest board, describe the vibe in words, upload a few inspiration shots, or take a quick style quiz. Whatever way you think about clothes, we translate it.",
+    body: "Share a Pinterest board, describe the vibe in words, upload a few inspiration shots, or take a quick style quiz. However you think about style, we'll translate it.",
   },
   {
     num: "II",
     title: "We read the aesthetic",
-    body: "An AI with a fashion editor's eye decodes palette, silhouettes, mood, and references across your inputs. Specifics, not generic categories.",
+    body: "An AI with a fashion editor's eye decodes your palette, silhouettes, mood, and references from everything you share. It looks for specifics, not generic categories.",
   },
   {
     num: "III",
     title: "Shop the shortlist",
-    body: "A private, personally-curated feed pulling from sustainable labels, vintage sellers, preloved platforms, and small-batch makers — the brands you wouldn't find on your own.",
+    body: "A private, personally curated feed, pulling from sustainable labels, vintage sellers, preloved platforms, and small-batch makers. These are the brands you wouldn't have found on your own.",
   },
 ];
 
 const features = [
   {
     label: "Four ways to start",
-    body: "Pinterest, words, images, or a style quiz. However the taste comes to you.",
+    body: "Pinterest, words, images, or a style quiz. However your taste comes to you.",
   },
   {
     label: "Styled, not searched",
-    body: "An AI reads your exact aesthetic with a fashion editor's eye — palette, silhouette, mood, references. No keyword shortcuts.",
+    body: "An AI reads your exact aesthetic with a fashion editor's eye: palette, silhouette, mood, references. No keyword shortcuts.",
   },
   {
     label: "Sustainable, vintage, preloved",
-    body: "Hundreds of ethical brands and small-batch makers alongside vintage stores from around the world and preloved platforms. The shops worth your time, rather than the ones with the biggest ad budgets.",
+    body: "Hundreds of ethical brands and small-batch makers, alongside vintage stores from around the world and preloved platforms. The shops worth your time, not the ones with the biggest ad budgets.",
   },
   {
     label: "Nothing generic",
-    body: "No algorithm-famous pieces, no filler. The feed optimizes for what fits your eye, not what's trending.",
+    body: "No algorithm-famous pieces, no filler. The feed optimizes for what fits your eye, not for what's trending.",
   },
 ];
 
@@ -95,10 +95,10 @@ export default function HomePage() {
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              100,000+ pieces from sustainable labels, vintage stores around the world,
-              preloved platforms, and ethical small-batch makers. Each one carries
-              only a handful of things, each on its own site. We pulled them together
-              into one feed, searchable by your taste.
+              Over 100,000 pieces from sustainable labels, vintage stores around the
+              world, preloved platforms, and ethical small-batch makers. Each one
+              stocks only a few items on its own site. We gathered them into a single
+              feed you can search by taste.
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
@@ -148,15 +148,16 @@ export default function HomePage() {
             <div className="max-w-3xl">
               <h2 className="font-display font-light text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-foreground mb-8">
                 The best brands are tiny.
-                And scattered everywhere.
+                They&apos;re scattered everywhere.
               </h2>
               <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
-                Each vintage seller — Tokyo, London, Stockholm, Toronto —
-                each preloved platform, each small-batch label stocks a
-                dozen pieces you&apos;d love, on its own site.
-                Stitching a wardrobe from them used to mean endless tabs.
-                Bring the taste you&apos;ve already spent years building;
-                we put the ethical labels that fit it in front of you.
+                A vintage seller in Tokyo stocks a dozen pieces you&apos;d love.
+                So does one in London, one in Stockholm, one in Toronto.
+                Every preloved platform and small-batch label has the same story:
+                a thin catalog on its own site. Stitching a wardrobe together
+                used to mean endless open tabs. Bring the taste you&apos;ve
+                spent years building, and we&apos;ll put the ethical labels
+                that fit it right in front of you.
               </p>
             </div>
           </div>
@@ -193,9 +194,9 @@ export default function HomePage() {
               Note
             </p>
             <p className="font-sans text-xs text-muted leading-relaxed max-w-md">
-              MUSE is free. We earn a small affiliate commission when you
-              purchase through your page, at no cost to you. We never sell your
-              data.
+              MUSE is free to use. When you buy something through one of our
+              links, we earn a small affiliate commission at no extra cost to
+              you. We never sell your data.
             </p>
           </div>
         </div>

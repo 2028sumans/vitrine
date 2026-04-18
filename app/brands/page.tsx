@@ -13,36 +13,31 @@ interface Brand {
 
 type Sort = "popular" | "alpha";
 
-// Data is baked in at build time via scripts/build-brands-data.mjs —
-// instant page load, no runtime API call, no serverless timeout risk.
+// Data is baked in at build time via scripts/build-brands-data.mjs.
 const BRANDS: Brand[] = brandsData.brands as Brand[];
 
 // Brands that dominate by product count but shouldn't lead the visual grid.
-// Get sorted to the very end of every sort order (but still remain in filters
-// and searches so the user can find them intentionally).
+// Get sorted to the very end of every sort order.
 const PINNED_TO_END = new Set<string>([
   "Shrimpton Couture",
 ]);
 
 export default function BrandsPage() {
-  const [search, setSearch] = useState("");
-  const [sort, setSort]     = useState<Sort>("popular");
+  const [sort, setSort] = useState<Sort>("popular");
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let out = q ? BRANDS.filter((b) => b.name.toLowerCase().includes(q)) : [...BRANDS];
-    if (sort === "alpha") out = out.sort((a, b) => a.name.localeCompare(b.name));
-    // Always partition pinned-to-end brands after everything else
+  const ordered = useMemo(() => {
+    let out = [...BRANDS];
+    if (sort === "alpha") out.sort((a, b) => a.name.localeCompare(b.name));
+    // Pinned brands always go to the end of whatever sort is active.
     const [pinned, rest] = out.reduce<[Brand[], Brand[]]>(
       (acc, b) => (PINNED_TO_END.has(b.name) ? [[...acc[0], b], acc[1]] : [acc[0], [...acc[1], b]]),
       [[], []],
     );
     return [...rest, ...pinned];
-  }, [search, sort]);
+  }, [sort]);
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Nav — mirrors the marketing pages */}
       <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between bg-background/80 backdrop-blur-sm">
         <Link href="/" className="font-display font-light text-xl tracking-[0.22em] text-foreground">
           MUSE
@@ -67,43 +62,25 @@ export default function BrandsPage() {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-10">
-          <div className="relative flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Search brands"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-border-mid focus:border-foreground/60 focus:outline-none font-sans text-sm text-foreground placeholder:text-muted transition-colors"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSort("popular")}
-              className={`px-4 py-2 font-sans text-[10px] tracking-widest uppercase transition-colors border ${sort === "popular" ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground hover:border-border-mid"}`}
-            >
-              Popular
-            </button>
-            <button
-              onClick={() => setSort("alpha")}
-              className={`px-4 py-2 font-sans text-[10px] tracking-widest uppercase transition-colors border ${sort === "alpha" ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground hover:border-border-mid"}`}
-            >
-              A–Z
-            </button>
-          </div>
-          <span className="sm:ml-auto font-sans text-[10px] tracking-widest uppercase text-muted">
-            {filtered.length.toLocaleString()} brand{filtered.length === 1 ? "" : "s"}
-          </span>
+        <div className="flex items-center gap-2 mb-10">
+          <button
+            onClick={() => setSort("popular")}
+            className={`px-4 py-2 font-sans text-[10px] tracking-widest uppercase transition-colors border ${sort === "popular" ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground hover:border-border-mid"}`}
+          >
+            Popular
+          </button>
+          <button
+            onClick={() => setSort("alpha")}
+            className={`px-4 py-2 font-sans text-[10px] tracking-widest uppercase transition-colors border ${sort === "alpha" ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground hover:border-border-mid"}`}
+          >
+            A–Z
+          </button>
         </div>
 
         {/* Grid */}
-        {filtered.length === 0 ? (
-          <p className="text-center font-display italic text-xl text-muted py-20">No brands match that search.</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {filtered.map((b) => <BrandCard key={b.name} brand={b} />)}
-          </div>
-        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+          {ordered.map((b) => <BrandCard key={b.name} brand={b} />)}
+        </div>
       </main>
 
       <footer className="border-t border-border px-8 py-7">
@@ -134,14 +111,9 @@ function BrandCard({ brand }: { brand: Brand }) {
           onError={() => setImgFailed(true)}
         />
       ) : null}
-      {/* Dark gradient for name overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent pointer-events-none" />
-      {/* Brand name + count */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end justify-between gap-3">
+      <div className="absolute bottom-0 left-0 right-0 p-4">
         <h3 className="font-display font-light text-xl text-white leading-tight drop-shadow-sm">{brand.name}</h3>
-        <span className="font-sans text-[9px] tracking-widest uppercase text-white/70 flex-shrink-0">
-          {brand.count.toLocaleString()}
-        </span>
       </div>
     </div>
   );
