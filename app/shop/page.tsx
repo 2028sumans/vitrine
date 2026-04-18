@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,16 +28,23 @@ function formatPrice(p: number | null): string {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ShopPage() {
+  const { data: session } = useSession();
+  const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(false);
   const [hasMore, setHasMore]   = useState(true);
+  // When true, the feed is from /api/shop-personalized (Pinterest-biased) and
+  // pagination is disabled (results are the full 120 most-similar products).
+  const [personalized, setPersonalized]   = useState(false);
+  const [personalizing, setPersonalizing] = useState(false);
+  const [fashionBoardCount, setFashionBoardCount] = useState(0);
   const sentinelRef             = useRef<HTMLDivElement>(null);
+  const personalizeTriedRef     = useRef(false);
 
-  // Data fetch goes through /api/shop-all — server-side Algolia call keeps
-  // the search key off the client bundle and works even if the NEXT_PUBLIC_*
-  // env vars aren't provisioned on Vercel.
+  // Fallback path — the flat, interleaved catalog walk.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
@@ -60,8 +68,60 @@ export default function ShopPage() {
     }
   }, [page, loading, hasMore]);
 
-  // initial load
-  useEffect(() => { loadMore(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // Personalized path — fetch fashion boards → embed → Pinecone similarity.
+  // Replaces the flat feed when successful.
+  const tryPersonalize = useCallback(async (token: string) => {
+    if (personalizeTriedRef.current) return false;
+    personalizeTriedRef.current = true;
+    setPersonalizing(true);
+    try {
+      const boardsRes = await fetch("/api/pinterest/fashion-boards", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!boardsRes.ok) return false;
+      const boardsData = await boardsRes.json();
+      const pinImageUrls: string[] = boardsData?.pinImageUrls ?? [];
+      const fbCount: number       = boardsData?.fashionBoards ?? 0;
+      setFashionBoardCount(fbCount);
+      if (pinImageUrls.length === 0) return false;
+
+      const shopRes = await fetch("/api/shop-personalized", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ pinImageUrls }),
+      });
+      if (!shopRes.ok) return false;
+      const shopData = await shopRes.json();
+      const fresh: Product[] = shopData?.products ?? [];
+      if (fresh.length === 0) return false;
+
+      setProducts(fresh);
+      setPersonalized(true);
+      setHasMore(false); // personalized feed is a single ranked list
+      return true;
+    } catch (err) {
+      console.warn("[shop] personalize failed, falling back:", err);
+      return false;
+    } finally {
+      setPersonalizing(false);
+    }
+  }, []);
+
+  // Initial load: if a Pinterest token is available, try personalized first;
+  // fall back to the flat catalog walk if it returns nothing.
+  useEffect(() => {
+    // Wait until the session has resolved before deciding
+    if (session === undefined) return;
+    if (accessToken) {
+      (async () => {
+        const ok = await tryPersonalize(accessToken);
+        if (!ok && products.length === 0) loadMore();
+      })();
+    } else if (products.length === 0) {
+      loadMore();
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [session, accessToken]);
 
   // infinite scroll sentinel (grid only — scroll mode has its own logic)
   useEffect(() => {
@@ -93,12 +153,27 @@ export default function ShopPage() {
         {/* Header + refine CTA */}
         <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
           <div>
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">The catalog</p>
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4 flex items-center gap-3">
+              <span>The catalog</span>
+              {personalizing && (
+                <span className="text-accent normal-case tracking-normal font-display italic text-sm">
+                  reading your pinterest…
+                </span>
+              )}
+              {personalized && !personalizing && (
+                <span className="text-accent normal-case tracking-normal font-display italic text-sm">
+                  ranked from your pinterest
+                  {fashionBoardCount > 0 ? ` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})` : ""}
+                </span>
+              )}
+            </p>
             <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
               Shop all
             </h1>
             <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
-              Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
+              {personalized
+                ? "Everything in our catalog, ranked by visual similarity to your fashion boards. Pinecone-sorted by your taste."
+                : "Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers."}
             </p>
           </div>
           <Link
