@@ -260,18 +260,35 @@ function ProductScrollView({
 
   useEffect(() => { nearEndFired.current = false; }, [products.length]);
 
+  // Wheel → snap by viewport height, but half as sensitive:
+  //   - accumulates wheel delta and only advances after the user has scrolled
+  //     ~180 px total (filters out trackpad micro-flicks)
+  //   - cooldown bumped 800 ms → 1600 ms so at most one advance per ~1.6 s
+  //   - accumulator resets after 200 ms of no wheel input so stale delta
+  //     doesn't trigger a jump on the next session.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    let deltaAccum = 0;
+    let resetTimer: number | null = null;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (isScrolling.current) return;
+      deltaAccum += e.deltaY;
+      if (resetTimer != null) window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => { deltaAccum = 0; }, 200);
+      if (Math.abs(deltaAccum) < 180) return;
       isScrolling.current = true;
-      el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 800);
+      const direction = Math.sign(deltaAccum);
+      deltaAccum = 0;
+      el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
+      setTimeout(() => { isScrolling.current = false; }, 1600);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (resetTimer != null) window.clearTimeout(resetTimer);
+    };
   }, []);
 
   useEffect(() => {
