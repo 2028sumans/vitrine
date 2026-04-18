@@ -36,15 +36,47 @@ export default function ShopPage() {
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(false);
   const [hasMore, setHasMore]   = useState(true);
-  // When true, the feed is from /api/shop-personalized (Pinterest-biased) and
-  // pagination is disabled (results are the full 120 most-similar products).
-  const [personalized, setPersonalized]   = useState(false);
+  // Pinterest-biased products the 7:3 interleaver can draw from. Collected
+  // once on mount (if the user is signed in). Empty pool = no blending happens.
   const [personalizing, setPersonalizing] = useState(false);
   const [fashionBoardCount, setFashionBoardCount] = useState(0);
-  const sentinelRef             = useRef<HTMLDivElement>(null);
-  const personalizeTriedRef     = useRef(false);
+  const personalizedPoolRef   = useRef<Product[]>([]);
+  const personalizedIdxRef    = useRef(0);
+  const seenIdsRef            = useRef<Set<string>>(new Set());
+  const sentinelRef           = useRef<HTMLDivElement>(null);
+  const personalizeTriedRef   = useRef(false);
 
-  // Fallback path — the flat, interleaved catalog walk.
+  // Interleaves a flat batch with the personalized pool at 7:3 ratio. For
+  // every 10 output slots we emit 7 from the flat batch then 3 from the pool.
+  // Dedupes across everything seen so far (so a product can't appear twice).
+  const interleaveWithPool = useCallback((flat: Product[]): Product[] => {
+    const pool      = personalizedPoolRef.current;
+    const seen      = seenIdsRef.current;
+    const out: Product[] = [];
+    let flatI = 0;
+    while (flatI < flat.length) {
+      // 7 from flat
+      for (let i = 0; i < 7 && flatI < flat.length; ) {
+        const p = flat[flatI++];
+        if (seen.has(p.objectID)) continue;
+        seen.add(p.objectID);
+        out.push(p);
+        i++;
+      }
+      // 3 from personalized pool (if any left)
+      for (let i = 0; i < 3 && personalizedIdxRef.current < pool.length; ) {
+        const p = pool[personalizedIdxRef.current++];
+        if (seen.has(p.objectID)) continue;
+        seen.add(p.objectID);
+        out.push(p);
+        i++;
+      }
+    }
+    return out;
+  }, []);
+
+  // Flat catalog walk; when a Pinterest pool is available, each returned
+  // batch is interleaved 7 flat : 3 personalized.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
@@ -58,7 +90,8 @@ export default function ShopPage() {
       }
       const data  = await res.json();
       const fresh = (data.products ?? []) as Product[];
-      setProducts((prev) => [...prev, ...fresh]);
+      const batch = interleaveWithPool(fresh);
+      setProducts((prev) => [...prev, ...batch]);
       setPage((p) => p + 1);
       if (!data.hasMore) setHasMore(false);
     } catch (err) {
@@ -66,60 +99,51 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore]);
+  }, [page, loading, hasMore, interleaveWithPool]);
 
-  // Personalized path — fetch fashion boards → embed → Pinecone similarity.
-  // Replaces the flat feed when successful.
+  // Fetch the user's fashion-board pin URLs → embed → Pinecone similarity →
+  // store as a pool. Pool is then drawn from by interleaveWithPool at 30%.
   const tryPersonalize = useCallback(async (token: string) => {
-    if (personalizeTriedRef.current) return false;
+    if (personalizeTriedRef.current) return;
     personalizeTriedRef.current = true;
     setPersonalizing(true);
     try {
       const boardsRes = await fetch("/api/pinterest/fashion-boards", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!boardsRes.ok) return false;
+      if (!boardsRes.ok) return;
       const boardsData = await boardsRes.json();
       const pinImageUrls: string[] = boardsData?.pinImageUrls ?? [];
-      const fbCount: number       = boardsData?.fashionBoards ?? 0;
-      setFashionBoardCount(fbCount);
-      if (pinImageUrls.length === 0) return false;
+      setFashionBoardCount(boardsData?.fashionBoards ?? 0);
+      if (pinImageUrls.length === 0) return;
 
       const shopRes = await fetch("/api/shop-personalized", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ pinImageUrls }),
       });
-      if (!shopRes.ok) return false;
+      if (!shopRes.ok) return;
       const shopData = await shopRes.json();
-      const fresh: Product[] = shopData?.products ?? [];
-      if (fresh.length === 0) return false;
+      const pool: Product[] = shopData?.products ?? [];
+      if (pool.length === 0) return;
 
-      setProducts(fresh);
-      setPersonalized(true);
-      setHasMore(false); // personalized feed is a single ranked list
-      return true;
+      // Only record the pool — existing flat products stay in place.
+      personalizedPoolRef.current = pool;
+      personalizedIdxRef.current  = 0;
     } catch (err) {
-      console.warn("[shop] personalize failed, falling back:", err);
-      return false;
+      console.warn("[shop] personalize failed, falling back to flat feed:", err);
     } finally {
       setPersonalizing(false);
     }
   }, []);
 
-  // Initial load: if a Pinterest token is available, try personalized first;
-  // fall back to the flat catalog walk if it returns nothing.
+  // Initial load: always fetch the flat feed (fast). Concurrently, if a
+  // Pinterest token is available, try to build the personalized pool — once
+  // it lands, subsequent page loads interleave it in.
   useEffect(() => {
-    // Wait until the session has resolved before deciding
     if (session === undefined) return;
-    if (accessToken) {
-      (async () => {
-        const ok = await tryPersonalize(accessToken);
-        if (!ok && products.length === 0) loadMore();
-      })();
-    } else if (products.length === 0) {
-      loadMore();
-    }
+    if (products.length === 0) loadMore();
+    if (accessToken) void tryPersonalize(accessToken);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [session, accessToken]);
 
@@ -160,10 +184,10 @@ export default function ShopPage() {
                   reading your pinterest…
                 </span>
               )}
-              {personalized && !personalizing && (
+              {!personalizing && fashionBoardCount > 0 && personalizedPoolRef.current.length > 0 && (
                 <span className="text-accent normal-case tracking-normal font-display italic text-sm">
-                  ranked from your pinterest
-                  {fashionBoardCount > 0 ? ` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})` : ""}
+                  30% blended from your pinterest
+                  {` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})`}
                 </span>
               )}
             </p>
@@ -171,9 +195,7 @@ export default function ShopPage() {
               Shop all
             </h1>
             <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
-              {personalized
-                ? "Everything in our catalog, ranked by visual similarity to your fashion boards. Pinecone-sorted by your taste."
-                : "Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers."}
+              Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
             </p>
           </div>
           <Link
