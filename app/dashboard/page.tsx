@@ -2136,7 +2136,7 @@ export default function DashboardPage() {
             {/* Add more context */}
             {contextBlocks.length < 4 && (
               <button onClick={addBlock}
-                className="mb-8 font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors border border-dashed border-border px-5 py-2.5">
+                className="mb-8 font-sans text-[10px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border border-dashed border-border-mid px-5 py-2.5">
                 + Add more context
               </button>
             )}
