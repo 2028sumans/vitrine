@@ -203,20 +203,6 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-
-        {/* Transparency note */}
-        <div className="bg-background">
-          <div className="max-w-6xl mx-auto px-8 py-10 flex items-start gap-8">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted-dim mt-0.5 whitespace-nowrap">
-              Note
-            </p>
-            <p className="font-sans text-xs text-muted leading-relaxed max-w-md">
-              MUSE is free to use. When you buy something through one of our
-              links, we earn a small affiliate commission at no extra cost to
-              you. We never sell your data.
-            </p>
-          </div>
-        </div>
       </main>
 
       {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
