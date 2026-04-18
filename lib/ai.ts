@@ -904,3 +904,152 @@ export async function refineAesthetic(
     return currentDNA;
   }
 }
+
+// ── Claude vision re-rank ────────────────────────────────────────────────────
+//
+// FashionCLIP gets you in the right neighborhood; Claude vision picks the
+// pieces that *actually* fit the vibe. We pass the top N FashionCLIP
+// candidates per category to Claude with image URLs and the StyleDNA, and
+// it returns a re-ordered objectID list. Plug in after hybridSearch.
+//
+// Cost note: roughly 1 Claude vision call per category per "build my edit"
+// click. Keep MAX_CANDIDATES_PER_CATEGORY tight (≤24) to bound cost.
+
+const MAX_CANDIDATES_TO_RERANK = 24; // hard cap per category — cost control
+const RERANK_CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
+
+interface RerankableCandidate {
+  objectID:   string;
+  title:      string;
+  brand?:     string;
+  image_url?: string;
+  price?:     number | null;
+}
+
+/**
+ * Re-rank one category's FashionCLIP candidates by visual+semantic fit.
+ * Uses Claude vision to look at each image and choose the best matches
+ * for the StyleDNA. Returns objectIDs in the new order; falls back to
+ * the original order if Claude fails or returns invalid JSON.
+ */
+async function rerankCategory(
+  category:    string,
+  candidates:  RerankableCandidate[],
+  dna:         StyleDNA,
+  topK:        number,
+): Promise<string[]> {
+  // Cap and filter to candidates with image URLs
+  const usable = candidates
+    .filter((c) => c.image_url && c.image_url.startsWith("http"))
+    .slice(0, MAX_CANDIDATES_TO_RERANK);
+
+  if (usable.length === 0) return candidates.map((c) => c.objectID);
+  if (usable.length <= topK) return usable.map((c) => c.objectID);
+
+  // Build numbered list so Claude can refer to items by index
+  const itemList = usable
+    .map((c, i) => `${i + 1}. ${c.brand ?? ""} — ${c.title}${c.price ? ` ($${Math.round(c.price)})` : ""}`)
+    .join("\n");
+
+  const promptText =
+    `You are a fashion editor curating a ${category} edit for someone with this style profile:\n\n` +
+    `${JSON.stringify({
+      primary_aesthetic:   dna.primary_aesthetic,
+      secondary_aesthetic: dna.secondary_aesthetic,
+      mood:                dna.mood,
+      color_palette:       dna.color_palette,
+      silhouettes:         dna.silhouettes,
+      style_keywords:      dna.style_keywords,
+      avoids:              dna.avoids,
+    }, null, 2)}\n\n` +
+    `Below are ${usable.length} candidate ${category} pieces. The images are in the same order as the numbered list:\n\n` +
+    `${itemList}\n\n` +
+    `Pick the top ${topK} that best match the aesthetic. Consider:\n` +
+    `- Visual fit with the color palette and silhouettes\n` +
+    `- Whether it embodies the mood (avoid pieces that feel off-vibe)\n` +
+    `- Variety — don't pick 5 near-identical items\n` +
+    `- Avoids — skip anything matching the avoid list\n\n` +
+    `Return ONLY a JSON array of the chosen indices in your preferred order, e.g. [3, 7, 1, 12, 9, 4, 18, 2, 11, 6, 14, 8]. No other text.`;
+
+  // Build vision content blocks — image URL references for each candidate.
+  // Pattern matches the existing one used elsewhere in this file (curateProducts).
+  const imgBlocks: Array<{ type: "image"; source: { type: "url"; url: string } }> = [];
+  for (const c of usable) {
+    imgBlocks.push({
+      type:   "image" as const,
+      source: { type: "url" as const, url: c.image_url! },
+    });
+  }
+  const userContent: Anthropic.MessageParam["content"] = [
+    ...imgBlocks,
+    { type: "text" as const, text: promptText },
+  ];
+
+  try {
+    const client  = getClient();
+    const message = await client.messages.create({
+      model:      "claude-haiku-4-5", // small/fast model — re-rank is constrained, low-stakes
+      max_tokens: 200,
+      messages:   [{ role: "user", content: userContent }],
+    });
+
+    const text = message.content[0].type === "text" ? message.content[0].text : "";
+    const arr  = text.match(/\[[\s\S]*?\]/)?.[0];
+    if (!arr) throw new Error("no JSON array in response");
+
+    const indices = JSON.parse(arr) as number[];
+    const reordered: string[] = [];
+    const seen = new Set<number>();
+    for (const i of indices) {
+      const idx = i - 1;
+      if (idx >= 0 && idx < usable.length && !seen.has(idx)) {
+        reordered.push(usable[idx].objectID);
+        seen.add(idx);
+      }
+      if (reordered.length >= topK) break;
+    }
+
+    // Pad with anything Claude omitted (preserves original FashionCLIP order)
+    for (let i = 0; i < usable.length && reordered.length < topK; i++) {
+      if (!seen.has(i)) reordered.push(usable[i].objectID);
+    }
+    return reordered;
+  } catch (err) {
+    console.warn(`[rerank] ${category} fell back to FashionCLIP order:`, err instanceof Error ? err.message : err);
+    return usable.slice(0, topK).map((c) => c.objectID);
+  }
+}
+
+/**
+ * Re-rank a CategoryCandidates bucket using Claude vision.
+ * Runs categories in parallel. Returns a new CategoryCandidates with each
+ * bucket reordered (and trimmed to topK). Buckets with ≤ topK items pass
+ * through unchanged — no point spending Claude tokens on a 5-item set.
+ *
+ * Pass `topK = 12` to take the curated 12 per category Claude considers best.
+ */
+export async function rerankCandidatesByVision(
+  buckets: CategoryCandidates,
+  dna:     StyleDNA,
+  topK     = 12,
+): Promise<CategoryCandidates> {
+  const result: CategoryCandidates = {
+    dress: [], top: [], bottom: [], jacket: [], shoes: [], bag: [],
+  };
+
+  await Promise.all(
+    RERANK_CATEGORIES.map(async (cat) => {
+      const items = buckets[cat] ?? [];
+      if (items.length === 0) { result[cat] = items; return; }
+      if (items.length <= topK) { result[cat] = items; return; }
+
+      const lookup = new Map(items.map((it) => [it.objectID, it]));
+      const orderedIds = await rerankCategory(cat, items, dna, topK);
+      result[cat] = orderedIds
+        .map((id) => lookup.get(id))
+        .filter((it): it is AlgoliaProduct => it != null);
+    }),
+  );
+
+  return result;
+}

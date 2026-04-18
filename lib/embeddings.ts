@@ -105,6 +105,24 @@ export function blendCentroids(
   return normalize(original.map((v, i) => (1 - weight) * v + weight * (likedMean[i] ?? 0)));
 }
 
+/**
+ * Subtract the centroid of negative examples from a positive vector.
+ * Pushes the query *away* from the avoid set in the shared CLIP space.
+ *
+ * Weight is intentionally low (0.25 default) — too high and the resulting
+ * vector flips direction entirely, returning bizarre results.
+ */
+export function subtractCentroid(
+  positive: number[],
+  negatives: number[][],
+  weight = 0.25,
+): number[] {
+  if (negatives.length === 0 || positive.length === 0) return positive;
+  const negMean = normalize(meanVector(negatives));
+  if (negMean.length === 0) return positive;
+  return normalize(positive.map((v, i) => v - weight * (negMean[i] ?? 0)));
+}
+
 // ── Vision model singleton ─────────────────────────────────────────────────────
 
 let _visionProcessorPromise: Promise<unknown> | null = null;

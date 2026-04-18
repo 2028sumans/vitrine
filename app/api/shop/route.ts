@@ -4,6 +4,7 @@ import {
   fetchCandidateProductsByCategory,
   filterByAvoids,
   filterMensItems,
+  rerankCandidatesByVision,
   textQueryToAesthetic,
   questionnaireToAesthetic,
 }                                               from "@/lib/ai";
@@ -17,8 +18,16 @@ import {
   embedTextQuery,
 }                                               from "@/lib/embeddings";
 import { hybridSearch }                         from "@/lib/hybrid-search";
+import {
+  buildTextQueryVectors,
+  anchorImageVectorsWithAesthetic,
+}                                               from "@/lib/query-builder";
 import { loadTasteMemory, saveStyleDNA }        from "@/lib/taste-memory";
 import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
+
+// Claude vision re-rank — set DISABLE_VISION_RERANK=true in env to turn off.
+// Each "build my edit" click costs ~6 small Haiku vision calls (~$0.01).
+const ENABLE_VISION_RERANK = process.env.DISABLE_VISION_RERANK !== "true";
 
 // Use visual search if Pinecone is configured; fall back to Algolia text search
 const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
@@ -173,19 +182,21 @@ export async function POST(request: Request) {
     let rawCandidates: import("@/lib/algolia").CategoryCandidates;
 
     if (USE_VISUAL_SEARCH && mode === "images" && uploadedImages?.length) {
-      // Image upload → FashionCLIP embed (with bg removal) → Hybrid Pinecone + Algolia
-      console.log("[shop] Hybrid search: uploaded images");
-      const embeddings = await embedBase64Images(uploadedImages.slice(0, 10));
-      rawCandidates    = await hybridSearch(embeddings, aesthetic, token);
+      // Image upload → FashionCLIP embed → aesthetic-anchor blend → hybrid search.
+      console.log("[shop] Hybrid search: uploaded images (with aesthetic anchor)");
+      const rawEmb = await embedBase64Images(uploadedImages.slice(0, 10));
+      const anchored = await anchorImageVectorsWithAesthetic(rawEmb, aesthetic, tasteMemory.softAvoids);
+      rawCandidates  = await hybridSearch(anchored, aesthetic, token);
 
     } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
-      // Pinterest → FashionCLIP embed → Hybrid Pinecone + Algolia with optional centroid nudge
-      console.log("[shop] Hybrid search: Pinterest board images");
+      // Pinterest → FashionCLIP embed → cross-session centroid + 10% aesthetic
+      // anchor + negative subtraction → hybrid Pinecone + Algolia
+      console.log("[shop] Hybrid search: Pinterest board images (with aesthetic anchor)");
 
       let embeddings = await embedImageUrls(pinImageUrls.slice(0, 20));
       const validEmbeddings = embeddings.filter((e) => e.length > 0);
 
-      // Nudge toward cross-session style centroid if available
+      // Existing nudge toward cross-session style centroid (kept as-is)
       if (tasteMemory.styleCentroid && validEmbeddings.length > 0) {
         console.log("[shop] Blending cross-session style centroid");
         embeddings = validEmbeddings.map((emb) =>
@@ -193,15 +204,23 @@ export async function POST(request: Request) {
         );
       }
 
+      // NEW: blend the inferred aesthetic in at 10% weight + subtract avoids.
+      // Anchors visually-noisy boards to their semantic intent.
+      embeddings = await anchorImageVectorsWithAesthetic(
+        embeddings,
+        aesthetic,
+        tasteMemory.softAvoids,
+      );
+
       rawCandidates = await hybridSearch(embeddings, aesthetic, token);
 
     } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
-      // Text/quiz → encode aesthetic as FashionCLIP text vector → Hybrid Pinecone + Algolia
-      // The shared image-text embedding space lets text queries retrieve visually matching products.
-      console.log("[shop] Hybrid search: text query via FashionCLIP text encoder");
-      const queryText = [aesthetic.primary_aesthetic, aesthetic.mood, ...(aesthetic.style_keywords ?? [])].join(", ");
-      const textVec   = await embedTextQuery(queryText).catch(() => [] as number[]);
-      rawCandidates   = await hybridSearch(textVec.length > 0 ? [textVec] : [], aesthetic, token);
+      // Text/quiz → multi-vector ensemble query (per-category phrasing) +
+      // negative subtraction of avoids → hybrid Pinecone + Algolia.
+      console.log("[shop] Hybrid search: multi-vector text ensemble via FashionCLIP");
+      const queryVectors = await buildTextQueryVectors(aesthetic, tasteMemory.softAvoids);
+      console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
+      rawCandidates      = await hybridSearch(queryVectors, aesthetic, token);
 
     } else {
       // No Pinecone → pure Algolia text search
@@ -211,7 +230,20 @@ export async function POST(request: Request) {
 
     // ── Filters ───────────────────────────────────────────────────────────────
     const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
-    const candidates  = filterMensItems(afterAvoids);
+    const filtered    = filterMensItems(afterAvoids);
+
+    // ── Claude vision re-rank (top FashionCLIP candidates → curated 12) ──────
+    let candidates = filtered;
+    if (ENABLE_VISION_RERANK && USE_VISUAL_SEARCH) {
+      try {
+        const t0 = Date.now();
+        candidates = await rerankCandidatesByVision(filtered, aesthetic, 12);
+        console.log(`[shop] Vision re-rank: ${Date.now() - t0}ms`);
+      } catch (err) {
+        console.warn("[shop] Vision re-rank failed (non-fatal), using FashionCLIP order:",
+          err instanceof Error ? err.message : err);
+      }
+    }
 
     // ── Persist StyleDNA (fire and forget, Pinterest boards only) ─────────────
     if (mode === "pinterest" && boardId && boardName) {
