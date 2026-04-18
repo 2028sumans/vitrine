@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-18T18:25:02.468Z",
-  "totalProducts": 117652,
-  "totalBrands": 254,
+  "generatedAt": "2026-04-18T19:58:47.778Z",
+  "totalProducts": 116992,
+  "totalBrands": 249,
   "brands": [
     {
       "name": "Camilla",
@@ -26,7 +26,7 @@
     {
       "name": "Showpo",
       "count": 3508,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0917/0154/3222/files/Sienna_Maxi_Dress_-_3D_Floral_Strapless_Column_Dress_in_Wine.png?v=1772774106"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0917/0154/3222/files/Look_6_0881.jpg?v=1766963714"
     },
     {
       "name": "Hive Preloved",
@@ -354,11 +354,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0272/6277/files/padma-two-way-zip-collared-jacket-cream-0.jpg?v=1769207683"
     },
     {
-      "name": "Huelleyrose",
-      "count": 318,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0735/4489/2691/files/DSC_7635copy.jpg?v=1762942328"
-    },
-    {
       "name": "Damson Madder",
       "count": 311,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0320/4907/0220/files/JUDE_009.jpg?v=1757327921"
@@ -462,11 +457,6 @@
       "name": "Hissa Line",
       "count": 247,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0910/6368/1336/files/yellow-embroidery-dressyellow-embroidery-dress-hysa-layn-585300.jpg?v=1745818532"
-    },
-    {
-      "name": "Bhavya Ramesh",
-      "count": 239,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/2675/8584/files/vyala-tie-top-handcraffed-silver-model-wear.webp?v=1760163119"
     },
     {
       "name": "Prod",
@@ -889,11 +879,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0867/7356/files/ShellBootsMaisonEli-1.png?v=1696384490"
     },
     {
-      "name": "Karlaidlaw",
-      "count": 50,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0279/9389/9087/files/20250204_MartenAscenzo_KarlaLaidlaw_Ecommerce00223329-copy_661d84f1-0633-46cc-8279-85495ed726c8.jpg?v=1757558485"
-    },
-    {
       "name": "Lac Demure",
       "count": 49,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0728/7170/6968/files/Group_26.jpg?v=1761489891"
@@ -902,11 +887,6 @@
       "name": "Esmé New York",
       "count": 49,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0292/4452/2589/files/3C233CE2-6C06-44F4-B64E-781AB810AF02.jpg?v=1772461456"
-    },
-    {
-      "name": "Kayali",
-      "count": 46,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0688/5834/7657/files/Eden100mlWardrobe-11500.png?v=1773035057"
     },
     {
       "name": "Moo Moda",
@@ -1232,11 +1212,6 @@
       "name": "Juno Jane",
       "count": 8,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0700/1420/6202/files/NOA_BRown_dark.png?v=1765423140"
-    },
-    {
-      "name": "La Lune",
-      "count": 7,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0471/3218/0643/files/100_b34af4ec-7381-4397-acf4-80a2592eddba.jpg?v=1775639712"
     },
     {
       "name": "Belnu",
