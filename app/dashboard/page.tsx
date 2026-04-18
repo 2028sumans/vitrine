@@ -1304,9 +1304,6 @@ export default function DashboardPage() {
     { id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] },
   ]);
   const [isRefining, setIsRefining]         = useState(false);
-  // Intent message to surface in the refining overlay so the user perceives
-  // the comment was understood (e.g. "✨ you want bolder colors")
-  const [refiningIntent, setRefiningIntent] = useState<string>("");
 
   // Session feedback loop
   const [sessionLikedIds, setSessionLikedIds] = useState<string[]>([]);
@@ -1614,7 +1611,6 @@ export default function DashboardPage() {
   const handleSayMore = useCallback(async (comment: string) => {
     if (!aesthetic || isRefining) return;
     setIsRefining(true);
-    setRefiningIntent("Reading your feedback…");
     try {
       // Compute the upcoming queue's product IDs so the server can prune
       // them based on whether they still fit the refined direction.
@@ -1639,7 +1635,6 @@ export default function DashboardPage() {
 
       const newAesthetic = data.aesthetic ?? aesthetic;
       if (data.aesthetic) setAesthetic(data.aesthetic);
-      if (data.intent)    setRefiningIntent(`✨ ${data.intent}`);
 
       // Server returned the IDs of upcoming items that still fit the new vibe.
       // Everything else upcoming will be wiped.
@@ -1707,8 +1702,6 @@ export default function DashboardPage() {
       console.warn("[handleSayMore] failed:", err);
     } finally {
       setIsRefining(false);
-      // Hold the success message briefly so the user notices it landed
-      setTimeout(() => setRefiningIntent(""), 2200);
     }
   }, [aesthetic, scrollCards, userToken, isRefining, buildSignals]);
 
@@ -2130,17 +2123,6 @@ export default function DashboardPage() {
           <>
             {viewMode === "scroll" && (
               <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} onDwell={handleDwell} />
-            )}
-
-            {/* Refinement overlay — pulses while Claude reads the comment,
-                then briefly shows the interpreted intent so the user feels
-                the system understood them. */}
-            {(isRefining || refiningIntent) && (
-              <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                <div className={`px-5 py-2.5 bg-background/85 backdrop-blur-md border border-border-mid font-sans text-xs tracking-wide text-foreground transition-opacity duration-300 ${isRefining ? "animate-pulse" : ""}`}>
-                  {refiningIntent || "Refining your edit…"}
-                </div>
-              </div>
             )}
 
             <div className="fade-in-up">
