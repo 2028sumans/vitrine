@@ -38,6 +38,10 @@ interface PinData {
   description: string;
   imageUrl:    string;
   thumbUrl:    string;
+  altText?:    string;
+  link?:       string;
+  domain?:     string;
+  dominantColors?: string[];
 }
 
 // ── Color → CSS ───────────────────────────────────────────────────────────────
@@ -1484,7 +1488,14 @@ export default function DashboardPage() {
               mode:         "pinterest" as const,
               boardId:      selectedBoard.id,
               boardName:    selectedBoard.name,
-              pins:         pins.map((p) => ({ title: p.title, description: p.description })),
+              pins:         pins.map((p) => ({
+                title:       p.title,
+                description: p.description,
+                altText:     p.altText,
+                link:        p.link,
+                domain:      p.domain,
+                dominantColors: p.dominantColors,
+              })),
               pinImageUrls: pins.slice(0, 20).map((p) => p.imageUrl),
             };
           }

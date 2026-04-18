@@ -6,6 +6,10 @@ export interface PinData {
   description: string;
   imageUrl:    string;
   thumbUrl:    string;
+  altText?:    string;     // Pinterest accessibility text — often richer than title/description
+  link?:       string;     // source URL (vogue.com, ssense.com, etc. — style tribe signal)
+  domain?:     string;     // hostname extracted from link
+  dominantColors?: string[]; // Pinterest pre-computed hex colors
 }
 
 export async function GET(request: NextRequest) {
@@ -22,8 +26,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing boardId" }, { status: 400 });
   }
 
+  // pin_fields asks Pinterest to include richer metadata on each pin — alt_text,
+  // link (source URL), dominant_color. Falls back cleanly if the field isn't
+  // returned for a given pin.
+  const pinFields = "id,title,description,alt_text,link,media,dominant_color";
   const res = await fetch(
-    `https://api.pinterest.com/v5/boards/${boardId}/pins?page_size=50`,
+    `https://api.pinterest.com/v5/boards/${boardId}/pins?page_size=50&pin_fields=${pinFields}`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -51,12 +59,30 @@ export async function GET(request: NextRequest) {
       const imageUrl = (images["736x"] ?? images["1200x"] ?? images["400x300"] ?? images["orig"])?.url ?? "";
       const thumbUrl = (images["400x300"] ?? images["736x"] ?? images["150x150"])?.url ?? "";
 
+      // Extract hostname from link if available (huge signal for style tribe)
+      const link = typeof pin.link === "string" ? pin.link : undefined;
+      let domain: string | undefined;
+      if (link) {
+        try { domain = new URL(link).hostname.replace(/^www\./, ""); } catch { /* malformed */ }
+      }
+
+      // Pinterest returns dominant_color as a single hex string on v5 for most
+      // tiers; some tiers return an array. Normalize to array of hex strings.
+      const dc = pin.dominant_color;
+      const dominantColors: string[] = Array.isArray(dc)
+        ? dc.filter((c): c is string => typeof c === "string")
+        : typeof dc === "string" ? [dc] : [];
+
       return {
-        id:          String(pin.id ?? ""),
-        title:       String(pin.title ?? ""),
-        description: String(pin.description ?? ""),
+        id:             String(pin.id ?? ""),
+        title:          String(pin.title ?? ""),
+        description:    String(pin.description ?? ""),
         imageUrl,
         thumbUrl,
+        altText:        typeof pin.alt_text === "string" ? pin.alt_text : undefined,
+        link,
+        domain,
+        dominantColors: dominantColors.length > 0 ? dominantColors : undefined,
       };
     })
     .filter((p: PinData) => p.imageUrl);

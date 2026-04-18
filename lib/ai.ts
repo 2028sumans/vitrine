@@ -91,7 +91,8 @@ const JSON_SCHEMA_TEMPLATE = `{
     "jacket": ["3 queries, MAX 3 words each — e.g. 'camel coat', 'black blazer', 'leather jacket' — NOT 'structured oversized vintage-inspired blazer'"],
     "shoes": ["3 queries, MAX 3 words each — e.g. 'black heels', 'tan sandals', 'white sneakers'"],
     "bag": ["3 queries, MAX 3 words each — e.g. 'black leather bag', 'tan tote', 'mini shoulder bag'"]
-  }
+  },
+  "retrieval_phrases": ["5-8 FULL descriptive sentences about ideal outfits that capture the vibe — written in FashionCLIP's native vocabulary: garment + fabric + color + silhouette + styling. Unlike category_queries (which are short retail-catalog terms), these are LONG evocative sentences used for visual similarity search. Examples: 'flowy cream silk slip dress worn layered over a fitted white tee', 'oversized camel wool trench coat belted at the waist with leather', 'strong-shouldered tweed blazer in cream and gold paired with straight-leg denim', 'chunky cream cable-knit turtleneck with pleated midi skirt in dove gray'. Each phrase should describe ONE complete visual concept the wearer would actually want to see."]
 }`;
 
 function buildHistoryBlock(previousDNAs: StyleDNA[]): string {
@@ -120,80 +121,162 @@ function buildHistoryBlock(previousDNAs: StyleDNA[]): string {
   );
 }
 
-export async function analyzeAesthetic(
+/**
+ * Per-pin metadata passed into analyzeAesthetic — the richer Pinterest API
+ * fields that give Claude much better vibe context than title + description.
+ */
+export interface PinMetadata {
+  title?:          string;
+  description?:    string;
+  altText?:        string;
+  link?:           string;
+  domain?:         string;
+  dominantColors?: string[];
+}
+
+/**
+ * Board-level metadata — source domains, board description, etc.
+ * `sourceDomains` is the biggest signal: it tells Claude the style tribe
+ * (ssense.com ≠ shopbop.com ≠ princesspolly.com).
+ */
+export interface BoardMetadata {
+  description?:  string;
+  sourceDomains?: string[];
+}
+
+/**
+ * PASS 1 — Vision: describe each pin individually with fashion vocabulary.
+ * Returns one description per image, in order. Sonnet does the heavy lifting.
+ */
+async function describePinsIndividually(
+  images:  VisionImage[],
+  pinMeta: PinMetadata[],
+): Promise<string[]> {
+  if (images.length === 0) return [];
+  const client = getClient();
+
+  const metaLines = images.map((_, i) => {
+    const m = pinMeta[i] ?? {};
+    const parts = [
+      m.title      && `title: "${m.title}"`,
+      m.altText    && `alt: "${m.altText.slice(0, 120)}"`,
+      m.description && `desc: "${m.description.slice(0, 120)}"`,
+      m.domain     && `source: ${m.domain}`,
+      m.dominantColors && m.dominantColors.length > 0 && `colors: ${m.dominantColors.slice(0, 3).join(", ")}`,
+    ].filter(Boolean);
+    return `Pin ${i + 1}: ${parts.length > 0 ? parts.join(" | ") : "(no metadata)"}`;
+  }).join("\n");
+
+  const prompt = `You are a fashion editor. I'm going to show you ${images.length} Pinterest pins. For each one, write a precise 1-2 sentence description focused on:
+- Garment types and silhouettes (be specific: "A-line bias-cut midi dress", not "dress")
+- Fabrics and textures (silk, linen, wool, lace, knit — include weave/weight when visible)
+- Specific colors ("burnt sienna", "dove gray", "oxblood" — never just "red" or "gray")
+- Styling (layering, proportions, how the garment is worn)
+- Era or cultural reference if clear (1970s YSL, 90s minimalism, Parisian, Japanese avant-garde, etc.)
+
+Pin metadata (use it to sharpen your reading — especially the source domain, which signals price tier and style tribe):
+
+${metaLines}
+
+Return a numbered list with one line per pin. No preamble. No summary. No em dashes. Just:
+1. <description>
+2. <description>
+...`;
+
+  const userContent: Anthropic.MessageParam["content"] = [
+    ...toImageBlocks(images),
+    { type: "text" as const, text: prompt },
+  ];
+
+  const message = await client.messages.create({
+    model:      "claude-sonnet-4-6",
+    max_tokens: 2200,
+    messages:   [{ role: "user", content: userContent }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  // Parse numbered lines (allow "1." or "1)" etc.)
+  const lines = text.split("\n").map((l) => l.trim()).filter((l) => /^\d+[.)]/.test(l));
+  return lines.map((l) => l.replace(/^\d+[.)]\s*/, ""));
+}
+
+/**
+ * PASS 2 — Text synthesis: pattern-match across the per-pin descriptions
+ * (plus board metadata + source domains) to produce the final StyleDNA.
+ * No vision needed — cheap and fast on Haiku.
+ */
+async function synthesizeStyleDNA(
   boardName:       string,
   pinDescriptions: string[],
-  images:          VisionImage[] = [],
-  previousDNAs:    StyleDNA[]   = [],
-  extraContext?:   string
+  boardMeta:       BoardMetadata,
+  previousDNAs:    StyleDNA[],
+  extraContext?:   string,
 ): Promise<StyleDNA> {
   const client = getClient();
+  const historyBlock = buildHistoryBlock(previousDNAs);
 
   const pinText = pinDescriptions
     .slice(0, 40)
     .map((d, i) => `${i + 1}. ${d}`)
     .join("\n");
 
-  const hasImages  = images.length > 0;
-  const hasHistory = previousDNAs.length > 0;
-  const historyBlock = buildHistoryBlock(previousDNAs);
+  const domainsBlock = boardMeta.sourceDomains && boardMeta.sourceDomains.length > 0
+    ? `\nPin source domains (tells you price tier + style tribe — e.g. ssense/matchesfashion = luxury editorial, shopbop/revolve = contemporary, princesspolly/shein = fast fashion):\n${boardMeta.sourceDomains.join(", ")}\n`
+    : "";
 
-  const promptText = hasImages
-    ? `You are a fashion editor and stylist with a sharp, quiet eye. You identify aesthetics with precision, not hype.
-${hasHistory ? `\n${historyBlock}\n` : ""}
-Analyze these ${images.length} images from a Pinterest board called "${boardName}". The images are the primary source.${pinText ? `\n\nAdditional context:\n${pinText}` : ""}
+  const boardDescBlock = boardMeta.description
+    ? `\nUser's board description: "${boardMeta.description}"\n`
+    : "";
 
-Look for:
-- Colors, textures, fabrics that repeat
-- Silhouettes and proportions
-- Mood and atmosphere
-- Specific garments or styling choices that appear more than once
-- The underlying aesthetic subculture
-${hasHistory ? "- How does this relate to or differ from the taste history above?" : ""}
-
-Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no superlatives. Return ONLY valid JSON:
-
-${JSON_SCHEMA_TEMPLATE}`
-    : `You are a fashion editor and stylist with a sharp, quiet eye. You identify aesthetics with precision, not hype.
-${hasHistory ? `\n${historyBlock}\n` : ""}
-Analyze this Pinterest board called "${boardName}":
-
-${pinText}
-
-Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no superlatives. Return ONLY valid JSON:
-
-${JSON_SCHEMA_TEMPLATE}`;
-
-  const userContent: Anthropic.MessageParam["content"] = [
-    ...toImageBlocks(images),
-    { type: "text" as const, text: promptText },
-  ];
-
-  if (extraContext) {
-    userContent.push({
-      type: "text",
-      text: `\nAdditional context the user provided:\n${extraContext}`,
-    });
-  }
+  const promptText =
+    `You are a fashion editor with a sharp, quiet eye. You identify aesthetics with precision, not hype.\n` +
+    (historyBlock ? `\n${historyBlock}\n` : "") +
+    `\nA user pinned these items to a Pinterest board called "${boardName}".${boardDescBlock}${domainsBlock}\n\n` +
+    `Here are precise descriptions of each pin (already analyzed from the images):\n\n${pinText}\n\n` +
+    (extraContext ? `Additional user context:\n${extraContext}\n\n` : "") +
+    `Look for patterns across the pins — what repeats, what the underlying aesthetic subculture is. Synthesize into a StyleDNA. ` +
+    `Be specific and exact. No filler, no em dashes, no superlatives. Return ONLY valid JSON:\n\n${JSON_SCHEMA_TEMPLATE}`;
 
   const message = await client.messages.create({
-    // Opus — Pinterest boards can be visually complex (dozens of nuanced pins),
-    // and the resulting StyleDNA steers every downstream retrieval and curation
-    // step. Worth the extra seconds for the strongest profile.
-    // (Text and quiz modes below stay on Haiku — their inputs are far simpler.)
-    model:      "claude-opus-4-7",
+    // Text-only synthesis — Haiku is plenty for this and is ~4x faster/cheaper
+    // than the Sonnet vision pass above.
+    model:      "claude-haiku-4-5",
     max_tokens: 2500,
-    messages: [
-      {
-        role:    "user",
-        content: userContent,
-      },
-    ],
+    messages:   [{ role: "user", content: promptText }],
   });
 
   const text = message.content[0].type === "text" ? message.content[0].text : "";
   const json = text.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
   return JSON.parse(json) as StyleDNA;
+}
+
+export async function analyzeAesthetic(
+  boardName:       string,
+  pinDescriptions: string[],
+  images:          VisionImage[]  = [],
+  previousDNAs:    StyleDNA[]     = [],
+  extraContext?:   string,
+  pinMeta:         PinMetadata[]  = [],
+  boardMeta:       BoardMetadata  = {},
+): Promise<StyleDNA> {
+  // No images → skip pass 1, run pass 2 directly on whatever descriptions
+  // the caller already provided (title + description concatenated).
+  if (images.length === 0) {
+    const descriptions = pinDescriptions.filter((d) => d.trim().length > 0);
+    return synthesizeStyleDNA(boardName, descriptions, boardMeta, previousDNAs, extraContext);
+  }
+
+  // Two-pass: Sonnet vision per-pin → Haiku text synthesis.
+  // Runs pass 1 (describe) and then pass 2 (synthesize) serially because
+  // pass 2 depends on pass 1's output.
+  const perPinDescriptions = await describePinsIndividually(images, pinMeta);
+  // Also include any caller-provided text descriptions not covered by images
+  const extraDescriptions  = pinDescriptions
+    .slice(images.length)
+    .filter((d) => d.trim().length > 0);
+  const allDescriptions = [...perPinDescriptions, ...extraDescriptions];
+
+  return synthesizeStyleDNA(boardName, allDescriptions, boardMeta, previousDNAs, extraContext);
 }
 
 // ── Step 2a: Fetch candidates ─────────────────────────────────────────────────

@@ -51,6 +51,18 @@ function collectCategoryPhrases(dna: StyleDNA): string[] {
 }
 
 /**
+ * Claude-generated full-sentence retrieval phrases — written in FashionCLIP's
+ * native vocabulary (garment + fabric + color + styling). These bypass
+ * FashionCLIP's weakness with abstract "vibe" words because they're already
+ * translated into what the model was trained on.
+ */
+function collectRetrievalPhrases(dna: StyleDNA): string[] {
+  return (dna.retrieval_phrases ?? [])
+    .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+    .slice(0, 8);
+}
+
+/**
  * Build an ensemble of text query vectors for a StyleDNA, with negative
  * subtraction applied to each. Used for text/quiz mode.
  */
@@ -58,9 +70,15 @@ export async function buildTextQueryVectors(
   dna:        StyleDNA,
   softAvoids: string[] = [],
 ): Promise<number[][]> {
-  // Collect positive phrases: per-category specifics + one overall summary
-  const phrases = collectCategoryPhrases(dna);
-  phrases.push(aestheticPhrase(dna));
+  // Collect positive phrases:
+  //   - Claude's full-sentence retrieval phrases (strongest — FashionCLIP-native)
+  //   - Per-category short phrases (retrieval-catalog vocabulary)
+  //   - Overall aesthetic summary (abstract vibe anchor)
+  const phrases = [
+    ...collectRetrievalPhrases(dna),
+    ...collectCategoryPhrases(dna),
+    aestheticPhrase(dna),
+  ];
 
   // Encode all positives in parallel
   const positives = await Promise.all(
@@ -102,9 +120,15 @@ export async function anchorImageVectorsWithAesthetic(
 ): Promise<number[][]> {
   if (imageVectors.length === 0) return imageVectors;
 
-  // Encode StyleDNA as a single text anchor
-  const anchor = await embedTextQuery(aestheticPhrase(dna)).catch(() => [] as number[]);
-  if (anchor.length === 0) return imageVectors;
+  // Encode StyleDNA as a multi-phrase anchor: the short aesthetic summary
+  // plus Claude's full-sentence retrieval phrases (garment+fabric+color+styling).
+  // blendCentroids averages the provided vectors internally before blending.
+  const anchorPhrases = [aestheticPhrase(dna), ...collectRetrievalPhrases(dna)]
+    .filter((p): p is string => Boolean(p?.trim()));
+  const anchorVectors = (await Promise.all(
+    anchorPhrases.map((p) => embedTextQuery(p).catch(() => [] as number[])),
+  )).filter((v) => v.length > 0);
+  if (anchorVectors.length === 0) return imageVectors;
 
   // Optionally encode avoids for pushback
   const allAvoids = [...(dna.avoids ?? []), ...softAvoids]
@@ -122,7 +146,7 @@ export async function anchorImageVectorsWithAesthetic(
   return imageVectors
     .filter((v) => v.length > 0)
     .map((imgVec) => {
-      const anchored = blendCentroids(imgVec, [anchor], anchorWeight);
+      const anchored = blendCentroids(imgVec, anchorVectors, anchorWeight);
       return negatives.length > 0
         ? subtractCentroid(anchored, negatives, NEGATIVE_WEIGHT * 0.5) // even gentler for images
         : anchored;

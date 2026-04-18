@@ -52,11 +52,20 @@ async function fetchPinImages(urls: string[]): Promise<VisionImage[]> {
     .map((r) => r.value);
 }
 
+interface PinPayload {
+  title?:          string;
+  description?:    string;
+  altText?:        string;
+  link?:           string;
+  domain?:         string;
+  dominantColors?: string[];
+}
+
 interface ContextPayload {
   mode:            "pinterest" | "text" | "images" | "quiz";
   boardId?:        string;
   boardName?:      string;
-  pins?:           Array<{ title?: string; description?: string }>;
+  pins?:           PinPayload[];
   pinImageUrls?:   string[];
   textQuery?:      string;
   uploadedImages?: VisionImage[];
@@ -85,6 +94,9 @@ export async function POST(request: Request) {
   let   primaryBoardName                 = "your style";
   let   primaryBoardId:   string | undefined;
   const allPinDescriptions: string[]     = [];
+  // Richer pin metadata accumulators — fed to Claude for two-pass analysis
+  const allPinMeta: PinPayload[] = [];
+  const allDomains: string[]     = [];
 
   for (const ctx of contexts) {
     if (ctx.mode === "pinterest") {
@@ -92,8 +104,12 @@ export async function POST(request: Request) {
       if (ctx.boardId)   primaryBoardId   = ctx.boardId;
       allPinImageUrls.push(...(ctx.pinImageUrls ?? []));
       allPinDescriptions.push(
-        ...(ctx.pins ?? []).map((p) => [p.title, p.description].filter(Boolean).join(" — "))
+        ...(ctx.pins ?? []).map((p) => [p.title, p.description, p.altText].filter(Boolean).join(" — "))
       );
+      for (const p of ctx.pins ?? []) {
+        allPinMeta.push(p);
+        if (p.domain) allDomains.push(p.domain);
+      }
     } else if (ctx.mode === "text") {
       if (ctx.textQuery?.trim()) textParts.push(ctx.textQuery.trim());
     } else if (ctx.mode === "images") {
@@ -142,12 +158,16 @@ export async function POST(request: Request) {
         );
       }
 
+      // Top 5 unique source domains — huge signal for price tier and style tribe
+      const uniqueDomains = Array.from(new Set(allDomains)).slice(0, 5);
       aesthetic = await analyzeAesthetic(
         boardName!,
         pinDescriptions,
         pinImages,
         tasteMemory.previousDNAs,
-        extraTextContext
+        extraTextContext,
+        allPinMeta.slice(0, 12),          // per-pin metadata (aligned with pinImages order)
+        { sourceDomains: uniqueDomains }, // board-level signal
       );
     } else if (mode === "text") {
       aesthetic = await textQueryToAesthetic(

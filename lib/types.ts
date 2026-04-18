@@ -42,6 +42,10 @@ export interface StyleDNA {
   style_keywords:    string[];
   style_references:  StyleReference[];
   category_queries:  CategoryQueries;
+  // Full-sentence FashionCLIP-optimized retrieval phrases — bypass FashionCLIP's
+  // vibe-blindness by expressing the aesthetic in its native "garment + fabric +
+  // color + styling" vocabulary. Used directly as text query vectors.
+  retrieval_phrases?: string[];
   // Runtime-only — not returned by Claude, injected after DB fetch
   _boardName?: string;
 }
