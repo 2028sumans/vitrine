@@ -1,66 +1,97 @@
 /**
  * GET /api/brands
  *
- * Returns one entry per unique brand/retailer in the Algolia catalog, with
- * product count and a representative image URL. Cached for an hour at the
- * edge — regenerates the list on first request after the TTL. A full
- * catalog scan takes ~30-60s, so caching is worth it.
+ * Fast path: get all brand facet values (names + counts) in one Algolia
+ * search call, then fetch one representative product image per brand via
+ * a multi-query batch. Total: ~1-2s regardless of catalog size.
+ *
+ * (Earlier version used browseObjects over the full catalog — worked locally
+ * but timed out on Vercel serverless at ~30s scanning 138K records.)
  */
 
 import { NextResponse } from "next/server";
-import { algoliasearch }  from "algoliasearch";
+import { algoliasearch } from "algoliasearch";
 
-// Revalidate every hour. Changes to the catalog (adds, deletes) surface
-// within this window on subsequent requests.
-export const revalidate = 3600;
+export const revalidate = 3600; // cache 1 hour
 
 interface BrandEntry {
-  name:      string;
-  count:     number;
-  imageUrl:  string | null;
+  name:     string;
+  count:    number;
+  imageUrl: string | null;
 }
+
+// Some retailers are white-label or low-quality — skip. Keep the list short.
+const SKIP = new Set<string>([]);
 
 export async function GET() {
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
-  const adminKey = process.env.ALGOLIA_ADMIN_KEY;
+  const key = process.env.ALGOLIA_SEARCH_KEY
+    ?? process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY
+    ?? process.env.ALGOLIA_ADMIN_KEY;
 
-  if (!appId || !adminKey) {
+  if (!appId || !key) {
     return NextResponse.json({ error: "Missing Algolia credentials" }, { status: 500 });
   }
 
-  const client = algoliasearch(appId, adminKey);
-  const brands = new Map<string, BrandEntry>();
+  const client = algoliasearch(appId, key);
 
   try {
-    await client.browseObjects({
+    // 1) Pull facet values for retailer AND brand in one call.
+    const facetResp = await client.searchSingleIndex({
       indexName: "vitrine_products",
-      browseParams: {
-        query:                "",
-        hitsPerPage:          1000,
-        attributesToRetrieve: ["brand", "retailer", "image_url"],
-      },
-      aggregator: (res) => {
-        for (const h of res.hits as Array<{ brand?: string; retailer?: string; image_url?: string }>) {
-          const name = h.retailer || h.brand;
-          if (!name) continue;
-          const existing = brands.get(name);
-          const img      = typeof h.image_url === "string" && h.image_url.startsWith("http") ? h.image_url : null;
-          if (existing) {
-            existing.count++;
-            // Keep the first valid image we saw
-            if (!existing.imageUrl && img) existing.imageUrl = img;
-          } else {
-            brands.set(name, { name, count: 1, imageUrl: img });
-          }
-        }
+      searchParams: {
+        query:             "",
+        hitsPerPage:        0,
+        facets:             ["retailer", "brand"],
+        maxValuesPerFacet:  1000,
       },
     });
 
-    const list = Array.from(brands.values()).sort((a, b) => b.count - a.count);
+    const facets = facetResp.facets ?? {};
+    const retailers = (facets.retailer ?? {}) as Record<string, number>;
+    const brands    = (facets.brand    ?? {}) as Record<string, number>;
+
+    // Prefer retailer when present; fall back to brand (catalog rows should have one or the other).
+    const merged = new Map<string, BrandEntry>();
+    for (const [name, count] of Object.entries(retailers)) {
+      if (!name || SKIP.has(name)) continue;
+      merged.set(name, { name, count, imageUrl: null });
+    }
+    for (const [name, count] of Object.entries(brands)) {
+      if (!name || SKIP.has(name)) continue;
+      if (merged.has(name)) continue;
+      merged.set(name, { name, count, imageUrl: null });
+    }
+
+    const list = Array.from(merged.values()).sort((a, b) => b.count - a.count);
+    if (list.length === 0) return NextResponse.json({ brands: [], total: 0 });
+
+    // 2) Batch fetch one image per brand via multipleQueries (single round-trip).
+    //    Escape double quotes in brand names to keep the filter valid.
+    const esc = (s: string) => s.replace(/"/g, '\\"');
+    const requests = list.map((b) => ({
+      indexName:    "vitrine_products",
+      query:         "",
+      filters:      `retailer:"${esc(b.name)}" OR brand:"${esc(b.name)}"`,
+      hitsPerPage:   1,
+      attributesToRetrieve: ["image_url"],
+    }));
+
+    const multiResp = await client.search({ requests });
+    // Type-narrow: v5's `search` method returns a union — pick the shape that has `hits`.
+    const results = (multiResp.results ?? []) as Array<{ hits?: Array<{ image_url?: string }> }>;
+
+    for (let i = 0; i < list.length; i++) {
+      const hit = results[i]?.hits?.[0];
+      if (hit?.image_url && hit.image_url.startsWith("http")) {
+        list[i].imageUrl = hit.image_url;
+      }
+    }
+
     return NextResponse.json({ brands: list, total: list.length });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[brands] browse failed:", message);
+    console.error("[brands] failed:", message);
     return NextResponse.json({ error: "Failed to load brands", detail: message }, { status: 500 });
   }
 }
