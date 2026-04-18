@@ -1310,6 +1310,11 @@ export default function DashboardPage() {
   const [sessionId] = useState(() => Math.random().toString(36).slice(2));
   const activeScrollIdxRef = useRef(0); // tracks current card in TikTok scroll
 
+  // ── "More like this" injection on like ────────────────────────────────────
+  // Single-flight: if a previous fetch is in-flight, ignore further likes
+  // until it returns. Prevents 5 rapid likes from spawning 5 Claude calls.
+  const isFetchingSimilarRef = useRef(false);
+
   // ── TikTok scoring ────────────────────────────────────────────────────────
   // dwellTimes: ms spent on each card (card.id → ms); used to compute session
   // engagement multiplier and re-rank upcoming cards.
@@ -1675,8 +1680,64 @@ export default function DashboardPage() {
 
   // ── Like card ─────────────────────────────────────────────────────────────
 
+  /**
+   * Fire the /api/similar-on-like endpoint with the just-liked products,
+   * then inject the returned outfit cards just after the user's current
+   * scroll position. Async — the user keeps swiping while this loads.
+   */
+  const injectSimilarOnLike = useCallback(async (
+    likedProductIds: string[],
+  ) => {
+    if (!aesthetic || likedProductIds.length === 0) return;
+    if (isFetchingSimilarRef.current) return;       // single-flight
+    isFetchingSimilarRef.current = true;
+    try {
+      // Exclude every product currently in the queue so we don't insert dupes
+      const excludeIds = scrollCards.flatMap((c) => c.products.map((p) => p.objectID));
+
+      const res = await fetch("/api/similar-on-like", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ likedProductIds, aesthetic, userToken, excludeIds }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const ps: CuratedProduct[] = data.products ?? [];
+      if (ps.length === 0) return;
+
+      // Build outfit cards from returned products (mirrors handleSayMore)
+      const ts = Date.now();
+      const a  = ps.filter((p) => p.outfit_group === "outfit_a");
+      const b  = ps.filter((p) => p.outfit_group === "outfit_b");
+      const newCards: OutfitCard[] = [];
+      if (a.length) newCards.push({ id: `like-a-${ts}`, label: "More like this", role: data.outfit_a_role ?? "", products: a, liked: false });
+      if (b.length) newCards.push({ id: `like-b-${ts}`, label: "More like this", role: data.outfit_b_role ?? "", products: b, liked: false });
+      if (newCards.length === 0) return;
+
+      // Insert just after the user's current scroll position so the next
+      // swipe lands on "more like this" — visceral, immediate.
+      const signals    = buildSignals();
+      const rankedNew  = rankCards(newCards, signals);
+      setScrollCards((prev) => {
+        const insertAt    = activeScrollIdxRef.current + 1;
+        const withInserted = [...prev.slice(0, insertAt), ...rankedNew, ...prev.slice(insertAt)];
+        const afterInsert  = insertAt + rankedNew.length;
+        return reRankUpcoming(withInserted, afterInsert - 1, signals);
+      });
+    } catch (err) {
+      console.warn("[injectSimilarOnLike] failed:", err);
+    } finally {
+      isFetchingSimilarRef.current = false;
+    }
+  }, [aesthetic, scrollCards, userToken, buildSignals]);
+
   const handleLikeCard = useCallback((cardId: string) => {
+    let likedNow: string[] = [];   // captured for the async similar-fetch
     setScrollCards((prev) => {
+      const targetCard = prev.find((c) => c.id === cardId);
+      const becomingLiked = targetCard != null && !targetCard.liked;
+      if (becomingLiked) likedNow = targetCard.products.map((p) => p.objectID);
+
       const updated = prev.map((c) => {
         if (c.id !== cardId) return c;
         const nowLiked = !c.liked;
@@ -1709,7 +1770,12 @@ export default function DashboardPage() {
       };
       return reRankUpcoming(updated, activeScrollIdxRef.current, signals);
     });
-  }, [userToken, dwellTimes, aesthetic]);
+
+    // Fire the "more like this" injection async — non-blocking, single-flight.
+    if (likedNow.length > 0) {
+      void injectSimilarOnLike(likedNow);
+    }
+  }, [userToken, dwellTimes, aesthetic, injectSimilarOnLike]);
 
   // ── Session end: persist style centroid ───────────────────────────────────
 
