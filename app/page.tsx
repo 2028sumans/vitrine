@@ -5,7 +5,7 @@ import Link from "next/link";
 // Deep olive hero background + warm cream foreground. Kept as literals here
 // (instead of tailwind tokens) so the rest of the app — cream bg + olive text —
 // stays unaffected; only the hero flips.
-const HERO_BG   = "#3D4A24";
+const HERO_BG   = "#333E1D";
 const HERO_TEXT = "#EDE5D0";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -93,14 +93,7 @@ export default function HomePage() {
 
           {/* Radial glow (cream warm glow behind the wordmark) */}
           <div className="absolute inset-0 pointer-events-none"
-            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(237,229,208,0.10) 0%, transparent 70%)" }}
-          />
-          {/* Subtle cream grid texture */}
-          <div className="absolute inset-0 pointer-events-none opacity-[0.05]"
-            style={{
-              backgroundImage: `linear-gradient(${HERO_TEXT} 1px, transparent 1px), linear-gradient(90deg, ${HERO_TEXT} 1px, transparent 1px)`,
-              backgroundSize: "80px 80px",
-            }}
+            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(237,229,208,0.08) 0%, transparent 70%)" }}
           />
 
           <div className="relative z-10 max-w-4xl mx-auto">
