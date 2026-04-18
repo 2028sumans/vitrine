@@ -122,11 +122,11 @@ export default function HomePage() {
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
               <Link
-                href="/dashboard"
+                href="/shop"
                 className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase hover:opacity-90 transition-opacity duration-200"
                 style={{ backgroundColor: HERO_TEXT, color: HERO_BG }}
               >
-                Get started →
+                Shop all →
               </Link>
             </div>
           </div>
