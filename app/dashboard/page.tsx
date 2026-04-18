@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useSession, signOut, signIn } from "next-auth/react";
 import type { StyleDNA, CuratedProduct } from "@/lib/ai";
 import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
@@ -1312,7 +1311,6 @@ const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const searchParams      = useSearchParams();
 
   // Core state
   const [step, setStep]                     = useState<Step>("boards");
@@ -1346,14 +1344,32 @@ export default function DashboardPage() {
     uploadedFiles: Array<{ url: string; file: File }>;
     answers?:      QuestionnaireAnswers;
   }
-  // Initialize the first context block. If the user arrived from /shop via
-  // the Steer button, their comment comes in as ?describe=… — pre-fill the
-  // text block so they don't have to retype.
-  const describeSeed = searchParams?.get("describe") ?? "";
   const [contextBlocks, setContextBlocks]   = useState<ContextBlock[]>([
-    { id: "b1", type: "text", textQuery: describeSeed, uploadedFiles: [] },
+    { id: "b1", type: "text", textQuery: "", uploadedFiles: [] },
   ]);
   const [isRefining, setIsRefining]         = useState(false);
+
+  // If the user arrived from /shop via the Steer button, their comment
+  // comes in as ?describe=… — pre-fill the first text block. Reading via
+  // window.location avoids useSearchParams, which forces dynamic rendering
+  // and breaks the build without a Suspense boundary.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const describe = new URLSearchParams(window.location.search).get("describe");
+    if (!describe) return;
+    setContextBlocks((prev) => {
+      if (prev.length > 0 && !prev[0].textQuery) {
+        const next = [...prev];
+        next[0] = { ...next[0], type: "text", textQuery: describe };
+        return next;
+      }
+      return prev;
+    });
+    // Clean the URL so the param doesn't stick on reload
+    const url = new URL(window.location.href);
+    url.searchParams.delete("describe");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   // Session feedback loop
   const [sessionLikedIds, setSessionLikedIds] = useState<string[]>([]);
