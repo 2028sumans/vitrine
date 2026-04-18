@@ -52,9 +52,9 @@ export async function GET(request: Request) {
       (page * PER_SLICE + i * STRIDE) % CATALOG_SIZE
     );
 
-    // Fire 8 slice queries in parallel. Each asks for a page whose
-    // hitsPerPage == PER_SLICE, so the N-th hitsPerPage page starting at
-    // offset O maps to algoliaPage = O / PER_SLICE.
+    // Fire 8 slice queries in parallel. Using offset+length (not page+
+    // hitsPerPage) so we can reach products anywhere in the catalog — the
+    // index's paginationLimitedTo is set to 200_000 to support this.
     const sliceResults = await Promise.all(
       offsets.map(async (off) => {
         try {
@@ -62,8 +62,8 @@ export async function GET(request: Request) {
             indexName: INDEX_NAME,
             searchParams: {
               query:                "",
-              hitsPerPage:          PER_SLICE,
-              page:                 Math.floor(off / PER_SLICE),
+              offset:               off,
+              length:               PER_SLICE,
               attributesToRetrieve: [
                 "objectID", "title", "brand", "retailer", "price", "image_url", "product_url",
               ],
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
           });
           return { hits: (res.hits ?? []) as Array<Record<string, unknown>> };
         } catch (e) {
-          console.warn("[shop-all] slice failed:", e instanceof Error ? e.message : e);
+          console.warn("[shop-all] slice failed (offset=" + off + "):", e instanceof Error ? e.message : e);
           return { hits: [] };
         }
       }),
