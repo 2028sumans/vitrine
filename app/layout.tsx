@@ -18,13 +18,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MUSE — Every quiet label, one feed",
+  title: "MUSE — Sustainable fashion, tailored to you",
   description:
-    "MUSE pulls from hundreds of independent labels, archive sellers, resale shops, and small-batch makers — and puts them in a private feed tailored to your taste.",
+    "MUSE pulls from hundreds of sustainable labels, vintage sellers, preloved platforms, and ethical small-batch makers — and puts them in a private feed tailored to your taste.",
   openGraph: {
-    title: "MUSE — Every quiet label, one feed",
+    title: "MUSE — Sustainable fashion, tailored to you",
     description:
-      "MUSE pulls from hundreds of independent labels, archive sellers, resale shops, and small-batch makers — and puts them in a private feed tailored to your taste.",
+      "MUSE pulls from hundreds of sustainable labels, vintage sellers, preloved platforms, and ethical small-batch makers — and puts them in a private feed tailored to your taste.",
     type: "website",
   },
 };

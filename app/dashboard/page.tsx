@@ -2018,7 +2018,7 @@ export default function DashboardPage() {
                 What are we<br />shopping for?
               </h1>
               <p className="font-sans text-base text-muted-strong max-w-sm leading-relaxed">
-                Describe the vibe, share a Pinterest board, or upload a few shots. We'll pull from hundreds of quiet labels that fit.
+                Describe the vibe, share a Pinterest board, or upload a few shots. We'll pull from hundreds of sustainable, vintage, preloved, and small-batch labels that fit.
               </p>
             </div>
 

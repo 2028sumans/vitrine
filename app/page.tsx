@@ -18,7 +18,7 @@ const steps = [
   {
     num: "III",
     title: "Shop the shortlist",
-    body: "A private, personally-curated feed pulling from hundreds of under-the-radar labels — the brands you wouldn't find on your own.",
+    body: "A private, personally-curated feed pulling from sustainable labels, vintage sellers, preloved platforms, and small-batch makers — the brands you wouldn't find on your own.",
   },
 ];
 
@@ -32,8 +32,8 @@ const features = [
     body: "An AI reads your exact aesthetic with a fashion editor's eye — palette, silhouette, mood, references. No keyword shortcuts.",
   },
   {
-    label: "Hundreds of quiet labels",
-    body: "Independent boutiques, resale platforms, archive sellers, small-batch makers. The shops worth your time, rather than the ones with the biggest ad budgets.",
+    label: "Sustainable, vintage, preloved",
+    body: "Hundreds of ethical brands, small-batch makers, archive and vintage sellers, and preloved platforms. The shops worth your time, rather than the ones with the biggest ad budgets.",
   },
   {
     label: "Nothing generic",
@@ -83,13 +83,13 @@ export default function HomePage() {
             </h1>
 
             <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/60 mb-5 leading-snug">
-              Every quiet label, one feed.
+              Sustainable fashion, tailored to you.
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              Independent labels, archive sellers, resale shops, small-batch makers — the places actually worth
-              your time each carry a handful of pieces and live on their own site. We pulled them together and
-              made them searchable by your taste.
+              Sustainable labels, vintage finds, preloved pieces, ethical small-batch makers —
+              each one stocks a handful of things, each on its own site. Scattered across hundreds
+              of checkouts. We pulled them together into one feed, searchable by your taste.
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
@@ -138,14 +138,15 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto">
             <div className="max-w-3xl">
               <h2 className="font-display font-light text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-foreground mb-8">
-                The good labels are tiny.
+                The sustainable brands are tiny.
                 And scattered everywhere.
               </h2>
               <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
-                Each one stocks a dozen pieces you&apos;d love. Stitching a
-                wardrobe from them used to mean endless tabs and forgotten
-                bookmarks. Bring the taste you&apos;ve already spent years
-                building — we put the labels that fit it in front of you.
+                Each vintage seller, preloved platform, and small-batch label
+                stocks a dozen pieces you&apos;d love — and each one lives on
+                its own site. Stitching a wardrobe from them used to mean
+                endless tabs. Bring the taste you&apos;ve already spent years
+                building; we put the ethical labels that fit it in front of you.
               </p>
             </div>
           </div>
