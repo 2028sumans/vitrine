@@ -1312,13 +1312,6 @@ const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const
 export default function DashboardPage() {
   const { data: session } = useSession();
 
-  // Onboarding
-  const [onboardingDone, setOnboardingDone] = useState(false);
-
-  useEffect(() => {
-    setOnboardingDone(!!localStorage.getItem("muse_onboarding_v1"));
-  }, []);
-
   // Core state
   const [step, setStep]                     = useState<Step>("boards");
   const [boards, setBoards]                 = useState<Board[]>([]);
@@ -1991,7 +1984,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {!onboardingDone && <OnboardingQuiz onComplete={() => setOnboardingDone(true)} />}
       <header className="px-8 py-5 border-b border-border sticky top-0 bg-background/90 backdrop-blur-md z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">MUSE</Link>

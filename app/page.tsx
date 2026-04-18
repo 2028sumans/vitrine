@@ -14,7 +14,7 @@ const steps = [
   {
     num: "I",
     title: "Show us your eye",
-    body: "Share a Pinterest board, describe the vibe in words, upload a few inspiration shots, or take a quick style quiz. However you think about style, we'll translate it.",
+    body: "Share a Pinterest board, describe the vibe in words, or upload a few inspiration shots. However you think about style, we'll translate it.",
   },
   {
     num: "II",
@@ -30,8 +30,8 @@ const steps = [
 
 const features = [
   {
-    label: "Four ways to start",
-    body: "Pinterest, words, images, or a style quiz. However your taste comes to you.",
+    label: "Three ways to start",
+    body: "Pinterest, words, or images. However your taste comes to you.",
   },
   {
     label: "Styled, not searched",
