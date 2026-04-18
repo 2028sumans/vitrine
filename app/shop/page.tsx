@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { algoliasearch } from "algoliasearch";
@@ -31,6 +31,17 @@ function formatPrice(p: number | null): string {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// Lazy, memoized Algolia client. Constructed only when first needed (inside
+// loadMore on the client) so that Next.js can prerender the page HTML at
+// build time without the algoliasearch constructor throwing on a missing
+// appId. Same public app ID fallback as the rest of the app.
+function getClient() {
+  const appId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
+  const key   = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY;
+  if (!key) return null;
+  return algoliasearch(appId, key);
+}
+
 export default function ShopPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [products, setProducts] = useState<Product[]>([]);
@@ -39,13 +50,14 @@ export default function ShopPage() {
   const [hasMore, setHasMore]   = useState(true);
   const sentinelRef             = useRef<HTMLDivElement>(null);
 
-  const client = useMemo(() => algoliasearch(
-    process.env.NEXT_PUBLIC_ALGOLIA_APP_ID!,
-    process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY!,
-  ), []);
-
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
+    const client = getClient();
+    if (!client) {
+      console.error("[shop] NEXT_PUBLIC_ALGOLIA_SEARCH_KEY missing");
+      setHasMore(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await client.searchSingleIndex({
@@ -69,7 +81,7 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [client, page, loading, hasMore]);
+  }, [page, loading, hasMore]);
 
   // initial load
   useEffect(() => { loadMore(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
