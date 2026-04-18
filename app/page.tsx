@@ -116,9 +116,6 @@ export default function HomePage() {
         <section className="bg-cream px-8 py-28 max-w-full">
           <div className="max-w-6xl mx-auto">
             <div className="mb-20">
-              <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-4">
-                How it works
-              </p>
               <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
                 Three steps.
               </h2>
