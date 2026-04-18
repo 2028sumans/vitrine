@@ -1630,8 +1630,13 @@ export default function DashboardPage() {
           userToken,
         }),
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.warn("[refine] non-ok:", res.status, body);
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) return;
+      console.log(`[refine] intent="${data.intent ?? ""}" keep=${(data.keepIds ?? []).length} newCandidates=${data.candidates ? Object.values(data.candidates).reduce((s: number, arr) => s + (arr as unknown[]).length, 0) : 0}`);
 
       const newAesthetic = data.aesthetic ?? aesthetic;
       if (data.aesthetic) setAesthetic(data.aesthetic);
@@ -1727,9 +1732,14 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ likedProductIds, aesthetic, userToken, excludeIds }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.warn("[similar-on-like] non-ok:", res.status, body);
+        return;
+      }
       const data = await res.json();
       const ps: CuratedProduct[] = data.products ?? [];
+      console.log(`[similar-on-like] got ${ps.length} products, building cards…`);
       if (ps.length === 0) return;
 
       // Build outfit cards from returned products (mirrors handleSayMore)

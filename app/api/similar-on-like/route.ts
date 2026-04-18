@@ -15,11 +15,15 @@
  */
 
 import { NextResponse }                          from "next/server";
-import { curateProducts, filterByAvoids, filterMensItems } from "@/lib/ai";
+import { curateProducts, fetchCandidateProductsByCategory, filterByAvoids, filterMensItems } from "@/lib/ai";
 import { searchByLikedProductIds }               from "@/lib/embeddings";
+import { hybridSearch }                          from "@/lib/hybrid-search";
+import { buildTextQueryVectors }                 from "@/lib/query-builder";
 import { getProductsByIds, groupByCategory }     from "@/lib/algolia";
 import { loadTasteMemory }                       from "@/lib/taste-memory";
 import type { StyleDNA }                         from "@/lib/types";
+
+const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
 
 const SIMILAR_FETCH_K = 30; // pull 30 similar; curation will narrow to 4-6
 
@@ -45,32 +49,56 @@ export async function POST(request: Request) {
   }
 
   const token = userToken || "anon";
+  const tasteMemory = await loadTasteMemory(token).catch(() => ({ clickSignals: [], softAvoids: [] as string[] }));
+  const allAvoids   = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
 
   try {
-    // 1. Pinecone vector similarity from liked products (already-embedded vectors)
+    // 1. Try Pinecone vector similarity from liked products (already-embedded vectors)
     const similarIds = await searchByLikedProductIds(
       likedProductIds,
       SIMILAR_FETCH_K,
       aesthetic.price_range,
       [...likedProductIds, ...excludeIds],
     );
+    console.log(`[similar-on-like] Pinecone returned ${similarIds.length} similar IDs for ${likedProductIds.length} liked`);
 
-    if (similarIds.length === 0) {
-      console.log("[similar-on-like] no similar items found in Pinecone");
-      return NextResponse.json({ products: [] });
+    // 2. Hydrate to products. If Pinecone had no vectors for these liked items
+    //    (embed script still running, ~30% of catalog indexed), fall back to
+    //    biasing the aesthetic with the liked items' attributes and running
+    //    the same hybrid text search the /api/shop route uses.
+    let grouped;
+    if (similarIds.length > 0) {
+      const products = await getProductsByIds(similarIds);
+      grouped = groupByCategory(products, 12);
+    } else {
+      console.log("[similar-on-like] Pinecone miss — falling back to aesthetic-biased search");
+      // Hydrate the LIKED products to get their attributes, then bias the
+      // aesthetic toward them so the fallback search pulls in-neighborhood items.
+      const likedProducts = await getProductsByIds(likedProductIds).catch(() => []);
+      const biasedDNA: StyleDNA = {
+        ...aesthetic,
+        style_keywords: [
+          ...(aesthetic.style_keywords ?? []),
+          ...likedProducts.flatMap((p) => [p.brand, p.color, p.category]
+            .filter((s): s is string => typeof s === "string" && s.length > 0)),
+        ].slice(0, 12),
+      };
+      if (USE_VISUAL_SEARCH) {
+        const queryVectors = await buildTextQueryVectors(biasedDNA, tasteMemory.softAvoids);
+        const hybrid = await hybridSearch(queryVectors, biasedDNA, token);
+        grouped = hybrid;
+      } else {
+        grouped = await fetchCandidateProductsByCategory(biasedDNA, token);
+      }
+      // Strip anything the user has already seen
+      const seen = new Set(excludeIds);
+      for (const cat of Object.keys(grouped) as Array<keyof typeof grouped>) {
+        grouped[cat] = grouped[cat].filter((p) => !seen.has(p.objectID));
+      }
     }
 
-    // 2. Hydrate to full Algolia products
-    const products = await getProductsByIds(similarIds);
-    if (products.length === 0) {
-      return NextResponse.json({ products: [] });
-    }
-
-    // 3. Filter and bucket by category
-    const tasteMemory = await loadTasteMemory(token).catch(() => ({ clickSignals: [], softAvoids: [] as string[] }));
-    const allAvoids   = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
-    const grouped     = groupByCategory(products, 12);
-    const filtered    = filterMensItems(filterByAvoids(grouped, allAvoids));
+    // 3. Filter
+    const filtered = filterMensItems(filterByAvoids(grouped, allAvoids));
 
     // 4. Curate into 1-2 outfit cards via Claude
     const curated = await curateProducts(
@@ -81,9 +109,10 @@ export async function POST(request: Request) {
       "",                              // skip trends block — we're being responsive, not seasonal
     );
 
+    const totalBucketed = Object.values(filtered).reduce((s, arr) => s + arr.length, 0);
     console.log(
-      `[similar-on-like] liked=${likedProductIds.length} similar=${similarIds.length} ` +
-      `hydrated=${products.length} curated=${curated.products.length}`,
+      `[similar-on-like] liked=${likedProductIds.length} pinecone=${similarIds.length} ` +
+      `bucketed=${totalBucketed} curated=${curated.products.length}`,
     );
 
     return NextResponse.json({
