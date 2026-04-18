@@ -7,37 +7,37 @@ import Link from "next/link";
 const steps = [
   {
     num: "I",
-    title: "Tell us your taste",
-    body: "Share a Pinterest board, describe what you want in words, upload inspiration images, or answer a quick style quiz. However you think, we follow.",
+    title: "Show us your eye",
+    body: "Share a Pinterest board, describe the vibe in words, upload a few inspiration shots, or take a quick style quiz. Whatever way you think about clothes, we translate it.",
   },
   {
     num: "II",
-    title: "We decode your aesthetic",
-    body: "Our AI identifies the exact aesthetic, palette, silhouettes, and mood across your inputs — with a fashion editor's eye.",
+    title: "We read the aesthetic",
+    body: "An AI with a fashion editor's eye decodes palette, silhouettes, mood, and references across your inputs. Specifics, not generic categories.",
   },
   {
     num: "III",
-    title: "Shop your own taste",
-    body: "Receive a private, personally curated page. Real products from real retailers, edited to match exactly what you love.",
+    title: "Shop the shortlist",
+    body: "A private, personally-curated feed pulling from hundreds of under-the-radar labels — the brands you wouldn't find on your own.",
   },
 ];
 
 const features = [
   {
-    label: "Four ways to search",
-    body: "Pinterest board, free text, image upload, or a guided style quiz. Start however feels natural.",
+    label: "Four ways to start",
+    body: "Pinterest, words, images, or a style quiz. However the taste comes to you.",
   },
   {
-    label: "Your color palette",
-    body: "Dusty sage. Warm ivory. Slate blue. Specific colors, not generic descriptions.",
+    label: "Styled, not searched",
+    body: "An AI reads your exact aesthetic with a fashion editor's eye — palette, silhouette, mood, references. No keyword shortcuts.",
   },
   {
-    label: "Curated by AI",
-    body: "A stylist AI selects each piece individually, filtered by fit, color coherence, and what you actively avoid.",
+    label: "Hundreds of quiet labels",
+    body: "Independent boutiques, resale platforms, archive sellers, small-batch makers. The shops worth your time, rather than the ones with the biggest ad budgets.",
   },
   {
-    label: "Real retailers",
-    body: "ASOS, Nordstrom, Revolve, Bloomingdale's and more, filtered to match your exact budget.",
+    label: "Nothing generic",
+    body: "No algorithm-famous pieces, no filler. The feed optimizes for what fits your eye, not what's trending.",
   },
 ];
 
@@ -83,12 +83,13 @@ export default function HomePage() {
             </h1>
 
             <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/60 mb-5 leading-snug">
-              Your taste, made shoppable.
+              Every quiet label, one feed.
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              Describe your style in any way — a Pinterest board, an image, a feeling, or a few words.
-              MUSE builds you a private shopping page, curated by an AI stylist that understands exactly what you love.
+              Independent labels, archive sellers, resale shops, small-batch makers — the places actually worth
+              your time each carry a handful of pieces and live on their own site. We pulled them together and
+              made them searchable by your taste.
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
@@ -137,13 +138,14 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto">
             <div className="max-w-3xl">
               <h2 className="font-display font-light text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-foreground mb-8">
-                Built for the woman who has been pinning for years and never
-                found all of it in one place.
+                The good labels are tiny.
+                And scattered everywhere.
               </h2>
               <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
-                Your boards already say everything. MUSE listens and finds
-                the exact pieces that match the aesthetic you&apos;ve been
-                quietly, carefully building.
+                Each one stocks a dozen pieces you&apos;d love. Stitching a
+                wardrobe from them used to mean endless tabs and forgotten
+                bookmarks. Bring the taste you&apos;ve already spent years
+                building — we put the labels that fit it in front of you.
               </p>
             </div>
           </div>

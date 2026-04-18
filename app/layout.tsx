@@ -18,13 +18,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MUSE — Your taste, made shoppable",
+  title: "MUSE — Every quiet label, one feed",
   description:
-    "MUSE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
+    "MUSE pulls from hundreds of independent labels, archive sellers, resale shops, and small-batch makers — and puts them in a private feed tailored to your taste.",
   openGraph: {
-    title: "MUSE — Your taste, made shoppable",
+    title: "MUSE — Every quiet label, one feed",
     description:
-      "MUSE reads your Pinterest boards and builds you a private, personalized shopping page. Real products that match your actual aesthetic.",
+      "MUSE pulls from hundreds of independent labels, archive sellers, resale shops, and small-batch makers — and puts them in a private feed tailored to your taste.",
     type: "website",
   },
 };
