@@ -50,6 +50,9 @@ export interface ScoringSignals {
   likedProductIds: Set<string>;
   /** Products user has clicked (from taste memory + this session) */
   clickHistory:    ClickSignalLike[];
+  /** Products from cards the user scrolled past very fast (<700ms). Used to
+   *  penalize upcoming cards sharing category/brand/color with the dislikes. */
+  dislikedSignals: ClickSignalLike[];
   /** ms user spent on each card id before scrolling away */
   dwellTimes:      Record<string, number>;
   /** Expected price range from the current aesthetic */
@@ -93,6 +96,32 @@ function colorAffinity(color: string | undefined, history: ClickSignalLike[]): n
   return Math.min(0.90, 0.30 + hits * 0.25);
 }
 
+// ── Dislike penalties (mirror of affinities, behavioral-asymmetry tuned) ─────
+// People's aversion is reliably stronger than their approach motivation, so
+// per-hit penalties are slightly stronger than the equivalent positive nudges.
+
+function categoryPenalty(category: string | undefined, disliked: ClickSignalLike[]): number {
+  if (!category || !disliked.length) return 0;
+  const hits = disliked.filter((c) => c.category === category).length;
+  // 1 hit → 0.18, 2 → 0.32, 3+ → 0.42
+  return Math.min(0.45, hits * 0.16);
+}
+
+function brandPenalty(brand: string | undefined, disliked: ClickSignalLike[]): number {
+  if (!brand || !disliked.length) return 0;
+  const norm = brand.toLowerCase();
+  // Any hit on same brand is a strong signal ("I saw this brand and scrolled fast")
+  const hits = disliked.filter((c) => c.brand?.toLowerCase() === norm).length;
+  return hits === 0 ? 0 : Math.min(0.55, 0.30 + (hits - 1) * 0.15);
+}
+
+function colorPenalty(color: string | undefined, disliked: ClickSignalLike[]): number {
+  if (!color || !disliked.length) return 0;
+  const norm = color.toLowerCase();
+  const hits = disliked.filter((c) => c.color?.toLowerCase() === norm).length;
+  return Math.min(0.40, hits * 0.14);
+}
+
 function priceMatch(cardPrice: string | undefined, aestheticPrice: string): number {
   if (!cardPrice) return 0.60;
   if (cardPrice === aestheticPrice) return 1.00;
@@ -122,7 +151,7 @@ function dwellMultiplier(dwellTimes: Record<string, number>): number {
 // ── Per-card score ────────────────────────────────────────────────────────────
 
 export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore {
-  const { clickHistory, aestheticPrice, dwellTimes, likedProductIds } = signals;
+  const { clickHistory, dislikedSignals = [], aestheticPrice, dwellTimes, likedProductIds } = signals;
   const products = card.products;
   const dMult    = dwellMultiplier(dwellTimes);
 
@@ -133,12 +162,20 @@ export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore
   const priceScore      = avg(products.map((p: ScoringProduct) => priceMatch(p.price_range, aestheticPrice)));
   const alreadyLiked    = products.some((p: ScoringProduct) => p.objectID != null && likedProductIds.has(p.objectID)) ? 0.05 : 0;
 
-  const predictedLike = Math.min(0.97, (
+  // Dislike penalties — if any of this card's products share attributes with
+  // fast-swiped-past cards, push its score down. Worst attribute wins per card
+  // so one matching strong signal drags the whole card.
+  const catPenalties   = products.map((p: ScoringProduct) => categoryPenalty(p.category, dislikedSignals));
+  const colorPenalties = products.map((p: ScoringProduct) => colorPenalty(p.color,    dislikedSignals));
+
+  const predictedLike = Math.max(0.02, Math.min(0.97, (
     avg(catAffinities)   * 0.40 +
     avg(colorAffinities) * 0.25 +
     priceScore           * 0.20 +
     0.10                         // base engagement rate
-  ) * dMult + alreadyLiked);
+  ) * dMult + alreadyLiked
+    - Math.max(...catPenalties)   * 0.50   // the most-disliked category in the card
+    - Math.max(...colorPenalties) * 0.30)); // the most-disliked color in the card
 
   // ── P(comment / say-more) ─────────────────────────────────────────────────
   // Novelty drives "say more" interactions — cards that are slightly outside
@@ -156,15 +193,18 @@ export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore
 
   // ── P(click) ───────────────────────────────────────────────────────────────
   // Probability the user taps a product and visits the retailer.
-  // Brand recognition is the strongest driver after category interest.
+  // Brand recognition is the strongest driver after category interest — and,
+  // in the negative direction, brand recoil is the strongest repellent.
   const brandAffinities = products.map((p: ScoringProduct) => brandAffinity(p.brand, clickHistory));
+  const brandPenalties  = products.map((p: ScoringProduct) => brandPenalty(p.brand, dislikedSignals));
 
-  const predictedClick = Math.min(0.95,
+  const predictedClick = Math.max(0.02, Math.min(0.95,
     avg(catAffinities)   * 0.35 +
     avg(brandAffinities) * 0.35 +
     priceScore           * 0.20 +
     0.10                         // base click-through rate
-  );
+    - Math.max(...brandPenalties) * 0.55     // strongest repellent
+    - Math.max(...catPenalties)   * 0.35));
 
   // Freshness bonus: products scraped in the last 7 days get a small boost
   // This ensures new inventory surfaces even if it doesn't match click history yet

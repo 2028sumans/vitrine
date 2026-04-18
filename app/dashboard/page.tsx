@@ -1376,10 +1376,14 @@ export default function DashboardPage() {
   const [dwellTimes, setDwellTimes] = useState<Record<string, number>>({});
   // click history loaded from taste memory at shop time (cross-session signal)
   const clickHistoryRef = useRef<ClickSignalLike[]>([]);
+  // disliked signals — attributes of cards the user scrolled past very fast
+  // (<700ms). Capped at 40 to avoid unbounded growth across a session.
+  const dislikedSignalsRef = useRef<ClickSignalLike[]>([]);
 
   const buildSignals = useCallback((): ScoringSignals => ({
     likedProductIds: new Set(sessionLikedIds),
     clickHistory:    clickHistoryRef.current,
+    dislikedSignals: dislikedSignalsRef.current,
     dwellTimes,
     aestheticPrice:  aesthetic?.price_range ?? "mid",
   }), [sessionLikedIds, dwellTimes, aesthetic]);
@@ -1390,18 +1394,37 @@ export default function DashboardPage() {
   const handleDwell = useCallback((cardId: string, ms: number) => {
     setDwellTimes((prev) => ({ ...prev, [cardId]: ms }));
     const signal = interpretDwell(ms);
-    if (signal === "strong_positive" || signal === "negative") {
+    if (signal !== "strong_positive" && signal !== "negative") return;
+
+    // Capture negative signals: if the user scrolled past this card fast AND
+    // didn't explicitly like it, remember its products' attributes so similar
+    // upcoming cards get penalized.
+    setScrollCards((prev) => {
+      if (signal === "negative") {
+        const leaving = prev.find((c) => c.id === cardId);
+        if (leaving && !leaving.liked) {
+          const newDislikes: ClickSignalLike[] = leaving.products.map((p) => ({
+            objectID:    p.objectID,
+            category:    p.category ?? "",
+            brand:       p.brand ?? "",
+            color:       p.color ?? "",
+            price_range: p.price_range ?? "mid",
+            retailer:    p.retailer,
+          }));
+          dislikedSignalsRef.current = [...newDislikes, ...dislikedSignalsRef.current].slice(0, 40);
+        }
+      }
+
       // Re-rank upcoming cards so the algorithm reflects the fresh signal
-      setScrollCards((prev) => {
-        const signals: ScoringSignals = {
-          likedProductIds: new Set(sessionLikedIds),
-          clickHistory:    clickHistoryRef.current,
-          dwellTimes:      { ...dwellTimes, [cardId]: ms },
-          aestheticPrice:  aesthetic?.price_range ?? "mid",
-        };
-        return reRankUpcoming(prev, activeScrollIdxRef.current, signals);
-      });
-    }
+      const signals: ScoringSignals = {
+        likedProductIds: new Set(sessionLikedIds),
+        clickHistory:    clickHistoryRef.current,
+        dislikedSignals: dislikedSignalsRef.current,
+        dwellTimes:      { ...dwellTimes, [cardId]: ms },
+        aestheticPrice:  aesthetic?.price_range ?? "mid",
+      };
+      return reRankUpcoming(prev, activeScrollIdxRef.current, signals);
+    });
   }, [sessionLikedIds, dwellTimes, aesthetic]);
 
   useEffect(() => {
@@ -1864,6 +1887,7 @@ export default function DashboardPage() {
       const signals: ScoringSignals = {
         likedProductIds: new Set(updated.filter((c) => c.liked).flatMap((c) => c.products.map((p) => p.objectID))),
         clickHistory:    clickHistoryRef.current,
+        dislikedSignals: dislikedSignalsRef.current,
         dwellTimes,
         aestheticPrice:  aesthetic?.price_range ?? "mid",
       };
