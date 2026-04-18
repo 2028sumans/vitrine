@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-18T18:22:41.543Z",
-  "totalProducts": 117996,
-  "totalBrands": 257,
+  "generatedAt": "2026-04-18T18:25:02.468Z",
+  "totalProducts": 117652,
+  "totalBrands": 254,
   "brands": [
     {
       "name": "Camilla",
@@ -407,11 +407,6 @@
       "name": "De La Vali",
       "count": 281,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0867/5583/6229/files/LOOK_4_564.jpg?v=1753960427"
-    },
-    {
-      "name": "Karlaidlaw",
-      "count": 279,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0279/9389/9087/files/20250204_MartenAscenzo_KarlaLaidlaw_Ecommerce00223329-copy_661d84f1-0633-46cc-8279-85495ed726c8.jpg?v=1757558485"
     },
     {
       "name": "Personsoul",
@@ -879,19 +874,9 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0753/3471/3619/files/Amrhea_260525_4954_copy.jpg?v=1749903220"
     },
     {
-      "name": "Kayali",
-      "count": 59,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0688/5834/7657/files/Eden100mlWardrobe-11500.png?v=1773035057"
-    },
-    {
       "name": "Elorea",
       "count": 59,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0406/4074/1544/files/HyangNangPouch_01.jpg?v=1768937759"
-    },
-    {
-      "name": "Patria Studios",
-      "count": 58,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0552/5890/6753/files/indigo_blue_2.png?v=1738884563"
     },
     {
       "name": "Martiniano Shoes",
@@ -904,6 +889,11 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0867/7356/files/ShellBootsMaisonEli-1.png?v=1696384490"
     },
     {
+      "name": "Karlaidlaw",
+      "count": 50,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0279/9389/9087/files/20250204_MartenAscenzo_KarlaLaidlaw_Ecommerce00223329-copy_661d84f1-0633-46cc-8279-85495ed726c8.jpg?v=1757558485"
+    },
+    {
       "name": "Lac Demure",
       "count": 49,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0728/7170/6968/files/Group_26.jpg?v=1761489891"
@@ -914,9 +904,9 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0292/4452/2589/files/3C233CE2-6C06-44F4-B64E-781AB810AF02.jpg?v=1772461456"
     },
     {
-      "name": "La Lune",
-      "count": 48,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0471/3218/0643/files/100_b34af4ec-7381-4397-acf4-80a2592eddba.jpg?v=1775639712"
+      "name": "Kayali",
+      "count": 46,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0688/5834/7657/files/Eden100mlWardrobe-11500.png?v=1773035057"
     },
     {
       "name": "Moo Moda",
@@ -1244,6 +1234,11 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0700/1420/6202/files/NOA_BRown_dark.png?v=1765423140"
     },
     {
+      "name": "La Lune",
+      "count": 7,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0471/3218/0643/files/100_b34af4ec-7381-4397-acf4-80a2592eddba.jpg?v=1775639712"
+    },
+    {
       "name": "Belnu",
       "count": 7,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0613/2681/9464/files/Frame_2_18b626b2-8f93-4ffa-bcc2-a6d9ba325307.jpg?v=1771540882"
@@ -1277,16 +1272,6 @@
       "name": "By Zoya",
       "count": 3,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0621/1010/5773/files/ByZoya_Toolbelt.jpg?v=1704289366"
-    },
-    {
-      "name": "Orebella",
-      "count": 2,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0815/9762/8735/files/100mLbundle_e9b2eec9-1d65-4d3d-82ed-a4fd2098e495.png?v=1762974357"
-    },
-    {
-      "name": "Motherland pk",
-      "count": 1,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0660/1929/5478/products/motherland-nautical-pakistani-flag.jpg?v=1675556584"
     }
   ]
 }
