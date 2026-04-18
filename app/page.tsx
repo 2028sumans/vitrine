@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 
+// Deep olive hero background + warm cream foreground. Kept as literals here
+// (instead of tailwind tokens) so the rest of the app — cream bg + olive text —
+// stays unaffected; only the hero flips.
+const HERO_BG   = "#3D4A24";
+const HERO_TEXT = "#EDE5D0";
+
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const steps = [
@@ -47,11 +53,14 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
 
-      {/* ── Nav ── */}
-      <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between">
-        <span className="font-display font-light text-xl tracking-[0.22em] text-foreground">
+      {/* ── Nav — fixed, cream-backed; mirrors the /brands page. ── */}
+      <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between bg-background/80 backdrop-blur-sm">
+        <Link
+          href="/"
+          className="font-display font-light text-xl tracking-[0.22em] text-foreground"
+        >
           MUSE
-        </span>
+        </Link>
         <div className="flex items-center gap-8">
           <Link
             href="/brands"
@@ -70,31 +79,43 @@ export default function HomePage() {
 
       <main className="flex-1">
 
-        {/* ══ 1. HERO ══════════════════════════════════════════════════════════ */}
-        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pb-24 overflow-hidden bg-background">
+        {/* ══ 1. HERO — olive bg, cream text ═══════════════════════════════════ */}
+        <section
+          className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pb-24 overflow-hidden"
+          style={{ backgroundColor: HERO_BG, color: HERO_TEXT }}
+        >
 
-          {/* Radial glow */}
+          {/* Radial glow (cream warm glow behind the wordmark) */}
           <div className="absolute inset-0 pointer-events-none"
-            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(201,185,154,0.07) 0%, transparent 70%)" }}
+            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(237,229,208,0.10) 0%, transparent 70%)" }}
           />
-          {/* Grid texture */}
-          <div className="absolute inset-0 pointer-events-none opacity-[0.025]"
+          {/* Subtle cream grid texture */}
+          <div className="absolute inset-0 pointer-events-none opacity-[0.05]"
             style={{
-              backgroundImage: "linear-gradient(rgba(240,232,216,1) 1px, transparent 1px), linear-gradient(90deg, rgba(240,232,216,1) 1px, transparent 1px)",
+              backgroundImage: `linear-gradient(${HERO_TEXT} 1px, transparent 1px), linear-gradient(90deg, ${HERO_TEXT} 1px, transparent 1px)`,
               backgroundSize: "80px 80px",
             }}
           />
 
           <div className="relative z-10 max-w-4xl mx-auto">
-            <h1 className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] text-foreground mb-10">
+            <h1
+              className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] mb-10"
+              style={{ color: HERO_TEXT }}
+            >
               MUSE
             </h1>
 
-            <p className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl text-foreground/60 mb-5 leading-snug">
+            <p
+              className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl mb-5 leading-snug"
+              style={{ color: `${HERO_TEXT}99` /* ~60% alpha */ }}
+            >
               Ethical fashion, tailored to you.
             </p>
 
-            <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
+            <p
+              className="fade-in-up delay-300 font-sans text-base max-w-md mx-auto leading-relaxed mb-14"
+              style={{ color: `${HERO_TEXT}d9` /* ~85% alpha */ }}
+            >
               Over 100,000 pieces from vintage stores, eco-friendly labels, and
               small-batch makers. Each one stocks only a few items on its own site.
               We gathered them into a single feed you can search by taste.
@@ -103,7 +124,8 @@ export default function HomePage() {
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
               <Link
                 href="/dashboard"
-                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200"
+                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase hover:opacity-90 transition-opacity duration-200"
+                style={{ backgroundColor: HERO_TEXT, color: HERO_BG }}
               >
                 Get started →
               </Link>
