@@ -227,7 +227,7 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
       onClick={handleClick}
       className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300"
     >
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(58,74,36,0.04)]">
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)]">
         {product.image_url ? (
           <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
@@ -294,7 +294,7 @@ function ProductCard({ product, position, userToken }: {
   return (
     <a href={product.product_url || "#"} target="_blank" rel="noopener noreferrer" onClick={handleClick}
       className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300">
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(58,74,36,0.04)]">
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)]">
         {product.image_url ? (
           <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
@@ -788,12 +788,13 @@ function OutfitScrollCard({
 // ── Outfit scroll view ────────────────────────────────────────────────────────
 
 function OutfitScrollView({
-  cards, onLike, onNearEnd, isGeneratingMore, onClose, userToken, onSayMore, onActiveChange, onDwell,
+  cards, onLike, onNearEnd, isGeneratingMore, catalogExhausted, onClose, userToken, onSayMore, onActiveChange, onDwell,
 }: {
   cards:             OutfitCard[];
   onLike:            (cardId: string) => void;
   onNearEnd:         () => void;
   isGeneratingMore:  boolean;
+  catalogExhausted:  boolean;
   onClose:           () => void;
   userToken:         string;
   onSayMore?:        (comment: string) => void;
@@ -897,11 +898,17 @@ function OutfitScrollView({
           ))}
           {isGeneratingMore && (
             <div className="flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-              <p className="font-display italic text-xl text-muted">Musing<span className="inline-flex ml-0.5">
+              <p className="font-display italic text-xl text-muted">Loading more outfits<span className="inline-flex ml-0.5">
                 <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
                 <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
                 <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
               </span></p>
+            </div>
+          )}
+          {!isGeneratingMore && catalogExhausted && cards.length > 0 && (
+            <div className="flex flex-col items-center justify-center bg-background gap-4" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+              <p className="font-display italic text-xl text-muted">You've seen everything in this aesthetic.</p>
+              <p className="font-sans text-[10px] tracking-widest uppercase text-muted/70">Refine via "say more" or start a new search</p>
             </div>
           )}
         </div>
@@ -1612,7 +1619,7 @@ export default function DashboardPage() {
     setEditStep(0);
     // Fresh shot at the catalog — a new regenerate is allowed to re-fetch
     // more candidates even if a previous run had exhausted the pool.
-    exhaustedRef.current = false;
+    setCatalogExhausted(false);
     const t1 = setTimeout(() => setEditStep(1), 8000);
     const t2 = setTimeout(() => setEditStep(2), 16000);
     try {
@@ -1672,11 +1679,11 @@ export default function DashboardPage() {
 
   // Once the catalog has no more fresh products matching this aesthetic, flip
   // this flag to true so we stop trying. Resets when the user starts a new
-  // search or regenerates.
-  const exhaustedRef = useRef(false);
+  // search or regenerates. State (not ref) so UI can react.
+  const [catalogExhausted, setCatalogExhausted] = useState(false);
 
   const handleGenerateMore = useCallback(async () => {
-    if (!aesthetic || !candidates || isGeneratingMore || exhaustedRef.current) return;
+    if (!aesthetic || !candidates || isGeneratingMore || catalogExhausted) return;
     setIsGeneratingMore(true);
     try {
       // Collect every objectID already in the scroll queue OR the candidates
@@ -1695,7 +1702,7 @@ export default function DashboardPage() {
 
       if (data.exhausted) {
         console.log("[more-outfits] catalog exhausted for this aesthetic");
-        exhaustedRef.current = true;
+        setCatalogExhausted(true);
         return;
       }
 
@@ -1730,7 +1737,7 @@ export default function DashboardPage() {
         return [...prev, ...ranked];
       });
     } finally { setIsGeneratingMore(false); }
-  }, [aesthetic, candidates, isGeneratingMore, scrollCards, userToken, buildSignals]);
+  }, [aesthetic, candidates, isGeneratingMore, catalogExhausted, scrollCards, userToken, buildSignals]);
 
   // ── Session feedback: "say more" ──────────────────────────────────────────
 
@@ -1977,8 +1984,8 @@ export default function DashboardPage() {
     setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
     setSessionLikedIds([]);
     setIsRefining(false);
-    // Reset session-only refs
-    exhaustedRef.current      = false;
+    // Reset session-only state/refs
+    setCatalogExhausted(false);
     dislikedSignalsRef.current = [];
   };
 
@@ -2260,7 +2267,7 @@ export default function DashboardPage() {
         {step === "results" && aesthetic && (
           <>
             {viewMode === "scroll" && (
-              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} onDwell={handleDwell} />
+              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} catalogExhausted={catalogExhausted} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} onDwell={handleDwell} />
             )}
 
             <div className="fade-in-up">
@@ -2293,6 +2300,27 @@ export default function DashboardPage() {
 
               <OutfitSection label="Outfit A" role={outfitARole} products={outfitA} startPosition={1} userToken={userToken} />
               <OutfitSection label="Outfit B" role={outfitBRole} products={outfitB} startPosition={outfitA.length + 1} userToken={userToken} />
+
+              {/* Load more outfits — pulls fresh catalog products, curates
+                  new outfit pairs, switches to Scroll view so the newly-added
+                  cards become visible. Also fires automatically when user
+                  nears the end of the scroll view. */}
+              {!catalogExhausted && (
+                <div className="flex justify-center mb-14">
+                  <button
+                    onClick={() => { setViewMode("scroll"); handleGenerateMore(); }}
+                    disabled={isGeneratingMore}
+                    className="px-8 py-3 border border-border hover:border-foreground/60 text-foreground font-sans text-[10px] tracking-widest uppercase transition-colors duration-200 disabled:opacity-50 disabled:cursor-wait"
+                  >
+                    {isGeneratingMore ? "Loading…" : "Load more outfits →"}
+                  </button>
+                </div>
+              )}
+              {catalogExhausted && (
+                <p className="text-center font-sans text-[10px] tracking-widest uppercase text-muted mb-14">
+                  You've seen everything in this aesthetic
+                </p>
+              )}
 
               {outfitA.length === 0 && outfitB.length === 0 && products.length > 0 && (
                 <div>

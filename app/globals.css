@@ -5,8 +5,8 @@
 @layer base {
   html {
     font-size: 18px;
-    background-color: #FFFFFF;
-    color: #3A4A24;
+    background-color: #FAFAF5;
+    color: #2A3316;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -16,8 +16,8 @@
   }
 
   ::selection {
-    background: rgba(107, 127, 62, 0.25);
-    color: #3A4A24;
+    background: rgba(94, 114, 54, 0.25);
+    color: #2A3316;
   }
 }
 
@@ -66,4 +66,4 @@
 /* Thin scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(58,74,36,0.25); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(42,51,22,0.30); border-radius: 2px; }

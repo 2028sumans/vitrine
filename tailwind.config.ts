@@ -9,33 +9,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary palette — white background, dark olive text.
-        // Token names preserved for backward compat (navy/cream no longer
-        // literal — navy tokens now carry the olive values).
-        background:     "#FFFFFF",
-        foreground:     "#3A4A24",          // dark olive green
-        muted:          "rgba(58,74,36,0.60)",
-        "muted-strong": "rgba(58,74,36,0.85)",
-        "muted-dim":    "rgba(58,74,36,0.30)",
-        border:         "rgba(58,74,36,0.15)",
-        "border-mid":   "rgba(58,74,36,0.28)",
-        accent:         "#6B7F3E",          // brighter olive for highlights
+        // Primary palette — soft off-white background, deep olive text.
+        // Token names preserved for backward compat.
+        background:     "#FAFAF5",          // warm off-white
+        foreground:     "#2A3316",          // deeper olive for stronger contrast
+        muted:          "rgba(42,51,22,0.60)",
+        "muted-strong": "rgba(42,51,22,0.85)",
+        "muted-dim":    "rgba(42,51,22,0.30)",
+        border:         "rgba(42,51,22,0.15)",
+        "border-mid":   "rgba(42,51,22,0.28)",
+        accent:         "#5E7236",
 
-        // Legacy "cream/navy" section tokens — now aliases for the same palette.
-        // Safe to keep since JSX still references them; values just changed.
-        cream:             "#FFFFFF",
-        navy:              "#3A4A24",
-        "navy-muted":      "rgba(58,74,36,0.60)",
-        "navy-strong":     "rgba(58,74,36,0.85)",
-        "navy-dim":        "rgba(58,74,36,0.30)",
-        "navy-border":     "rgba(58,74,36,0.12)",
-        "navy-border-mid": "rgba(58,74,36,0.22)",
+        cream:             "#FAFAF5",
+        navy:              "#2A3316",
+        "navy-muted":      "rgba(42,51,22,0.60)",
+        "navy-strong":     "rgba(42,51,22,0.85)",
+        "navy-dim":        "rgba(42,51,22,0.30)",
+        "navy-border":     "rgba(42,51,22,0.12)",
+        "navy-border-mid": "rgba(42,51,22,0.22)",
       },
       boxShadow: {
-        // Soft olive-tinted drop shadow so product cards float on the new
-        // white background instead of blending in.
-        card:       "0 4px 14px -4px rgba(58,74,36,0.18)",
-        "card-hover": "0 8px 24px -4px rgba(58,74,36,0.26)",
+        card:       "0 4px 14px -4px rgba(42,51,22,0.20)",
+        "card-hover": "0 8px 24px -4px rgba(42,51,22,0.28)",
       },
       fontFamily: {
         display: ["var(--font-cormorant)", "Georgia", "serif"],
