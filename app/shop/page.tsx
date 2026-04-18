@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -156,11 +157,18 @@ export default function ShopPage() {
           </>
         )}
 
-        {/* Scroll view */}
-        {viewMode === "scroll" && (
-          <ProductScroll products={products} onNearEnd={loadMore} loading={loading} hasMore={hasMore} />
-        )}
       </main>
+
+      {/* Scroll view — full-screen overlay, matches the dashboard look */}
+      {viewMode === "scroll" && (
+        <ProductScrollOverlay
+          products={products}
+          onNearEnd={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          onClose={() => setViewMode("grid")}
+        />
+      )}
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -218,19 +226,25 @@ function GridTile({ product }: { product: Product }) {
   );
 }
 
-// ── Scroll view ───────────────────────────────────────────────────────────────
+// ── Scroll overlay ────────────────────────────────────────────────────────────
+// Full-viewport TikTok-style scroll, matches the dashboard tailored view's
+// look and right-rail controls (Like + Steer buttons).
 
-function ProductScroll({
-  products, onNearEnd, loading, hasMore,
+function ProductScrollOverlay({
+  products, onNearEnd, loading, hasMore, onClose,
 }: {
-  products: Product[]; onNearEnd: () => void; loading: boolean; hasMore: boolean;
+  products: Product[];
+  onNearEnd: () => void;
+  loading: boolean;
+  hasMore: boolean;
+  onClose: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isScrolling  = useRef(false);
+  const router          = useRouter();
+  const containerRef    = useRef<HTMLDivElement>(null);
+  const isScrolling     = useRef(false);
   const [activeIdx, setActiveIdx] = useState(0);
-  const nearEndFired = useRef(false);
+  const nearEndFired    = useRef(false);
 
-  // One-card-at-a-time scroll snap + active index tracking
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
     const { scrollTop, clientHeight } = containerRef.current;
@@ -242,7 +256,6 @@ function ProductScroll({
     }
   }, [products.length, hasMore, onNearEnd]);
 
-  // Reset near-end flag whenever more products arrive
   useEffect(() => { nearEndFired.current = false; }, [products.length]);
 
   // Wheel → smooth snap by viewport height
@@ -260,13 +273,13 @@ function ProductScroll({
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Arrow-key nav
+  // Keyboard nav
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onKey = (e: KeyboardEvent) => {
       const a = document.activeElement;
-      if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return;
+      if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || (a as HTMLElement).isContentEditable)) return;
       if (isScrolling.current) return;
       const step = (dir: 1 | -1) => {
         isScrolling.current = true;
@@ -278,77 +291,196 @@ function ProductScroll({
           e.preventDefault(); step(1); break;
         case "ArrowUp": case "k": case "PageUp":
           e.preventDefault(); step(-1); break;
+        case "Escape":
+          e.preventDefault(); onClose(); break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onClose]);
+
+  // Steer submit → jump into the tailored flow with the comment pre-seeded
+  // as a "describe" context block on the dashboard.
+  const handleSteer = useCallback((comment: string) => {
+    router.push(`/dashboard?describe=${encodeURIComponent(comment)}`);
+  }, [router]);
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="w-full overflow-y-scroll bg-background"
-      style={{ height: "calc(100vh - 6rem)", scrollSnapType: "y mandatory" }}
-    >
-      <span className="fixed bottom-6 right-8 z-40 font-sans text-[9px] tracking-widest uppercase text-muted bg-background/80 backdrop-blur-sm px-3 py-1.5 border border-border pointer-events-none">
-        {Math.min(activeIdx + 1, products.length)} / {products.length}
-      </span>
-      {products.map((p, i) => (
-        <div
-          key={p.objectID}
-          className="w-full flex items-center justify-center"
-          style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
+    <div className="fixed inset-0 z-50 bg-background">
+      {/* Top bar: close + counter */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-background/90 to-transparent pointer-events-none">
+        <button
+          onClick={onClose}
+          className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/70 hover:text-foreground transition-colors"
         >
-          <ScrollCard product={p} active={i === activeIdx} />
-        </div>
-      ))}
-      {loading && (
-        <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-          <p className="font-display italic text-xl text-muted">Loading more…</p>
-        </div>
-      )}
-      {!hasMore && (
-        <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-          <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
-        </div>
-      )}
+          ← Grid
+        </button>
+        <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/40">
+          {Math.min(activeIdx + 1, products.length)} / {products.length}
+        </span>
+      </div>
+
+      {/* Scroll container */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="w-full h-full overflow-y-scroll"
+        style={{ scrollSnapType: "y mandatory" }}
+      >
+        {products.map((p, i) => (
+          <ProductScrollCard
+            key={p.objectID}
+            product={p}
+            index={i}
+            activeIdx={activeIdx}
+            onSayMore={handleSteer}
+          />
+        ))}
+        {loading && (
+          <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+            <p className="font-display italic text-xl text-muted">Loading more…</p>
+          </div>
+        )}
+        {!hasMore && !loading && (
+          <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+            <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function ScrollCard({ product, active }: { product: Product; active: boolean }) {
+// ── Scroll card ──────────────────────────────────────────────────────────────
+// Mirrors the dashboard's ProductScrollCard: full-bleed image, retailer label,
+// right-rail Like + Steer buttons, bottom gradient with brand/title/price/shop.
+
+function ProductScrollCard({
+  product, index, activeIdx, onSayMore,
+}: {
+  product:    Product;
+  index:      number;
+  activeIdx:  number;
+  onSayMore?: (comment: string) => void;
+}) {
+  const isNear = Math.abs(index - activeIdx) <= 2;
+  const [liked, setLiked]             = useState(false);
+  const [showSayMore, setShowSayMore] = useState(false);
+  const [sayMoreText, setSayMoreText] = useState("");
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLiked((l) => !l);
+  };
+
+  const handleSayMoreSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const trimmed = sayMoreText.trim();
+    if (trimmed) {
+      onSayMore?.(trimmed);
+      setSayMoreText("");
+      setShowSayMore(false);
+    }
+  };
+
   return (
-    <div className="max-w-md w-full px-8">
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] shadow-card mb-5">
-        {product.image_url && (
+    <a
+      href={product.product_url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="relative flex flex-col bg-background block"
+      style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
+      data-card-index={index}
+    >
+      {/* Full-bleed image */}
+      <div className="absolute inset-0 bg-[rgba(42,51,22,0.04)]">
+        {product.image_url ? (
           <Image
             src={product.image_url}
             alt={product.title}
             fill
             unoptimized
-            priority={active}
-            className="object-cover object-top"
-            sizes="(max-width: 640px) 90vw, 448px"
+            priority={isNear}
+            className="object-cover"
+            sizes="100vw"
           />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
         )}
       </div>
-      <p className="font-sans text-[10px] tracking-widest uppercase text-accent mb-2">{product.brand}</p>
-      <p className="font-display font-light text-xl text-foreground leading-snug mb-3">{product.title}</p>
-      <div className="flex items-center justify-between">
-        {product.price != null ? (
-          <span className="font-sans text-sm text-foreground">{formatPrice(product.price)}</span>
-        ) : <span />}
-        <a
-          href={product.product_url || "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-sans text-[10px] tracking-widest uppercase text-foreground hover:text-accent transition-colors"
-        >
-          Shop →
-        </a>
+
+      {/* Retailer label */}
+      <div className="absolute top-14 left-4 z-10 pointer-events-none">
+        <span className="font-sans text-[8px] tracking-widest uppercase text-white/50">{product.retailer ?? product.brand}</span>
       </div>
-    </div>
+
+      {/* Right rail — Like + Steer */}
+      <div className="absolute right-4 bottom-40 z-20 flex flex-col items-center gap-5">
+        <button onClick={handleLike} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform" aria-label={liked ? "Unlike" : "Like"}>
+          <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
+              fill={liked ? "#FF2D55" : "none"}
+              stroke={liked ? "#FF2D55" : "white"}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </div>
+          <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
+            {liked ? "Liked" : "Like"}
+          </span>
+        </button>
+
+        {onSayMore && (
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSayMore((v) => !v); }}
+            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
+            aria-label="Steer"
+          >
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors duration-150 ${showSayMore ? "bg-white" : "bg-black"}`}>
+              <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
+                fill="none"
+                stroke={showSayMore ? "black" : "white"}
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
+              {showSayMore ? "Cancel" : "Steer"}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Say-more input */}
+      {showSayMore && (
+        <form
+          onSubmit={handleSayMoreSubmit}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-24 left-3 right-3 z-30"
+        >
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={sayMoreText}
+              onChange={(e) => setSayMoreText(e.target.value)}
+              placeholder="more minimalist… no florals… show me bags…"
+              className="flex-1 bg-background/90 backdrop-blur-sm border border-border/60 px-3 py-2 font-sans text-xs text-foreground placeholder-muted/60 focus:outline-none"
+            />
+            <button type="submit" className="px-3 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">→</button>
+          </div>
+        </form>
+      )}
+
+      {/* Bottom overlay */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-4 py-6 bg-gradient-to-t from-background via-background/70 to-transparent">
+        {product.brand && <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>}
+        <p className="font-display font-light text-xl text-foreground leading-snug mb-1">{product.title}</p>
+        {product.price != null && <p className="font-sans text-sm text-muted-strong mb-3">{formatPrice(product.price)}</p>}
+        <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">Shop →</span>
+      </div>
+    </a>
   );
 }
 
