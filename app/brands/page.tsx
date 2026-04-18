@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import brandsData from "./brands.json";
 
 interface Brand {
   name:     string;
@@ -12,26 +13,20 @@ interface Brand {
 
 type Sort = "popular" | "alpha";
 
-export default function BrandsPage() {
-  const [brands, setBrands]   = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch]   = useState("");
-  const [sort, setSort]       = useState<Sort>("popular");
+// Data is baked in at build time via scripts/build-brands-data.mjs —
+// instant page load, no runtime API call, no serverless timeout risk.
+const BRANDS: Brand[] = brandsData.brands as Brand[];
 
-  useEffect(() => {
-    fetch("/api/brands")
-      .then((r) => r.json())
-      .then((d) => setBrands(d.brands ?? []))
-      .catch(() => { /* leave empty */ })
-      .finally(() => setLoading(false));
-  }, []);
+export default function BrandsPage() {
+  const [search, setSearch] = useState("");
+  const [sort, setSort]     = useState<Sort>("popular");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let out = q ? brands.filter((b) => b.name.toLowerCase().includes(q)) : brands;
+    let out = q ? BRANDS.filter((b) => b.name.toLowerCase().includes(q)) : BRANDS;
     if (sort === "alpha") out = [...out].sort((a, b) => a.name.localeCompare(b.name));
     return out;
-  }, [brands, search, sort]);
+  }, [search, sort]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -85,14 +80,12 @@ export default function BrandsPage() {
             </button>
           </div>
           <span className="sm:ml-auto font-sans text-[10px] tracking-widest uppercase text-muted">
-            {loading ? "loading…" : `${filtered.length.toLocaleString()} brand${filtered.length === 1 ? "" : "s"}`}
+            {filtered.length.toLocaleString()} brand{filtered.length === 1 ? "" : "s"}
           </span>
         </div>
 
         {/* Grid */}
-        {loading ? (
-          <p className="text-center font-display italic text-xl text-muted py-20">Loading the archive…</p>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <p className="text-center font-display italic text-xl text-muted py-20">No brands match that search.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
