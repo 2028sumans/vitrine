@@ -87,9 +87,10 @@ export default function HomePage() {
             </p>
 
             <p className="fade-in-up delay-300 font-sans text-base text-muted-strong max-w-md mx-auto leading-relaxed mb-14">
-              Sustainable labels, vintage stores from around the world, preloved platforms,
-              and ethical small-batch makers — each carries a handful of pieces on its own site.
-              We pulled them together into one feed, searchable by your taste.
+              100,000+ pieces from sustainable labels, vintage stores around the world,
+              preloved platforms, and ethical small-batch makers. Each one carries
+              only a handful of things, each on its own site. We pulled them together
+              into one feed, searchable by your taste.
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
@@ -142,9 +143,9 @@ export default function HomePage() {
                 And scattered everywhere.
               </h2>
               <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
-                Each vintage seller — Tokyo, Paris, LA, every corner of the
-                internet — each preloved platform, each small-batch label
-                stocks a dozen pieces you&apos;d love, on its own site.
+                Each vintage seller — Tokyo, London, Stockholm, Toronto —
+                each preloved platform, each small-batch label stocks a
+                dozen pieces you&apos;d love, on its own site.
                 Stitching a wardrobe from them used to mean endless tabs.
                 Bring the taste you&apos;ve already spent years building;
                 we put the ethical labels that fit it in front of you.
