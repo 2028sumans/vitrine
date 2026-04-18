@@ -905,6 +905,122 @@ export async function refineAesthetic(
   }
 }
 
+// ── Comment-driven session refinement (single Claude vision call) ────────────
+//
+// When a user comments ("more romantic, less structured"), this single call
+// does three things at once:
+//   1. Refines the StyleDNA aggressively — adds to `avoids`, strengthens
+//      whichever field the comment targets. Not timid.
+//   2. Looks at the upcoming product queue and returns indices of items
+//      that still fit the refined direction (the rest get wiped).
+//   3. Returns a one-sentence interpretation of the intent — useful for UI.
+
+interface SessionRefinement {
+  refinedDNA: StyleDNA;
+  intent:     string;
+  keepIds:    string[];
+}
+
+const MAX_UPCOMING_TO_INSPECT = 16;
+
+export async function refineSessionWithComment(
+  currentDNA: StyleDNA,
+  comment:    string,
+  upcomingProducts: Array<{
+    objectID: string;
+    title?:    string;
+    brand?:    string;
+    image_url?: string;
+  }> = [],
+): Promise<SessionRefinement> {
+  if (!comment.trim()) {
+    return { refinedDNA: currentDNA, intent: "", keepIds: upcomingProducts.map((p) => p.objectID) };
+  }
+
+  // Filter to items with usable image URLs and cap for cost
+  const usable = upcomingProducts
+    .filter((p) => typeof p.image_url === "string" && p.image_url.startsWith("http"))
+    .slice(0, MAX_UPCOMING_TO_INSPECT);
+
+  const itemList = usable
+    .map((p, i) => `${i + 1}. ${p.brand ?? ""} — ${p.title ?? ""}`)
+    .join("\n");
+
+  const upcomingBlock = usable.length > 0
+    ? `The next ${usable.length} items they are about to see (images in the same order, numbered 1-${usable.length}):\n${itemList}\n\n`
+    : "";
+
+  const promptText =
+    `You are a fashion editor refining a user's session in real time based on their feedback.\n\n` +
+    `Their current style profile:\n${JSON.stringify(currentDNA, null, 2)}\n\n` +
+    `Feedback they just gave: "${comment}"\n\n` +
+    upcomingBlock +
+    `Do three things and return as a single JSON object:\n\n` +
+    `1. **Refine the StyleDNA aggressively.** Be decisive — don't be timid:\n` +
+    `   - "less X" / "no more X" → ADD that pattern to "avoids"\n` +
+    `   - "more Y" → strengthen color_palette / silhouettes / style_keywords / mood toward Y\n` +
+    `   - Mood/aesthetic shifts should rewrite primary_aesthetic and mood, not just append\n` +
+    `   - Always rebuild category_queries to reflect the new direction\n` +
+    `   Return the COMPLETE updated StyleDNA (all fields, including unchanged ones).\n\n` +
+    `2. **Interpret the intent in one short sentence** ("you want more bold florals", "you want to drop anything tailored").\n\n` +
+    (usable.length > 0
+      ? `3. **Pick which numbered upcoming items still fit the refined direction.** Be strict — anything that does not match the new vibe should be dropped. Return the indices that should stay.\n\n`
+      : `3. (No upcoming items provided — return [] for keepIndices.)\n\n`) +
+    `Return ONLY valid JSON in this shape:\n` +
+    `{\n` +
+    `  "refinedDNA": { ...complete StyleDNA... },\n` +
+    `  "intent": "one short sentence",\n` +
+    `  "keepIndices": [array of numbers]\n` +
+    `}`;
+
+  // Vision blocks for upcoming items (mirrors curateProducts pattern)
+  const imgBlocks: Array<{ type: "image"; source: { type: "url"; url: string } }> = usable.map((p) => ({
+    type:   "image" as const,
+    source: { type: "url" as const, url: p.image_url! },
+  }));
+
+  const userContent: Anthropic.MessageParam["content"] = [
+    ...imgBlocks,
+    { type: "text" as const, text: promptText },
+  ];
+
+  try {
+    const client  = getClient();
+    const message = await client.messages.create({
+      model:      "claude-haiku-4-5",
+      max_tokens: 3000,
+      messages:   [{ role: "user", content: userContent }],
+    });
+
+    const text = message.content[0].type === "text" ? message.content[0].text : "";
+    const json = text.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) throw new Error("no JSON in response");
+
+    const parsed = JSON.parse(json) as {
+      refinedDNA?:   Partial<StyleDNA>;
+      intent?:       string;
+      keepIndices?:  number[];
+    };
+
+    // Map keep indices back to objectIDs (1-indexed in prompt)
+    const keepIds = (parsed.keepIndices ?? [])
+      .map((i) => usable[i - 1]?.objectID)
+      .filter((id): id is string => id != null);
+
+    return {
+      refinedDNA: { ...currentDNA, ...(parsed.refinedDNA ?? {}) } as StyleDNA,
+      intent:     parsed.intent ?? comment,
+      keepIds,
+    };
+  } catch (err) {
+    console.warn("[refineSessionWithComment] fell back to bare refineAesthetic:", err instanceof Error ? err.message : err);
+    // Fallback to the simpler refine path so a vision-call failure
+    // doesn't leave the user stranded with no refinement at all.
+    const fallbackDNA = await refineAesthetic(currentDNA, comment).catch(() => currentDNA);
+    return { refinedDNA: fallbackDNA, intent: comment, keepIds: usable.map((p) => p.objectID) };
+  }
+}
+
 // ── Claude vision re-rank ────────────────────────────────────────────────────
 //
 // FashionCLIP gets you in the right neighborhood; Claude vision picks the

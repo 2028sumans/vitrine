@@ -1,78 +1,107 @@
 /**
  * POST /api/refine
  *
- * Incremental refinement within a shopping session.
- * Called when the user taps "say more" or scrolls to the end of results.
+ * Single-call session refinement triggered by a user comment.
  *
- * 1. If a comment is provided → Claude updates the aesthetic
- * 2. If liked product IDs are provided → fetch their Pinecone embeddings, use as new query centroid
- * 3. Re-query Pinecone → fetch from Algolia → filter → return new candidates
+ * 1. Claude (vision) refines the StyleDNA aggressively, picks which upcoming
+ *    products still fit the new direction, and returns an intent summary.
+ *    All in one shot — see lib/ai.ts:refineSessionWithComment.
+ * 2. The REFINED aesthetic drives a fresh hybrid FashionCLIP + Algolia search
+ *    so the new candidates actually reflect the comment (the old refine route
+ *    used liked-product embeddings here, which ignored the comment entirely).
+ * 3. Returns the refined DNA, the new candidates, the keep-list of upcoming
+ *    objectIDs, and the intent string. The client wipes its upcoming queue,
+ *    keeps the kept items, and inserts curated new cards.
  */
 
-import { NextResponse }                      from "next/server";
-import { refineAesthetic }                   from "@/lib/ai";
-import { filterByAvoids, filterMensItems }   from "@/lib/ai";
-import { getProductsByIds, groupByCategory } from "@/lib/algolia";
+import { NextResponse }                              from "next/server";
 import {
-  searchByLikedProductIds,
-  searchByEmbeddings,
-  clusterEmbeddings,
-  blendCentroids,
-} from "@/lib/embeddings";
-import type { StyleDNA } from "@/lib/types";
+  fetchCandidateProductsByCategory,
+  filterByAvoids,
+  filterMensItems,
+  refineSessionWithComment,
+}                                                    from "@/lib/ai";
+import { hybridSearch }                              from "@/lib/hybrid-search";
+import { buildTextQueryVectors }                     from "@/lib/query-builder";
+import { getProductsByIds }                          from "@/lib/algolia";
+import { loadTasteMemory }                           from "@/lib/taste-memory";
+import type { StyleDNA }                             from "@/lib/types";
+
+const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
 
 export async function POST(request: Request) {
   const {
     comment,
-    likedProductIds,
-    shownProductIds,
+    upcomingProductIds = [],
     currentAesthetic,
     userToken,
   }: {
-    comment?:         string;
-    likedProductIds?: string[];
-    shownProductIds?: string[];
-    currentAesthetic: StyleDNA;
-    userToken?:       string;
+    comment?:             string;
+    upcomingProductIds?:  string[]; // products in the user's upcoming queue (for prune)
+    currentAesthetic:     StyleDNA;
+    userToken?:           string;
   } = await request.json();
 
   if (!currentAesthetic) {
     return NextResponse.json({ error: "Missing currentAesthetic" }, { status: 400 });
   }
 
+  const token = userToken || "anon";
+
   try {
-    // 1. Refine aesthetic if comment provided
-    let aesthetic: StyleDNA = currentAesthetic;
+    // 1. Hydrate upcoming products so Claude can see them
+    const upcomingProducts = upcomingProductIds.length > 0
+      ? await getProductsByIds(upcomingProductIds.slice(0, 16))
+      : [];
+
+    // 2. Single Claude vision call: refine + prune + interpret
+    let refinedDNA: StyleDNA = currentAesthetic;
+    let intent  = "";
+    let keepIds: string[] = [];
+
     if (comment?.trim()) {
-      aesthetic = await refineAesthetic(currentAesthetic, comment.trim());
+      const result = await refineSessionWithComment(
+        currentAesthetic,
+        comment.trim(),
+        upcomingProducts.map((p) => ({
+          objectID:  p.objectID,
+          title:     p.title,
+          brand:     p.brand,
+          image_url: p.image_url,
+        })),
+      );
+      refinedDNA = result.refinedDNA;
+      intent     = result.intent;
+      keepIds    = result.keepIds;
+    } else {
+      // No comment → keep everything upcoming, only refresh candidates
+      keepIds = upcomingProductIds;
     }
 
-    // 2. Get new products — prefer liked-product embedding path (visual) over text fallback
-    let objectIDs: string[] = [];
-    const liked  = likedProductIds ?? [];
-    const shown  = shownProductIds ?? [];
+    // 3. Fetch fresh candidates using the REFINED aesthetic
+    //    (this is the bit the old route was missing — comment now actually
+    //     drives the search, not just the JSON)
+    const tasteMemory = await loadTasteMemory(token).catch(() => ({ softAvoids: [] as string[] }));
 
-    if (liked.length > 0) {
-      // Use liked product CLIP embeddings as the new query centroid
-      objectIDs = await searchByLikedProductIds(liked, 80, aesthetic.price_range, shown);
+    let rawCandidates;
+    if (USE_VISUAL_SEARCH) {
+      const queryVectors = await buildTextQueryVectors(refinedDNA, tasteMemory.softAvoids);
+      console.log(`[refine] hybrid search with ${queryVectors.length} refined query vectors`);
+      rawCandidates = await hybridSearch(queryVectors, refinedDNA, token);
+    } else {
+      rawCandidates = await fetchCandidateProductsByCategory(refinedDNA, token);
     }
 
-    // If no liked products or Pinecone returned nothing, fall back to Algolia text search
-    if (objectIDs.length === 0) {
-      const { fetchCandidateProductsByCategory } = await import("@/lib/ai");
-      const rawCandidates = await fetchCandidateProductsByCategory(aesthetic, userToken ?? "anon");
-      const afterAvoids   = filterByAvoids(rawCandidates, aesthetic.avoids ?? []);
-      const candidates    = filterMensItems(afterAvoids);
-      return NextResponse.json({ aesthetic, candidates });
-    }
+    // 4. Filter
+    const allAvoids = [...(refinedDNA.avoids ?? []), ...(tasteMemory.softAvoids ?? [])];
+    const filtered  = filterMensItems(filterByAvoids(rawCandidates, allAvoids));
 
-    // 3. Hydrate from Algolia
-    const products   = await getProductsByIds(objectIDs);
-    const grouped    = groupByCategory(products, 15);
-    const afterAvoids = filterByAvoids(grouped, aesthetic.avoids ?? []);
-    const candidates  = filterMensItems(afterAvoids);
-
-    return NextResponse.json({ aesthetic, candidates });
+    return NextResponse.json({
+      aesthetic:  refinedDNA,
+      candidates: filtered,
+      keepIds,
+      intent,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[refine] Failed:", message);

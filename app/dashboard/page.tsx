@@ -1304,6 +1304,9 @@ export default function DashboardPage() {
     { id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] },
   ]);
   const [isRefining, setIsRefining]         = useState(false);
+  // Intent message to surface in the refining overlay so the user perceives
+  // the comment was understood (e.g. "✨ you want bolder colors")
+  const [refiningIntent, setRefiningIntent] = useState<string>("");
 
   // Session feedback loop
   const [sessionLikedIds, setSessionLikedIds] = useState<string[]>([]);
@@ -1611,21 +1614,40 @@ export default function DashboardPage() {
   const handleSayMore = useCallback(async (comment: string) => {
     if (!aesthetic || isRefining) return;
     setIsRefining(true);
+    setRefiningIntent("Reading your feedback…");
     try {
-      const shownProductIds = candidates ? CATEGORIES.flatMap((c) => candidates[c].map((p) => p.objectID)) : [];
+      // Compute the upcoming queue's product IDs so the server can prune
+      // them based on whether they still fit the refined direction.
+      const insertAt = activeScrollIdxRef.current + 1;
+      const upcomingProductIds = scrollCards
+        .slice(insertAt)
+        .flatMap((c) => c.products.map((p) => p.objectID))
+        .slice(0, 16); // limit for vision-call cost
+
       const res = await fetch("/api/refine", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment, likedProductIds: sessionLikedIds, shownProductIds, currentAesthetic: aesthetic, userToken, sessionId }),
+        body:    JSON.stringify({
+          comment,
+          upcomingProductIds,
+          currentAesthetic: aesthetic,
+          userToken,
+        }),
       });
       const data = await res.json();
       if (!res.ok) return;
 
       const newAesthetic = data.aesthetic ?? aesthetic;
       if (data.aesthetic) setAesthetic(data.aesthetic);
+      if (data.intent)    setRefiningIntent(`✨ ${data.intent}`);
+
+      // Server returned the IDs of upcoming items that still fit the new vibe.
+      // Everything else upcoming will be wiped.
+      const keepSet: Set<string> = new Set(data.keepIds ?? []);
 
       const newCandidates = data.candidates;
       if (newCandidates) {
+        // Refresh the global candidates buffer (used for "load more" later)
         setCandidates((prev) => {
           if (!prev) return newCandidates;
           const seenIds = new Set(CATEGORIES.flatMap((c) => prev[c].map((p) => p.objectID)));
@@ -1637,8 +1659,7 @@ export default function DashboardPage() {
           return merged;
         });
 
-        // ── Immediately curate new outfit cards from refined results ──────────
-        // This is what makes comments actually change what you see next.
+        // Curate the refined candidates into outfit cards
         const curateRes = await fetch("/api/curate", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
@@ -1651,32 +1672,45 @@ export default function DashboardPage() {
           const a = ps.filter((p) => p.outfit_group === "outfit_a");
           const b = ps.filter((p) => p.outfit_group === "outfit_b");
           const newCards: OutfitCard[] = [];
-          if (a.length) newCards.push({ id: `a-${ts}`, label: "Outfit A", role: curateData.outfit_a_role ?? "", products: a, liked: false });
-          if (b.length) newCards.push({ id: `b-${ts}`, label: "Outfit B", role: curateData.outfit_b_role ?? "", products: b, liked: false });
+          if (a.length) newCards.push({ id: `say-a-${ts}`, label: "Refined edit", role: curateData.outfit_a_role ?? "", products: a, liked: false });
+          if (b.length) newCards.push({ id: `say-b-${ts}`, label: "Refined edit", role: curateData.outfit_b_role ?? "", products: b, liked: false });
 
-          if (newCards.length > 0) {
-            // Score the new cards and insert immediately after the current card.
-            // Also re-rank everything the user hasn't seen yet so the comment
-            // influences not just the next card but the entire upcoming queue.
-            const signals = buildSignals();
-            const rankedNew = rankCards(newCards, signals);
-            const insertAt  = activeScrollIdxRef.current + 1;
-            setScrollCards((prev) => {
-              const withInserted = [
-                ...prev.slice(0, insertAt),
-                ...rankedNew,
-                ...prev.slice(insertAt),
-              ];
-              // Re-rank everything from insertAt+rankedNew.length onward
-              const afterInsert = insertAt + rankedNew.length;
-              return reRankUpcoming(withInserted, afterInsert - 1, signals);
+          // ── DRAMATIC REPLACEMENT ────────────────────────────────────────────
+          // Wipe upcoming queue, keep only items the user has already swiped
+          // through plus the cards Claude said still fit. Then drop the
+          // freshly-refined cards in front. The next swipe lands on the new
+          // direction — comments now feel like they actually did something.
+          const signals = buildSignals();
+          const rankedNew = newCards.length > 0 ? rankCards(newCards, signals) : [];
+
+          setScrollCards((prev) => {
+            const seen = prev.slice(0, insertAt);
+            const upcoming = prev.slice(insertAt);
+
+            // Keep upcoming cards whose products are mostly still in the keep set
+            const keptUpcoming = upcoming.filter((card) => {
+              const total = card.products.length;
+              if (total === 0) return false;
+              const surviving = card.products.filter((p) => keepSet.has(p.objectID)).length;
+              return surviving / total >= 0.5; // keep if at least half its items still fit
             });
-          }
+
+            // New refined cards first (so user sees the change immediately),
+            // then any upcoming cards that survived the pruning, all re-ranked.
+            const next = [...seen, ...rankedNew, ...keptUpcoming];
+            const afterInsert = insertAt + rankedNew.length;
+            return reRankUpcoming(next, Math.max(0, afterInsert - 1), signals);
+          });
         }
       }
-    } catch {}
-    finally { setIsRefining(false); }
-  }, [aesthetic, candidates, sessionLikedIds, userToken, sessionId, isRefining]);
+    } catch (err) {
+      console.warn("[handleSayMore] failed:", err);
+    } finally {
+      setIsRefining(false);
+      // Hold the success message briefly so the user notices it landed
+      setTimeout(() => setRefiningIntent(""), 2200);
+    }
+  }, [aesthetic, scrollCards, userToken, isRefining, buildSignals]);
 
   // ── Like card ─────────────────────────────────────────────────────────────
 
@@ -2096,6 +2130,17 @@ export default function DashboardPage() {
           <>
             {viewMode === "scroll" && (
               <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} onDwell={handleDwell} />
+            )}
+
+            {/* Refinement overlay — pulses while Claude reads the comment,
+                then briefly shows the interpreted intent so the user feels
+                the system understood them. */}
+            {(isRefining || refiningIntent) && (
+              <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                <div className={`px-5 py-2.5 bg-background/85 backdrop-blur-md border border-border-mid font-sans text-xs tracking-wide text-foreground transition-opacity duration-300 ${isRefining ? "animate-pulse" : ""}`}>
+                  {refiningIntent || "Refining your edit…"}
+                </div>
+              </div>
             )}
 
             <div className="fade-in-up">
