@@ -120,11 +120,18 @@ export default function HomePage() {
               We gathered them into a single feed you can search by taste.
             </p>
 
-            <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-5">
+            <div className="fade-in-up delay-400 flex flex-col items-center justify-center gap-3">
+              <Link
+                href="/dashboard"
+                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase hover:opacity-90 transition-opacity duration-200 min-w-[220px] text-center"
+                style={{ backgroundColor: HERO_TEXT, color: HERO_BG }}
+              >
+                Tailor to your taste →
+              </Link>
               <Link
                 href="/shop"
-                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase hover:opacity-90 transition-opacity duration-200"
-                style={{ backgroundColor: HERO_TEXT, color: HERO_BG }}
+                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase border hover:bg-[rgba(237,229,208,0.1)] transition-colors duration-200 min-w-[220px] text-center"
+                style={{ borderColor: HERO_TEXT, color: HERO_TEXT }}
               >
                 Shop all →
               </Link>
