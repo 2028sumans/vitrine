@@ -4,7 +4,6 @@ import {
   fetchCandidateProductsByCategory,
   filterByAvoids,
   filterMensItems,
-  rerankCandidatesByVision,
   textQueryToAesthetic,
   questionnaireToAesthetic,
 }                                               from "@/lib/ai";
@@ -24,10 +23,6 @@ import {
 }                                               from "@/lib/query-builder";
 import { loadTasteMemory, saveStyleDNA }        from "@/lib/taste-memory";
 import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
-
-// Claude vision re-rank — set DISABLE_VISION_RERANK=true in env to turn off.
-// Each "build my edit" click costs ~6 small Haiku vision calls (~$0.01).
-const ENABLE_VISION_RERANK = process.env.DISABLE_VISION_RERANK !== "true";
 
 // Use visual search if Pinecone is configured; fall back to Algolia text search
 const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
@@ -229,21 +224,12 @@ export async function POST(request: Request) {
     }
 
     // ── Filters ───────────────────────────────────────────────────────────────
+    // Vision re-rank was previously invoked here but it added 3-8s of latency
+    // on initial load for limited perceived quality lift (the subsequent
+    // /api/curate Claude call already evaluates images and composes outfits).
+    // Removed for speed. Function remains in lib/ai.ts for future use.
     const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
-    const filtered    = filterMensItems(afterAvoids);
-
-    // ── Claude vision re-rank (top FashionCLIP candidates → curated 12) ──────
-    let candidates = filtered;
-    if (ENABLE_VISION_RERANK && USE_VISUAL_SEARCH) {
-      try {
-        const t0 = Date.now();
-        candidates = await rerankCandidatesByVision(filtered, aesthetic, 12);
-        console.log(`[shop] Vision re-rank: ${Date.now() - t0}ms`);
-      } catch (err) {
-        console.warn("[shop] Vision re-rank failed (non-fatal), using FashionCLIP order:",
-          err instanceof Error ? err.message : err);
-      }
-    }
+    const candidates  = filterMensItems(afterAvoids);
 
     // ── Persist StyleDNA (fire and forget, Pinterest boards only) ─────────────
     if (mode === "pinterest" && boardId && boardName) {

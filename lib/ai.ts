@@ -177,8 +177,10 @@ ${JSON_SCHEMA_TEMPLATE}`;
   }
 
   const message = await client.messages.create({
-    model:      "claude-sonnet-4-6",
-    max_tokens: 2500,
+    // Haiku handles this structured-JSON profiling task well and is 2-3x faster
+    // than Sonnet for it. Biggest single latency win on initial load.
+    model:      "claude-haiku-4-5",
+    max_tokens: 2000,
     messages: [
       {
         role:    "user",
@@ -495,7 +497,8 @@ export async function curateProducts(
 
   // ── Build label map + image blocks ──────────────────────────────────────────
   // Label: "DRESS-3", "TOP-0", etc. — numeric index per category.
-  // Cap at 100 product images (well within 200K context at ~1K tokens/image).
+  // Cap at 60 product images for latency (each image is ~1K tokens; 100 was
+  // adding 3-5s to every curate call for limited quality lift).
   // Products without images are still listed as text so Claude knows they exist.
 
   type Entry = { label: string; product: AlgoliaProduct; imgSlot: number | null };
@@ -504,7 +507,7 @@ export async function curateProducts(
 
   for (const cat of categories) {
     candidates[cat].forEach((product, idx) => {
-      const hasImg = product.image_url?.startsWith("http") && productImgBlocks.length < 100;
+      const hasImg = product.image_url?.startsWith("http") && productImgBlocks.length < 60;
       const label  = `${cat.toUpperCase()}-${idx}`;
       if (hasImg) {
         productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: product.image_url } });
@@ -815,8 +818,8 @@ export async function textQueryToAesthetic(
     JSON_SCHEMA_TEMPLATE;
 
   const message = await client.messages.create({
-    model:      "claude-sonnet-4-6",
-    max_tokens: 2000,
+    model:      "claude-haiku-4-5",
+    max_tokens: 1800,
     messages:   [{ role: "user", content: promptText }],
   });
 
@@ -854,8 +857,8 @@ export async function questionnaireToAesthetic(
     JSON_SCHEMA_TEMPLATE;
 
   const message = await client.messages.create({
-    model:      "claude-sonnet-4-6",
-    max_tokens: 2000,
+    model:      "claude-haiku-4-5",
+    max_tokens: 1800,
     messages:   [{ role: "user", content: promptText }],
   });
 
