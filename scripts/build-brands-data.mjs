@@ -28,6 +28,32 @@ if (!ALGOLIA_ADMIN_KEY) {
 }
 
 const client = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY);
+
+// Blocklist for representative images — titles that almost always signal
+// a non-garment item we don't want on a brand card.
+const TITLE_BLOCKLIST = /\b(gift card|e-?gift|voucher|credit|sticker|magnet|postcard|note ?card|poster|keychain|tote bag|wrapping|sample|swatch)\b/i;
+
+const CLOTHING_CATEGORIES = new Set(["dress", "top", "bottom", "jacket", "shoes", "bag"]);
+
+// For each brand we keep:
+//   count     — total products
+//   best      — the current best representative (never downgrades)
+// Preference tiers (highest wins):
+//   3 = has clothing category + passes blocklist + has image
+//   2 = passes blocklist + has image
+//   1 = has image (even if blocklisted)
+//   0 = nothing good yet
+function scoreCandidate(hit) {
+  const img    = typeof hit.image_url === "string" && hit.image_url.startsWith("http");
+  const title  = String(hit.title ?? "");
+  const blocked = TITLE_BLOCKLIST.test(title);
+  const cat    = String(hit.category ?? "").toLowerCase();
+  if (!img) return 0;
+  if (CLOTHING_CATEGORIES.has(cat) && !blocked) return 3;
+  if (!blocked) return 2;
+  return 1;
+}
+
 const brands = new Map();
 let scanned = 0;
 
@@ -37,25 +63,36 @@ await client.browseObjects({
   browseParams: {
     query: "",
     hitsPerPage: 1000,
-    attributesToRetrieve: ["brand", "retailer", "image_url"],
+    attributesToRetrieve: ["brand", "retailer", "image_url", "title", "category"],
   },
   aggregator: (res) => {
     for (const h of res.hits) {
       const name = h.retailer || h.brand;
       if (!name) continue;
       const existing = brands.get(name);
-      const img = typeof h.image_url === "string" && h.image_url.startsWith("http") ? h.image_url : null;
+      const score = scoreCandidate(h);
       if (existing) {
         existing.count++;
-        if (!existing.imageUrl && img) existing.imageUrl = img;
+        if (score > existing.bestScore) {
+          existing.bestScore = score;
+          existing.imageUrl = score > 0 && typeof h.image_url === "string" ? h.image_url : existing.imageUrl;
+        }
       } else {
-        brands.set(name, { name, count: 1, imageUrl: img });
+        brands.set(name, {
+          name,
+          count: 1,
+          imageUrl: score > 0 && typeof h.image_url === "string" ? h.image_url : null,
+          bestScore: score,
+        });
       }
     }
     scanned += res.hits.length;
     process.stdout.write(`\r  scanned ${scanned.toLocaleString()} / ${brands.size} unique brands`);
   },
 });
+
+// Drop the internal bestScore before writing — not needed at runtime.
+for (const b of brands.values()) delete b.bestScore;
 
 const list = Array.from(brands.values()).sort((a, b) => b.count - a.count);
 console.log(`\n\n✓ ${list.length} unique brands across ${scanned.toLocaleString()} products`);
