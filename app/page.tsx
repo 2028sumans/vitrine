@@ -52,12 +52,20 @@ export default function HomePage() {
         <span className="font-display font-light text-xl tracking-[0.22em] text-foreground">
           MUSE
         </span>
-        <Link
-          href="/dashboard"
-          className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
-        >
-          Get started →
-        </Link>
+        <div className="flex items-center gap-8">
+          <Link
+            href="/brands"
+            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
+          >
+            Brands
+          </Link>
+          <Link
+            href="/dashboard"
+            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors duration-200"
+          >
+            Get started →
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1">
