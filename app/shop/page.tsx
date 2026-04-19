@@ -720,11 +720,19 @@ function ProductScrollView({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop — blurred view of the grid behind */}
+      {/* Backdrop.
+          Was bg-background/40 + backdrop-blur-md. Looked great on Chrome
+          where backdrop-filter blurs the underlying page to a soft cream
+          wash — but iOS Safari de-prioritises backdrop-filter on lower-
+          powered iPads, leaving only the 40% cream overlay. The fixed
+          page header (also z-50) then bled through, stacking the MUSE
+          wordmark and "← GRID" button on top of each other.
+          Bumping the base opacity to 92% keeps the backdrop readable
+          regardless of whether the blur filter actually rendered. */}
       <button
         onClick={onClose}
         aria-label="Close"
-        className="absolute inset-0 bg-background/40 backdrop-blur-md cursor-default"
+        className="absolute inset-0 bg-background/[0.92] backdrop-blur-md cursor-default"
       />
 
       {/* Top bar overlay — sits above the backdrop, not over the card */}
