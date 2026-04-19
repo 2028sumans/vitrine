@@ -1,33 +1,67 @@
 /**
  * POST /api/shop-all
  *
- * Paginated flat-catalog listing for /shop, with TWO behaviors:
+ * Paginated catalog listing for /shop. Three lanes:
  *
- *   (a) No session signals — 8-slice catalog walk: fires 8 parallel Algolia
+ *   (a) No filter, no signals — 8-slice catalog walk: fires 8 parallel Algolia
  *       queries at evenly-spaced offsets across the catalog and round-robin
  *       interleaves the hits so a single 48-product page mixes 8 different
  *       brand clusters instead of 48 consecutive items from one brand.
+ *       (Currently unreachable from /shop since the UI always sends a filter,
+ *       but retained for /shop-all sanity / future flat views.)
  *
- *   (b) With signals (likes/dislikes from the current session) — switch to a
- *       text-query-driven search biased by the user's accumulated taste:
- *         q = top liked brand + category + color terms concatenated
- *         + client-side post-filter against strongly-disliked brands
- *       Each page yields the next 48 results of that biased query, which
- *       ranges over ALL products in the catalog (not just a fixed 48).
+ *   (b) Brand or category filter — hard-scope to that lens. Paginated walk
+ *       within the scope. Bias/Steer signals still rank-boost within the
+ *       scope but don't trim it.
  *
- * Signals arrive as arrays of plain strings so composition stays trivial.
+ *   (c) Session signals without scope (likes/dislikes from the session) —
+ *       query-driven taste search across the whole catalog.
  */
 
 import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
 
-export const revalidate = 60; // shorter TTL since signals vary per request
+export const revalidate = 60;
 
 const INDEX_NAME    = "vitrine_products";
 const NUM_SLICES    = 8;
-const PER_SLICE     = 6;       // 8 * 6 = 48 per page
-const CATALOG_SIZE  = 120_000; // rough
+const PER_SLICE     = 6;
+const CATALOG_SIZE  = 120_000;
 const HITS_PER_PAGE = 48;
+
+// ── Category scopes ──────────────────────────────────────────────────────────
+// Display label → Algolia scope. The catalog's `category` field holds one of
+// six values (dress/top/bottom/jacket/shoes/bag). The display lanes expose
+// more granular labels; we map them to category filters plus an optional
+// keyword query. Knits is a cross-category keyword search because the catalog
+// has no knit attribute yet. Other is the residual of anything uncategorised.
+
+const CORE_CATS = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
+
+type CategoryScope = {
+  /** Algolia `filters` expression, or null for no filter. */
+  filters: string | null;
+  /** Words injected into the Algolia `query` (with optionalWords ranking). */
+  keywords: string[];
+};
+
+function scopeForCategory(label: string): CategoryScope | null {
+  switch (label.toLowerCase().trim()) {
+    case "tops":                 return { filters: 'category:"top"',    keywords: [] };
+    case "dresses":              return { filters: 'category:"dress"',  keywords: [] };
+    case "bottoms":              return { filters: 'category:"bottom"', keywords: [] };
+    case "shoes":                return { filters: 'category:"shoes"',  keywords: [] };
+    case "outerwear":            return { filters: 'category:"jacket"', keywords: [] };
+    case "bags and accessories": return { filters: 'category:"bag"',    keywords: [] };
+    case "knits":                return { filters: null, keywords: ["knit", "sweater", "cardigan", "cashmere", "wool"] };
+    case "other": {
+      // Everything uncategorised or falling outside the six core buckets.
+      const parts = CORE_CATS.map((c) => `NOT category:"${c}"`);
+      return { filters: parts.join(" AND "), keywords: [] };
+    }
+    default: return null;
+  }
+}
 
 interface BiasPayload {
   likedBrands?:         string[];
@@ -93,22 +127,18 @@ function applySteerPostFilter(
   if (!priceRange && cats.length === 0 && cols.length === 0 && avoids.length === 0) return products;
 
   return products.filter((p) => {
-    // Price tier — exact match when product has the field.
     if (priceRange) {
       const pr = String(p.price_range ?? "").toLowerCase().trim();
       if (pr && pr !== priceRange) return false;
     }
-    // Category — substring match (product's "dress" matches ["dress", "top"]).
     if (cats.length > 0) {
       const pc = String(p.category ?? "").toLowerCase().trim();
       if (pc && !cats.some((c) => pc.includes(c) || c.includes(pc))) return false;
     }
-    // Color — substring match.
     if (cols.length > 0) {
       const pcol = String(p.color ?? "").toLowerCase().trim();
       if (pcol && !cols.some((c) => pcol.includes(c))) return false;
     }
-    // Avoid words appear anywhere in title/category/color.
     if (avoids.length > 0) {
       const hay = `${String(p.title ?? "")} ${String(p.category ?? "")} ${String(p.color ?? "")}`.toLowerCase();
       if (avoids.some((a) => hay.includes(a))) return false;
@@ -121,25 +151,13 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const page: number = Math.max(0, parseInt(String(body?.page ?? 0), 10) || 0);
   const bias: BiasPayload = body?.bias ?? {};
-  const brandFilter: string = typeof body?.brandFilter === "string" ? body.brandFilter.trim() : "";
-  // Structured Steer interpretation from the client (Claude-parsed). Holds
-  // search_terms + avoid_terms + price_range + categories + colors. See
-  // lib/steer-interpret.ts for the schema. Falls back to the raw steerQuery
-  // if an older client hasn't been upgraded yet.
+  const brandFilter:    string = typeof body?.brandFilter    === "string" ? body.brandFilter.trim()    : "";
+  const categoryFilter: string = typeof body?.categoryFilter === "string" ? body.categoryFilter.trim() : "";
   const steerInterp: SteerInterp | null = body?.steerInterp ?? null;
   const steerQueryRaw: string = typeof body?.steerQuery === "string" ? body.steerQuery.trim() : "";
-  // Pinterest interpretation: same shape as steerInterp. Extracted once at
-  // sign-in time from the user's Pinterest fashion boards and forwarded on
-  // every page fetch so the catalog side of the feed is pinterest-influenced
-  // too, not just the pool portion. When both pinterest AND steer signals
-  // are present, BOTH contribute to optionalWords.
-  const pinterestInterp: SteerInterp | null = body?.pinterestInterp ?? null;
-  // Effective text query: merge pinterest + steer search terms, plus the
-  // raw steer fallback if structured parse didn't yield anything.
   const steerQuery = hasSteerSignals(steerInterp)
     ? buildSteerQuery(steerInterp)
     : steerQueryRaw;
-  const pinterestQuery = hasSteerSignals(pinterestInterp) ? buildSteerQuery(pinterestInterp) : "";
 
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -156,41 +174,34 @@ export async function POST(request: Request) {
     "category", "color", "price_range",
   ];
 
-  // Brand-scoped mode: /brands cards link here with ?brand= → we hard-filter
-  // the catalog to just that brand and serve paginated results in whatever
-  // order Algolia returns. Bias signals are ignored in brand mode — the
-  // whole point is to see everything from THIS brand.
+  // Resolve scope filters. Brand and category are mutually exclusive — the UI
+  // only ever sends one. If both arrive, brand wins (narrower scope, matches
+  // pre-existing behavior where /brands cards deep-link into /shop).
   const brandFilterQuery = brandFilter
     ? `brand:"${brandFilter.replace(/"/g, '\\"')}" OR retailer:"${brandFilter.replace(/"/g, '\\"')}"`
     : "";
+  const categoryScope = !brandFilter && categoryFilter ? scopeForCategory(categoryFilter) : null;
 
   try {
     const client = algoliasearch(appId, key);
 
-    if (brandFilterQuery) {
-      // Brand mode: show everything the brand has by default. We still
-      // respect an explicit Steer query ("black only", "no prints", …) —
-      // folded into the Algolia search as optionalWords so terms rank-
-      // boost rather than hard-filter. Bias signals are otherwise ignored
-      // here (see note below) so the whole inventory stays reachable.
-      //
-      // Why no bias query: Algolia treats `query` + `filters` as AND, so
-      // layering a bias text like "Everlane jacket white" on top of
-      // brand:"4028" drops the brand's 25 products down to 0–3. Within-
-      // brand taste re-ranking still happens client-side via the scoring
-      // algorithm. Disliked-category post-filter is also skipped — a
-      // whole brand scope shouldn't get trimmed by cross-brand dislikes.
-      // Merge pinterest + steer words into one optionalWords list so the
-      // brand's results rank-boost items that match the user's taste. Steer
-      // dominates (user just typed it) with pinterest as baseline below.
-      const q = [steerQuery, pinterestQuery].filter(Boolean).join(" ");
+    if (brandFilterQuery || categoryScope) {
+      // Scoped mode (brand OR category). Steer query folds in as optionalWords
+      // so it rank-boosts rather than narrowing. Bias likes also rank-boost
+      // within the scope. Dislikes are NOT applied as a post-filter here — a
+      // whole scope shouldn't get trimmed by cross-scope dislikes.
+      const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
+      const scopedKeywords = categoryScope?.keywords?.join(" ") ?? "";
+      const q = [steerQuery, biasQuery, scopedKeywords].filter(Boolean).join(" ");
       const optionalWords = q ? q.split(/\s+/).filter(Boolean) : undefined;
+      const filters = brandFilterQuery || categoryScope?.filters || "";
+
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
         searchParams: {
           query:       q,
           ...(optionalWords ? { optionalWords } : {}),
-          filters:     brandFilterQuery,
+          ...(filters ? { filters } : {}),
           hitsPerPage: HITS_PER_PAGE,
           page,
           attributesToRetrieve,
@@ -198,11 +209,8 @@ export async function POST(request: Request) {
       });
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
-      // Post-filter by structured Steer directives (price tier, category,
-      // color, avoid words) so "cheaper", "no florals", etc actually work.
-      // Pinterest's avoid_terms / price_range also apply.
+      // Structured Steer post-filter (price tier / category / color / avoid).
       products = applySteerPostFilter(products, steerInterp);
-      products = applySteerPostFilter(products, pinterestInterp);
 
       const clean = products.filter((h) => {
         const u = h.image_url;
@@ -213,28 +221,18 @@ export async function POST(request: Request) {
         products: clean,
         page,
         hasMore:  (res.hits?.length ?? 0) >= HITS_PER_PAGE,
-        mode:     "brand",
-        brand:    brandFilter,
-        steer:    steerQuery || undefined,
+        mode:     brandFilterQuery ? "brand" : "category",
+        brand:    brandFilter    || undefined,
+        category: categoryFilter || undefined,
+        steer:    steerQuery     || undefined,
         total:    res.nbHits ?? null,
       });
     }
 
-    // ── Query-driven path: fires whenever the user has signaled ANYTHING
-    //     — pinterest interpretation (signed-in users), explicit Steer
-    //     query, or bias from their session likes. All three merge into
-    //     one Algolia search with every term treated as optionalWords
-    //     (ranking hint, not filter).
-    if (steerQuery || pinterestQuery || hasLikedSignals(bias)) {
+    // ── Query-driven path: session signals without a hard scope ──────────
+    if (steerQuery || hasLikedSignals(bias)) {
       const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
-      // Order: steer first (what the user JUST typed dominates), then
-      // pinterest (baseline taste), then session bias (recent likes).
-      const q = [steerQuery, pinterestQuery, biasQuery].filter(Boolean).join(" ");
-      // Mark every word as optional. Algolia's default AND semantics would
-      // otherwise require every term to match simultaneously — e.g.
-      // "Everlane dress white" → 0 hits because almost no product has all
-      // three words. With optionalWords, products matching ANY of the
-      // terms come back and ones matching more terms rank higher.
+      const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
       const optionalWords = q.split(/\s+/).filter(Boolean);
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
@@ -248,7 +246,6 @@ export async function POST(request: Request) {
       });
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
-      // Post-filter strongly disliked brands / categories
       const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
       const dislikedCategories = new Set((bias.dislikedCategories ?? []).map((s) => s.toLowerCase()));
       if (dislikedBrands.size > 0 || dislikedCategories.size > 0) {
@@ -261,11 +258,8 @@ export async function POST(request: Request) {
         });
       }
 
-      // Steer + Pinterest post-filters (price, category, color, avoid).
       products = applySteerPostFilter(products, steerInterp);
-      products = applySteerPostFilter(products, pinterestInterp);
 
-      // Image-url sanity
       const clean = products.filter((p) => {
         const u = p.image_url;
         return typeof u === "string" && u.startsWith("http");

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import {
   rankCards,
   interpretDwell,
@@ -38,34 +38,38 @@ function formatPrice(p: number | null): string {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// Thin Suspense wrapper. Required because ShopPageContent reads URL params
+// via useSearchParams, which bails the page out of static rendering.
 export default function ShopPage() {
-  const { data: session } = useSession();
-  const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+  return (
+    <Suspense fallback={null}>
+      <ShopPageContent />
+    </Suspense>
+  );
+}
 
-  // If the user arrived from /brands via a brand card, scope everything to
-  // that brand. Starts as null (not yet read from URL) so the initial-load
-  // effect can wait until we know which mode we're in before firing a fetch.
-  const [brandFilter, setBrandFilter] = useState<string | null>(null);
-  useEffect(() => {
-    if (typeof window === "undefined") { setBrandFilter(""); return; }
-    setBrandFilter(new URLSearchParams(window.location.search).get("brand") ?? "");
-  }, []);
-  const isBrandMode = !!brandFilter;
+function ShopPageContent() {
+  // URL-driven scope. Reactive (via useSearchParams) so clicking a category
+  // tile — which does a soft navigation to /shop?category=X — actually
+  // updates the rendered mode without a full page reload.
+  //   ?brand=X    → brand mode (linked from /brands)
+  //   ?category=X → category mode (linked from the tiles on /shop)
+  //   neither     → category-picker mode (no products, just the 8 tiles)
+  const searchParams = useSearchParams();
+  const brandFilter    = useMemo(() => searchParams?.get("brand")    ?? "", [searchParams]);
+  const categoryFilter = useMemo(() => searchParams?.get("category") ?? "", [searchParams]);
+  const isBrandMode    = !!brandFilter;
+  const isCategoryMode = !isBrandMode && !!categoryFilter;
+  const isPickerMode   = !isBrandMode && !isCategoryMode;
+  const scopeLabel     = brandFilter || categoryFilter || "";
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(false);
   const [hasMore, setHasMore]   = useState(true);
-  // Pinterest-biased products the 7:3 interleaver can draw from. Collected
-  // once on mount (if the user is signed in). Empty pool = no blending happens.
-  const [personalizing, setPersonalizing] = useState(false);
-  const [fashionBoardCount, setFashionBoardCount] = useState(0);
-  const personalizedPoolRef   = useRef<Product[]>([]);
-  const personalizedIdxRef    = useRef(0);
-  const seenIdsRef            = useRef<Set<string>>(new Set());
-  const sentinelRef           = useRef<HTMLDivElement>(null);
-  const personalizeTriedRef   = useRef(false);
+  const seenIdsRef              = useRef<Set<string>>(new Set());
+  const sentinelRef             = useRef<HTMLDivElement>(null);
 
   // Free-text Steer input from the scroll view. `steerQuery` holds the raw
   // text the user typed (used for scope hashing + pre-filling the input when
@@ -77,15 +81,6 @@ export default function ShopPage() {
   const [steerQuery,       setSteerQuery]       = useState<string>("");
   const [steerInterp,      setSteerInterp]      = useState<SteerInterpretation | null>(null);
   const [interpretingSteer, setInterpretingSteer] = useState(false);
-
-  // Pinterest-derived baseline taste (the structured interpretation Claude
-  // extracts from the user's fashion boards). Stored in a ref because it's
-  // written inside the tryPersonalize closure and must be readable by the
-  // very next loadMore call that's awaiting it — state would still be stale
-  // in the effect's closure at that moment. Every /api/shop-all fetch
-  // forwards this so the "flat" half of the 5:5 blend is pinterest-biased
-  // too, not just the pool portion.
-  const pinterestInterpRef = useRef<SteerInterpretation | null>(null);
 
   // ── Session scoring algorithm state ────────────────────────────────────────
   // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
@@ -142,57 +137,16 @@ export default function ShopPage() {
     return [...seen, ...rankedProducts];
   }, []);
 
-  // Interleaves a flat batch with the personalized pool.
-  //
-  // Two-phase blend so Pinterest is VISIBLY affecting what the user sees
-  // from the first scroll:
-  //   Phase 1 (lead-in, first batch only): take up to 10 pool products
-  //     straight up. Without this, the first rows of the feed are always
-  //     generic catalog no matter what the ratio says on paper — because
-  //     the interleave within a single batch of 48 flat items still ends
-  //     up emitting flat products in the opening slot. Users couldn't tell
-  //     Pinterest was being used at all.
-  //   Phase 2 (ongoing): 5 pool + 5 flat per 10 slots. Pool emits FIRST in
-  //     each round of 10 so the first card of every row stays tailored.
-  //
-  // Dedupes globally via seenIdsRef so a product never appears twice
-  // across pages.
-  const interleaveWithPool = useCallback((flat: Product[]): Product[] => {
-    const pool = personalizedPoolRef.current;
+  // Dedupe incoming batches against everything already shown. Keeps pagination
+  // from double-listing a product the server returns in two different pages
+  // (happens occasionally when the biased query shifts between requests).
+  const dedupeAgainstSeen = useCallback((batch: Product[]): Product[] => {
     const seen = seenIdsRef.current;
     const out: Product[] = [];
-
-    // Phase 1 — lead-in. Only on the FIRST batch (nothing shown yet AND
-    // pool index still at 0). Pulls up to 10 pool items straight to the
-    // top of the feed.
-    if (seen.size === 0 && personalizedIdxRef.current === 0 && pool.length > 0) {
-      let taken = 0;
-      while (taken < 10 && personalizedIdxRef.current < pool.length) {
-        const p = pool[personalizedIdxRef.current++];
-        if (seen.has(p.objectID)) continue;
-        seen.add(p.objectID);
-        out.push(p);
-        taken++;
-      }
-    }
-
-    // Phase 2 — 5:5 blend, pool first in each round.
-    let flatI = 0;
-    while (flatI < flat.length) {
-      for (let i = 0; i < 5 && personalizedIdxRef.current < pool.length; ) {
-        const p = pool[personalizedIdxRef.current++];
-        if (seen.has(p.objectID)) continue;
-        seen.add(p.objectID);
-        out.push(p);
-        i++;
-      }
-      for (let i = 0; i < 5 && flatI < flat.length; ) {
-        const p = flat[flatI++];
-        if (seen.has(p.objectID)) continue;
-        seen.add(p.objectID);
-        out.push(p);
-        i++;
-      }
+    for (const p of batch) {
+      if (seen.has(p.objectID)) continue;
+      seen.add(p.objectID);
+      out.push(p);
     }
     return out;
   }, []);
@@ -243,13 +197,12 @@ export default function ShopPage() {
     };
   }, []);
 
-  // Catalog fetch — each page is biased by the session's current signals.
-  // No signals = 8-slice flat walk. Signals = taste-query over the full
-  // 100K catalog. Pinterest pool still interleaves at 7:3 on top.
-  // If a Steer query is active it's sent along and the server folds it
-  // into the Algolia search as optionalWords.
+  // Catalog fetch. Scope is brand / category / steered-taste-query, resolved
+  // server-side. Session-bias signals (likes/dislikes so far) rank-boost the
+  // results. Pagination continues until the server says hasMore=false.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
+    if (isPickerMode) return; // No product fetch in category-picker mode.
     setLoading(true);
     try {
       const res = await fetch(`/api/shop-all`, {
@@ -257,11 +210,11 @@ export default function ShopPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           page,
-          bias:             buildBias(),
-          brandFilter:      brandFilter ?? "",
+          bias:           buildBias(),
+          brandFilter:    brandFilter    ?? "",
+          categoryFilter: categoryFilter ?? "",
           steerQuery,
           steerInterp,
-          pinterestInterp:  pinterestInterpRef.current,
         }),
       });
       if (!res.ok) {
@@ -272,7 +225,7 @@ export default function ShopPage() {
       }
       const data  = await res.json();
       const fresh = (data.products ?? []) as Product[];
-      const batch = interleaveWithPool(fresh);
+      const batch = dedupeAgainstSeen(fresh);
       setProducts((prev) => [...prev, ...batch]);
       setPage((p) => p + 1);
       if (!data.hasMore) setHasMore(false);
@@ -281,93 +234,36 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter, steerQuery, steerInterp]);
+  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, steerQuery, steerInterp, isPickerMode]);
 
-  // Fetch the user's fashion-board pin URLs → Claude Vision extracts search
-  // terms → Algolia search → store as a pool. Pool is drawn from by
-  // interleaveWithPool at 30% on subsequent loadMore calls.
-  // `brandFilter` is in the deps so the closure captures the current brand
-  // scope; personalizeTriedRef still prevents it from actually firing twice.
-  const tryPersonalize = useCallback(async (token: string) => {
-    if (personalizeTriedRef.current) return;
-    personalizeTriedRef.current = true;
-    setPersonalizing(true);
-    try {
-      const boardsRes = await fetch("/api/pinterest/fashion-boards", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!boardsRes.ok) return;
-      const boardsData = await boardsRes.json();
-      const pinImageUrls: string[] = boardsData?.pinImageUrls ?? [];
-      setFashionBoardCount(boardsData?.fashionBoards ?? 0);
-      if (pinImageUrls.length === 0) return;
-
-      const shopRes = await fetch("/api/shop-personalized", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ pinImageUrls, brandFilter: brandFilter ?? "" }),
-      });
-      if (!shopRes.ok) return;
-      const shopData = await shopRes.json();
-      const pool: Product[] = shopData?.products ?? [];
-      // Capture Claude's interpretation so subsequent shop-all fetches can
-      // fold it into the catalog query (makes the flat half pinterest-
-      // influenced too). Even if the pool itself is empty, the interp can
-      // still be useful as a bias source.
-      const interp = (shopData?.interp ?? null) as SteerInterpretation | null;
-      if (interp) pinterestInterpRef.current = interp;
-      if (pool.length === 0) return;
-
-      // Only record the pool — existing flat products stay in place.
-      personalizedPoolRef.current = pool;
-      personalizedIdxRef.current  = 0;
-    } catch (err) {
-      console.warn("[shop] personalize failed, falling back to flat feed:", err);
-    } finally {
-      setPersonalizing(false);
-    }
-  }, [brandFilter]);
-
-  // One-shot init guard.
-  //
-  // The useEffect below has four deps (session, accessToken, brandFilter,
-  // steerQuery) — and each of those can settle in stages on mount (session
-  // goes undefined → authed, URL read swaps brandFilter null → value, etc).
-  // Without a guard the effect body runs 2–3 times in quick succession,
-  // firing duplicate loadMore / tryPersonalize calls.
-  //
-  // initStartedRef blocks all subsequent runs until the scope (brand +
-  // steer) changes, at which point we reset it and let the init fire
-  // again for the new scope.
+  // One-shot init guard. The useEffect below has deps that settle in stages
+  // on mount (URL read swaps brand/category null → value); without a guard
+  // the body would run 2–3 times in quick succession, firing duplicate
+  // loadMore calls. initStartedRef blocks subsequent runs until the scope
+  // (brand + category + steer) changes, at which point we reset and let
+  // init fire again for the new scope.
   const initStartedRef = useRef(false);
   const lastScopeRef   = useRef<string>("__uninit__");
 
-  // Initial load AND Steer-driven reload.
-  //
-  // Personalization and the first catalog fetch fire in parallel. The flat
-  // batch paints as soon as it arrives (usually <1 s) so the user isn't
-  // staring at "reading your pinterest…" for the full Claude-vision round
-  // trip. Once the personalized pool lands, interleaveWithPool picks it up
-  // on the next loadMore (triggered by the scroll sentinel), so subsequent
-  // batches blend 7:3. Tradeoff: the first batch is unpersonalized, but
-  // that's strictly better than an empty grid for 30–60 s.
   useEffect(() => {
-    if (session === undefined) return;
-    if (brandFilter === null) return;
-
-    // Scope-change reset: brand or steer change = fresh init.
-    const scope = `${brandFilter}|${steerQuery}`;
+    // Scope change (brand / category / steer) = fresh init.
+    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}`;
     if (lastScopeRef.current !== scope) {
       lastScopeRef.current   = scope;
       initStartedRef.current = false;
+      // Also reset the feed state so we don't show stale products from the
+      // previous scope while the new batch is loading.
+      setProducts([]);
+      setPage(0);
+      setHasMore(true);
+      seenIdsRef.current = new Set();
     }
     if (initStartedRef.current) return;
     initStartedRef.current = true;
 
-    if (accessToken) void tryPersonalize(accessToken);
-    void loadMore();
+    if (!isPickerMode) void loadMore();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [session, accessToken, brandFilter, steerQuery]);
+  }, [brandFilter, categoryFilter, steerQuery, isPickerMode]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
@@ -396,12 +292,12 @@ export default function ShopPage() {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
-          page:             0,
+          page: 0,
           bias,
           brandFilter,
+          categoryFilter,
           steerQuery,
           steerInterp,
-          pinterestInterp:  pinterestInterpRef.current,
         }),
       });
       if (!res.ok) return;
@@ -527,7 +423,6 @@ export default function ShopPage() {
     setHasMore(true);
     setLoading(false);
     seenIdsRef.current = new Set();
-    personalizedIdxRef.current = 0;
 
     if (!trimmed) {
       // Empty submit → clear the steer.
@@ -556,14 +451,8 @@ export default function ShopPage() {
   }, []);
 
   // infinite scroll sentinel (grid only — scroll mode has its own logic).
-  //
-  // IMPORTANT: don't observe the sentinel until AFTER the first batch of
-  // products has loaded. If we observe it on mount while the grid is empty,
-  // the sentinel sits right at the top of the viewport with a 600px root
-  // margin — IntersectionObserver fires immediately, calls loadMore, and
-  // bypasses the `await tryPersonalize(...)` in the initial-load effect.
-  // That's what was causing products to appear before Pinterest finished
-  // and "reading your pinterest…" to hang in the corner afterwards.
+  // Don't observe until the first batch lands, so the 600px rootMargin can't
+  // fire loadMore while the grid is still empty.
   const hasProducts = products.length > 0;
   useEffect(() => {
     if (viewMode !== "grid") return;
@@ -592,7 +481,7 @@ export default function ShopPage() {
       </header>
 
       <main className="flex-1 pt-20 pb-24 px-8 max-w-7xl mx-auto w-full">
-        {/* Header + refine CTA */}
+        {/* Header */}
         <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
           <div>
             {isBrandMode ? (
@@ -607,32 +496,31 @@ export default function ShopPage() {
                   Everything in our catalog from {brandFilter}.
                 </p>
               </>
-            ) : (
+            ) : isCategoryMode ? (
               <>
-                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4 flex items-center gap-3">
-                  <span>The catalog</span>
-                  {personalizing && (
-                    <span className="text-accent normal-case tracking-normal font-display italic text-sm">
-                      reading your pinterest…
-                    </span>
-                  )}
-                  {!personalizing && fashionBoardCount > 0 && personalizedPoolRef.current.length > 0 && (
-                    <span className="text-accent normal-case tracking-normal font-display italic text-sm">
-                      50% blended from your pinterest
-                      {` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})`}
-                    </span>
-                  )}
-                </p>
+                <Link href="/shop" className="font-sans text-[9px] tracking-widest uppercase text-muted hover:text-foreground transition-colors mb-4 inline-block">
+                  ← All categories
+                </Link>
                 <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
-                  Shop all
+                  {categoryFilter}
                 </h1>
                 <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
-                  Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
+                  Every piece in {categoryFilter}.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">The catalog</p>
+                <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
+                  Shop
+                </h1>
+                <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
+                  Pick a category to browse. Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
                 </p>
               </>
             )}
           </div>
-          {!isBrandMode && (
+          {!isBrandMode && !isCategoryMode && (
             <Link
               href="/dashboard"
               className="inline-block self-start sm:self-end px-6 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 whitespace-nowrap"
@@ -642,85 +530,77 @@ export default function ShopPage() {
           )}
         </div>
 
-        {/* Prominent view toggle */}
-        <div className="flex items-center justify-between mb-10 border-y border-border-mid py-5">
-          <div className="flex">
-            <button
-              onClick={() => setViewMode("grid")}
-              aria-pressed={viewMode === "grid"}
-              className={`px-7 py-3 font-sans text-[11px] tracking-widest uppercase border transition-colors flex items-center gap-2.5 ${
-                viewMode === "grid"
-                  ? "bg-foreground text-background border-foreground"
-                  : "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
-              }`}
-            >
-              <GridIcon active={viewMode === "grid"} />
-              Grid
-            </button>
-            <button
-              onClick={() => setViewMode("scroll")}
-              aria-pressed={viewMode === "scroll"}
-              className={`px-7 py-3 font-sans text-[11px] tracking-widest uppercase border border-l-0 transition-colors flex items-center gap-2.5 ${
-                viewMode === "scroll"
-                  ? "bg-foreground text-background border-foreground"
-                  : "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
-              }`}
-            >
-              <ScrollIcon active={viewMode === "scroll"} />
-              Scroll
-            </button>
-          </div>
-          <span className="font-sans text-[10px] tracking-widest uppercase text-muted">
-            {products.length.toLocaleString()} loaded
-          </span>
-        </div>
+        {/* Category picker — home view only */}
+        {isPickerMode && <CategoryPickerGrid />}
 
-        {/* Grid */}
-        {viewMode === "grid" && (
+        {/* View toggle + product grid — only in brand/category mode */}
+        {!isPickerMode && (
           <>
-            {/* Initial loading state. While we're waiting on Pinterest
-                personalization (or the first batch fetch), show a centered
-                italic message instead of an empty grid — otherwise the page
-                just looks broken for ~5 seconds. Disappears the moment the
-                first products arrive. */}
-            {products.length === 0 && (personalizing || loading || interpretingSteer) && (
-              <div className="py-28 flex flex-col items-center justify-center text-center">
-                <p className="font-display font-light italic text-2xl sm:text-3xl text-muted-strong mb-3">
-                  {personalizing
-                    ? "Reading your Pinterest to tailor your feed…"
-                    : interpretingSteer
-                      ? "Tuning the feed to what you asked for…"
-                      : "Loading your feed…"}
-                </p>
-                {personalizing && (
-                  <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
-                    just a few seconds
-                  </p>
-                )}
+            <div className="flex items-center justify-between mb-10 border-y border-border-mid py-5">
+              <div className="flex">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  aria-pressed={viewMode === "grid"}
+                  className={`px-7 py-3 font-sans text-[11px] tracking-widest uppercase border transition-colors flex items-center gap-2.5 ${
+                    viewMode === "grid"
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
+                  }`}
+                >
+                  <GridIcon active={viewMode === "grid"} />
+                  Grid
+                </button>
+                <button
+                  onClick={() => setViewMode("scroll")}
+                  aria-pressed={viewMode === "scroll"}
+                  className={`px-7 py-3 font-sans text-[11px] tracking-widest uppercase border border-l-0 transition-colors flex items-center gap-2.5 ${
+                    viewMode === "scroll"
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
+                  }`}
+                >
+                  <ScrollIcon active={viewMode === "scroll"} />
+                  Scroll
+                </button>
               </div>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-              {products.map((p) => <GridTile key={p.objectID} product={p} />)}
+              <span className="font-sans text-[10px] tracking-widest uppercase text-muted">
+                {products.length.toLocaleString()} loaded
+              </span>
             </div>
-            {/* Sentinel only exists once products are on screen. Keeps the
-                IntersectionObserver from firing loadMore at mount-time while
-                the grid is still empty (see the observer effect above). */}
-            {products.length > 0 && (
-              <div ref={sentinelRef} className="h-24 flex items-center justify-center mt-10">
-                {loading && <p className="font-display italic text-lg text-muted">Loading more…</p>}
-                {!hasMore && (
-                  <p className="font-display italic text-lg text-muted">That&apos;s everything.</p>
+
+            {viewMode === "grid" && (
+              <>
+                {products.length === 0 && (loading || interpretingSteer) && (
+                  <div className="py-28 flex flex-col items-center justify-center text-center">
+                    <p className="font-display font-light italic text-2xl sm:text-3xl text-muted-strong mb-3">
+                      {interpretingSteer ? "Tuning the feed to what you asked for…" : "Loading your feed…"}
+                    </p>
+                  </div>
                 )}
-              </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+                  {products.map((p) => <GridTile key={p.objectID} product={p} />)}
+                </div>
+                {/* Sentinel only exists once products are on screen so the
+                    IntersectionObserver can't fire loadMore at mount-time. */}
+                {products.length > 0 && (
+                  <div ref={sentinelRef} className="h-24 flex items-center justify-center mt-10">
+                    {loading && <p className="font-display italic text-lg text-muted">Loading more…</p>}
+                    {!hasMore && (
+                      <p className="font-display italic text-lg text-muted">That&apos;s everything in {scopeLabel}.</p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
 
       </main>
 
-      {/* Scroll view — modal overlay with a single narrow centered column */}
-      {viewMode === "scroll" && (
+      {/* Scroll view — modal overlay with a single narrow centered column.
+          Only renders in scoped modes; picker mode has no products. */}
+      {viewMode === "scroll" && !isPickerMode && (
         <ProductScrollView
           products={products}
           onNearEnd={loadMore}
@@ -789,6 +669,101 @@ function GridTile({ product }: { product: Product }) {
         </div>
       </div>
     </a>
+  );
+}
+
+// ── Category picker ──────────────────────────────────────────────────────────
+// Home-view /shop: 8 category tiles, same visual pattern as /brands cards.
+// Clicking a tile deep-links to /shop?category=NAME which switches this same
+// page into category-scope product mode.
+
+const CATEGORY_LABELS = [
+  "Tops",
+  "Dresses",
+  "Bottoms",
+  "Knits",
+  "Bags and accessories",
+  "Shoes",
+  "Outerwear",
+  "Other",
+] as const;
+
+interface CategorySample {
+  label:    string;
+  imageUrl: string | null;
+  count:    number | null;
+}
+
+function CategoryPickerGrid() {
+  const [samples, setSamples] = useState<Record<string, CategorySample>>({});
+  const [loaded, setLoaded]   = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/category-index", { cache: "force-cache" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const map: Record<string, CategorySample> = {};
+        for (const c of (data?.categories ?? []) as CategorySample[]) {
+          map[c.label] = c;
+        }
+        setSamples(map);
+      } catch (err) {
+        console.warn("[shop] category-index fetch failed:", err);
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+      {CATEGORY_LABELS.map((label) => (
+        <CategoryCard key={label} label={label} sample={samples[label]} loaded={loaded} />
+      ))}
+    </div>
+  );
+}
+
+function CategoryCard({
+  label, sample, loaded,
+}: {
+  label:   string;
+  sample:  CategorySample | undefined;
+  loaded:  boolean;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const src = sample?.imageUrl ?? null;
+  return (
+    <Link
+      href={`/shop?category=${encodeURIComponent(label)}`}
+      className="group relative aspect-[3/4] overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card hover:shadow-card-hover transition-all duration-300 block"
+    >
+      {src && !imgFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={label}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
+          onError={() => setImgFailed(true)}
+        />
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 p-4">
+        <h3 className="font-display font-light text-xl text-white leading-tight drop-shadow-sm">{label}</h3>
+        {loaded && sample?.count != null && (
+          <p className="font-sans text-[9px] tracking-widest uppercase text-white/70 mt-1">
+            {sample.count.toLocaleString()} pieces
+          </p>
+        )}
+      </div>
+    </Link>
   );
 }
 
