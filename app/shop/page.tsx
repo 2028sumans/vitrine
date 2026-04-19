@@ -800,7 +800,9 @@ function ProductScrollView({
         </div>
       </div>
 
-      {/* Steer input — shows below the card/rail row when Steer is active */}
+      {/* Steer input — floats horizontally across the middle of the card when
+          Steer is active. Uses the hero display-italic so it reads like a
+          whispered aside against the product image, not a utility search bar. */}
       {showSayMore && (
         <form
           onSubmit={(e) => {
@@ -808,7 +810,7 @@ function ProductScrollView({
             const t = sayMoreText.trim();
             if (t) { handleSteerSubmit(t); setShowSayMore(false); setSayMoreText(""); }
           }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-[440px] max-w-[92vw]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[440px] max-w-[92vw]"
         >
           <div className="flex gap-2">
             <input
@@ -816,9 +818,9 @@ function ProductScrollView({
               value={sayMoreText}
               onChange={(e) => setSayMoreText(e.target.value)}
               placeholder="more minimalist… no florals… show me bags…"
-              className="flex-1 bg-background border border-border-mid px-3 py-2.5 font-sans text-xs text-foreground placeholder-muted focus:outline-none focus:border-foreground/60"
+              className="flex-1 bg-background border border-border-mid px-4 py-3 font-display font-light italic text-lg text-foreground placeholder-muted/80 focus:outline-none focus:border-foreground/60"
             />
-            <button type="submit" className="px-4 py-2.5 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">
+            <button type="submit" className="px-4 py-3 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">
               →
             </button>
           </div>
