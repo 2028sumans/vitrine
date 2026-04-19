@@ -139,7 +139,7 @@ export async function POST(request: Request) {
       products:        clean,
       pinsUsed:        clothingEmbeds.length,
       pinsTotal:       valid.length,
-      clothingFiltered: validPromptVecs.length > 0,
+      clothingFiltered: validPositives.length > 0,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
