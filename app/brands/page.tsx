@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import brandsData from "./brands.json";
 
 interface Brand {
@@ -11,30 +11,13 @@ interface Brand {
   imageUrl: string | null;
 }
 
-type Sort = "popular" | "alpha";
-
 // Data is baked in at build time via scripts/build-brands-data.mjs.
-const BRANDS: Brand[] = brandsData.brands as Brand[];
-
-// Brands that dominate by product count but shouldn't lead the visual grid.
-// Get sorted to the very end of every sort order.
-const PINNED_TO_END = new Set<string>([
-  "Shrimpton Couture",
-]);
+// Sorted once here — the page only renders A-Z now.
+const BRANDS: Brand[] = [...(brandsData.brands as Brand[])].sort((a, b) =>
+  a.name.localeCompare(b.name)
+);
 
 export default function BrandsPage() {
-  const [sort, setSort] = useState<Sort>("popular");
-
-  const ordered = useMemo(() => {
-    let out = [...BRANDS];
-    if (sort === "alpha") out.sort((a, b) => a.name.localeCompare(b.name));
-    // Pinned brands always go to the end of whatever sort is active.
-    const [pinned, rest] = out.reduce<[Brand[], Brand[]]>(
-      (acc, b) => (PINNED_TO_END.has(b.name) ? [[...acc[0], b], acc[1]] : [acc[0], [...acc[1], b]]),
-      [[], []],
-    );
-    return [...rest, ...pinned];
-  }, [sort]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -61,25 +44,9 @@ export default function BrandsPage() {
           </p>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 mb-10">
-          <button
-            onClick={() => setSort("popular")}
-            className={`px-4 py-2 font-sans text-[10px] tracking-widest uppercase transition-colors border ${sort === "popular" ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground hover:border-border-mid"}`}
-          >
-            Popular
-          </button>
-          <button
-            onClick={() => setSort("alpha")}
-            className={`px-4 py-2 font-sans text-[10px] tracking-widest uppercase transition-colors border ${sort === "alpha" ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground hover:border-border-mid"}`}
-          >
-            A–Z
-          </button>
-        </div>
-
-        {/* Grid */}
+        {/* Grid — always alphabetical */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-          {ordered.map((b) => <BrandCard key={b.name} brand={b} />)}
+          {BRANDS.map((b) => <BrandCard key={b.name} brand={b} />)}
         </div>
       </main>
 
