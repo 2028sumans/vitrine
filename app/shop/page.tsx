@@ -275,36 +275,48 @@ export default function ShopPage() {
     }
   }, [brandFilter]);
 
+  // One-shot init guard.
+  //
+  // The useEffect below has four deps (session, accessToken, brandFilter,
+  // steerQuery) — and each of those can settle in stages on mount (session
+  // goes undefined → authed, URL read swaps brandFilter null → value, etc).
+  // Without a guard the effect body runs 2–3 times in quick succession; on
+  // run #2 tryPersonalize's personalizeTriedRef makes the `await` a no-op
+  // and loadMore fires *before* the in-flight Pinterest fetches from run
+  // #1 finish. Symptom: flat catalog appears immediately, "reading
+  // pinterest…" stays pinned for another 5 s, and the feed never gets
+  // blended because the pool arrived after the batch.
+  //
+  // initStartedRef blocks all subsequent runs until the scope (brand +
+  // steer) changes, at which point we reset it and let the init fire
+  // again for the new scope.
+  const initStartedRef = useRef(false);
+  const lastScopeRef   = useRef<string>("__uninit__");
+
   // Initial load AND Steer-driven reload.
   //
-  // Waits until (a) the session has resolved and (b) we've read the
-  // ?brand=… URL param. Re-fires whenever steerQuery changes — the Steer
-  // submit handler below wipes products first, so this then re-populates
-  // them against the new query.
-  //
   // Ordering matters: if the user is signed into Pinterest we AWAIT the
-  // personalization call before firing loadMore. That way the very first
-  // products the user sees are already blended with the Pinterest pool,
+  // personalization call before firing loadMore. That way the first batch
+  // of products the user sees is already blended with the Pinterest pool,
   // instead of a generic flat batch appearing for ~5 s and then getting
   // reshuffled. Signed-out users skip the await and get the flat catalog
   // immediately, same as before.
-  //
-  // On subsequent re-fires (e.g. Steer submit) personalizeTriedRef makes
-  // tryPersonalize a no-op, so the await resolves in microseconds.
   useEffect(() => {
     if (session === undefined) return;
     if (brandFilter === null) return;
 
+    // Scope-change reset: brand or steer change = fresh init.
+    const scope = `${brandFilter}|${steerQuery}`;
+    if (lastScopeRef.current !== scope) {
+      lastScopeRef.current   = scope;
+      initStartedRef.current = false;
+    }
+    if (initStartedRef.current) return;
+    initStartedRef.current = true;
+
     const init = async () => {
-      if (products.length === 0) {
-        // First load (or after a reset): wait for Pinterest before fetching.
-        if (accessToken) await tryPersonalize(accessToken);
-        loadMore();
-      } else if (accessToken) {
-        // Products already on screen but the user just signed in — fire
-        // personalize fire-and-forget so future pages get blended.
-        void tryPersonalize(accessToken);
-      }
+      if (accessToken) await tryPersonalize(accessToken);
+      loadMore();
     };
     void init();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
