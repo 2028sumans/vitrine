@@ -48,20 +48,30 @@ function getGridCols(): number {
   return 2;
 }
 
-// Brand mixer — "rearrange-string" greedy with two constraints:
-//   1. No two items from the same brand are adjacent in the flat list
-//      (covers both horizontal adjacency AND end-of-row → start-of-next-row).
-//   2. No two items from the same brand appear on the same grid row
-//      (i.e. every row is all-unique brands, unless the pool is exhausted).
-// At each step we pick the brand with the MOST remaining items (subject to
-// the two constraints) rather than the first valid item in server order.
-// Frequency-first is the standard optimal strategy for spread problems: it
-// prevents a dominant brand from being held back until the end of the feed
-// and then dumped in one unmixable run. If no brand satisfies both hard
-// constraints, we relax — row-cap first, adjacency last — so the function
-// never stalls on degenerate data (e.g. 140-of-150 items from one brand).
-// Within a brand, original server order is preserved, so the ranking signal
-// survives the reorder.
+// Brand mixer — "rearrange-string" greedy with ONE hard rule and one soft
+// preference. Applies to every scoped shop page (brand mode, every
+// category page: Tops, Dresses, Bottoms, Knits, Bags, Shoes, Outerwear,
+// Other) because it's run on the flat `products` list before render.
+//
+//   HARD: No two items from the same brand on the same grid row. If the
+//         current pool can't fill the next slot without violating this,
+//         we stop emitting — leftover items stay in `products` state and
+//         get another chance on the next mix, once pagination brings
+//         fresher brand diversity.
+//   SOFT: Avoid same-brand adjacency across a row boundary. Tolerable to
+//         violate when every non-prev brand is already on the current
+//         row; a visible seam-run is acceptable, but the same brand
+//         twice in one row is not.
+//
+// At each step we pick the brand with the MOST remaining items that's
+// eligible under the hard rule, preferring non-adjacent. Frequency-first
+// prevents a dominant brand from being held back until the end and dumped
+// in an unmixable run. Within a brand, server order is preserved so the
+// ranking signal survives.
+// Array.from(...) instead of `for (const x of map)` because the repo's
+// tsconfig has no `target` set, which lands on a default that tsc rejects
+// Map iterators under without --downlevelIteration. Same workaround as
+// commit 21c5ac7.
 function mixBrands(list: Product[], cols: number): Product[] {
   if (list.length <= 1 || cols <= 0) return list;
 
@@ -79,37 +89,34 @@ function mixBrands(list: Product[], cols: number): Product[] {
     const idx      = out.length;
     const rowStart = idx - (idx % cols);
     const prev     = (out[idx - 1]?.brand ?? "").toLowerCase();
-    const rowCount = new Map<string, number>();
+    const rowBrands = new Set<string>();
     for (let i = rowStart; i < idx; i++) {
       const b = (out[i].brand ?? "").toLowerCase();
-      if (b) rowCount.set(b, (rowCount.get(b) ?? 0) + 1);
+      if (b) rowBrands.add(b);
     }
 
-    // Tiered selection: each tier picks the highest-remaining brand that
-    // satisfies the tier's constraints. Empty-brand items are treated as
-    // unconstrained (no adjacency/row rule applies).
-    // Array.from(...) instead of `for (const x of map)` because the repo's
-    // tsconfig has no `target` set, which lands on a default that tsc
-    // rejects Map iterators under without --downlevelIteration. Same
-    // workaround as commit 21c5ac7.
-    const pickBest = (allowAdj: boolean, allowRow: boolean): string | null => {
-      let best: string | null = null;
-      let bestN = -1;
-      for (const [brand, items] of Array.from(buckets.entries())) {
-        if (items.length === 0) continue;
-        if (brand) {
-          if (!allowAdj && brand === prev) continue;
-          if (!allowRow && (rowCount.get(brand) ?? 0) >= 1) continue;
-        }
-        if (items.length > bestN) { best = brand; bestN = items.length; }
+    // Track two candidates: the best brand that's not in the row and not
+    // equal to the previous brand (preferred), and the best brand that's
+    // not in the row but IS equal to prev (adjacency fallback). Empty
+    // brand strings bypass both rules.
+    let bestNonAdj: string | null = null; let bestNonAdjN = -1;
+    let bestAdj:    string | null = null; let bestAdjN    = -1;
+    for (const [brand, items] of Array.from(buckets.entries())) {
+      if (items.length === 0) continue;
+      if (brand && rowBrands.has(brand)) continue; // HARD row rule
+      if (brand && brand === prev) {
+        if (items.length > bestAdjN) { bestAdj = brand; bestAdjN = items.length; }
+      } else {
+        if (items.length > bestNonAdjN) { bestNonAdj = brand; bestNonAdjN = items.length; }
       }
-      return best;
-    };
+    }
+    const picked = bestNonAdj ?? bestAdj;
 
-    const picked =
-      pickBest(false, false) ??  // strict: both rules
-      pickBest(false, true)  ??  // relax row cap
-      pickBest(true,  true)!;    // forced: nothing else left
+    // No brand left that isn't already on this row. Stop — the leftover
+    // items stay in `products` state and re-enter the mix on the next
+    // render. This is the whole point of the hard rule: we'd rather
+    // temporarily hide items than show a same-brand row.
+    if (!picked) break;
 
     const arr = buckets.get(picked)!;
     out.push(arr.shift()!);
@@ -855,14 +862,18 @@ function ShopPageContent() {
 
 function GridTile({ product }: { product: Product }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const brandLabel = product.brand || product.retailer || "";
   return (
     <a
       href={product.product_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300"
+      className="group block"
     >
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)]">
+      {/* Image — this is the only element with a border + shadow now. No
+          bottom-gradient overlay anymore; the brand that used to sit there
+          was getting clipped by the image edge. Moved out and below. */}
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
         {product.image_url && !imgFailed ? (
           <Image
             src={product.image_url}
@@ -874,15 +885,18 @@ function GridTile({ product }: { product: Product }) {
             onError={() => setImgFailed(true)}
           />
         ) : null}
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-background/80 to-transparent">
-          <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer ?? product.brand}</p>
-        </div>
       </div>
-      <div className="p-3 border-t border-border">
-        {product.brand && product.brand.toLowerCase() !== (product.retailer ?? "").toLowerCase() && (
-          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>
+      {/* Text row — lives outside the border now. Brand sits above the
+          title in the accent olive; title + price below. No outer frame. */}
+      <div className="pt-3">
+        {brandLabel && (
+          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">
+            {brandLabel}
+          </p>
         )}
-        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{product.title}</p>
+        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">
+          {product.title}
+        </p>
         <div className="flex items-center justify-between">
           {product.price != null ? (
             <span className="font-sans text-xs font-medium text-foreground">{formatPrice(product.price)}</span>
@@ -895,7 +909,7 @@ function GridTile({ product }: { product: Product }) {
 }
 
 // ── Category picker ──────────────────────────────────────────────────────────
-// Home-view /shop: 8 category tiles, same visual pattern as /brands cards.
+// Home-view /shop: 7 category tiles, same visual pattern as /brands cards.
 // Clicking a tile deep-links to /shop?category=NAME which switches this same
 // page into category-scope product mode.
 
@@ -907,7 +921,6 @@ const CATEGORY_LABELS = [
   "Bags and accessories",
   "Shoes",
   "Outerwear",
-  "Other",
 ] as const;
 
 interface CategorySample {

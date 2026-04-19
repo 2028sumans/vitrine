@@ -109,15 +109,17 @@ function SavedTile({
   onRemove: (objectID: string) => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const brandLabel = product.brand || product.retailer || "";
   return (
-    <div className="group relative block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300">
+    <div className="group relative block">
       <a
         href={product.product_url || "#"}
         target="_blank"
         rel="noopener noreferrer"
         className="block"
       >
-        <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)]">
+        {/* Image — border + shadow live here, not on the whole tile. */}
+        <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
           {product.image_url && !imgFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -129,13 +131,11 @@ function SavedTile({
               onError={() => setImgFailed(true)}
             />
           ) : null}
-          <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-background/80 to-transparent">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer ?? product.brand}</p>
-          </div>
         </div>
-        <div className="p-3 border-t border-border">
-          {product.brand && product.brand.toLowerCase() !== (product.retailer ?? "").toLowerCase() && (
-            <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>
+        {/* Text row — outside the border. Brand > title > price. */}
+        <div className="pt-3">
+          {brandLabel && (
+            <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{brandLabel}</p>
           )}
           <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{product.title}</p>
           <div className="flex items-center justify-between">
@@ -147,9 +147,9 @@ function SavedTile({
         </div>
       </a>
 
-      {/* Remove button — sits above the tile, visible on hover on desktop,
-          always visible on touch (:hover is flaky on mobile so we also show
-          via focus-within / active states via the group-active styling). */}
+      {/* Remove button — sits on the image, top-right. Visible on hover
+          on desktop; on touch :hover is flaky so we also reveal on
+          focus-within. */}
       <button
         aria-label="Remove from saved"
         onClick={(e) => {
