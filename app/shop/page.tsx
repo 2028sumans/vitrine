@@ -236,8 +236,11 @@ export default function ShopPage() {
     }
   }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter, steerQuery]);
 
-  // Fetch the user's fashion-board pin URLs → embed → Pinecone similarity →
-  // store as a pool. Pool is then drawn from by interleaveWithPool at 30%.
+  // Fetch the user's fashion-board pin URLs → Claude Vision extracts search
+  // terms → Algolia search → store as a pool. Pool is drawn from by
+  // interleaveWithPool at 30% on subsequent loadMore calls.
+  // `brandFilter` is in the deps so the closure captures the current brand
+  // scope; personalizeTriedRef still prevents it from actually firing twice.
   const tryPersonalize = useCallback(async (token: string) => {
     if (personalizeTriedRef.current) return;
     personalizeTriedRef.current = true;
@@ -270,20 +273,40 @@ export default function ShopPage() {
     } finally {
       setPersonalizing(false);
     }
-  }, []);
+  }, [brandFilter]);
 
-  // Initial load AND Steer-driven reload. Waits until (a) the session has
-  // resolved and (b) we've read the ?brand=… URL param. Re-fires whenever
-  // steerQuery changes — the Steer submit handler below wipes products
-  // first, so this then re-populates them against the new query.
-  // In brand mode the Pinterest pool gets filtered to just that brand on
-  // the server side so it still biases toward your taste without leaking
-  // other brands in.
+  // Initial load AND Steer-driven reload.
+  //
+  // Waits until (a) the session has resolved and (b) we've read the
+  // ?brand=… URL param. Re-fires whenever steerQuery changes — the Steer
+  // submit handler below wipes products first, so this then re-populates
+  // them against the new query.
+  //
+  // Ordering matters: if the user is signed into Pinterest we AWAIT the
+  // personalization call before firing loadMore. That way the very first
+  // products the user sees are already blended with the Pinterest pool,
+  // instead of a generic flat batch appearing for ~5 s and then getting
+  // reshuffled. Signed-out users skip the await and get the flat catalog
+  // immediately, same as before.
+  //
+  // On subsequent re-fires (e.g. Steer submit) personalizeTriedRef makes
+  // tryPersonalize a no-op, so the await resolves in microseconds.
   useEffect(() => {
     if (session === undefined) return;
     if (brandFilter === null) return;
-    if (products.length === 0) loadMore();
-    if (accessToken) void tryPersonalize(accessToken);
+
+    const init = async () => {
+      if (products.length === 0) {
+        // First load (or after a reset): wait for Pinterest before fetching.
+        if (accessToken) await tryPersonalize(accessToken);
+        loadMore();
+      } else if (accessToken) {
+        // Products already on screen but the user just signed in — fire
+        // personalize fire-and-forget so future pages get blended.
+        void tryPersonalize(accessToken);
+      }
+    };
+    void init();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [session, accessToken, brandFilter, steerQuery]);
 
@@ -543,11 +566,31 @@ export default function ShopPage() {
         {/* Grid */}
         {viewMode === "grid" && (
           <>
+            {/* Initial loading state. While we're waiting on Pinterest
+                personalization (or the first batch fetch), show a centered
+                italic message instead of an empty grid — otherwise the page
+                just looks broken for ~5 seconds. Disappears the moment the
+                first products arrive. */}
+            {products.length === 0 && (personalizing || loading) && (
+              <div className="py-28 flex flex-col items-center justify-center text-center">
+                <p className="font-display font-light italic text-2xl sm:text-3xl text-muted-strong mb-3">
+                  {personalizing
+                    ? "Reading your Pinterest to tailor your feed…"
+                    : "Loading your feed…"}
+                </p>
+                {personalizing && (
+                  <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
+                    just a few seconds
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
               {products.map((p) => <GridTile key={p.objectID} product={p} />)}
             </div>
             <div ref={sentinelRef} className="h-24 flex items-center justify-center mt-10">
-              {loading && <p className="font-display italic text-lg text-muted">Loading more…</p>}
+              {loading && products.length > 0 && <p className="font-display italic text-lg text-muted">Loading more…</p>}
               {!hasMore && products.length > 0 && (
                 <p className="font-display italic text-lg text-muted">That&apos;s everything.</p>
               )}
