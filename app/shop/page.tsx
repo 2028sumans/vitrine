@@ -735,7 +735,7 @@ function ProductScrollView({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="relative z-10 w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll bg-background shadow-2xl"
+        className="relative z-10 w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
         style={{ scrollSnapType: "y mandatory" }}
       >
         {products.map((p, i) => (
@@ -887,7 +887,7 @@ function ProductScrollCard({
       {/* Bottom overlay — brand, title, price, shop */}
       <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-6 bg-gradient-to-t from-background via-background/85 to-transparent">
         {product.brand && <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>}
-        <p className="font-display font-light text-xl text-foreground leading-snug mb-1">{product.title}</p>
+        <p className="font-display font-light text-xl text-foreground leading-snug mb-1 break-words">{product.title}</p>
         {product.price != null && <p className="font-sans text-sm text-muted-strong mb-3">{formatPrice(product.price)}</p>}
         <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">Shop →</span>
       </div>

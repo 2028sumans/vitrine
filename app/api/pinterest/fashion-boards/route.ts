@@ -31,6 +31,30 @@ function isFashionBoard(name: string, description?: string): boolean {
   return FASHION_KEYWORDS.some((kw) => text.includes(kw));
 }
 
+// Non-clothing keywords that frequently appear on fashion-adjacent boards
+// but refer to stuff we don't want in the visual signal. If any appear in a
+// pin's title / description / alt, we drop the pin before embedding.
+const NON_CLOTHING_KEYWORDS = [
+  "recipe", "recipes", "cooking", "food", "meal", "breakfast", "lunch", "dinner",
+  "cocktail", "drink", "coffee", "cake", "pastry", "dessert", "snack",
+  "interior", "interiors", "decor", "home", "bedroom", "kitchen", "living room",
+  "bathroom", "apartment", "house", "workspace", "office",
+  "plants", "plant", "garden", "flower arrangement", "bouquet",
+  "makeup", "make-up", "beauty", "skincare", "perfume",
+  "hair", "haircut", "hairstyle", "braid",
+  "nails", "manicure", "nail art",
+  "wallpaper", "phone", "screensaver", "background",
+  "car", "motorcycle", "travel", "landscape", "scenery", "sunset",
+  "tattoo", "tattoos",
+  "wedding venue", "wedding decor", "wedding cake",
+];
+
+function isNonClothingPin(title: string, description: string, alt: string): boolean {
+  const text = `${title} ${description} ${alt}`.toLowerCase();
+  if (!text.trim()) return false; // no text, can't judge — let FashionCLIP decide
+  return NON_CLOTHING_KEYWORDS.some((kw) => text.includes(kw));
+}
+
 interface BoardPin {
   id:       string;
   title:    string;
@@ -87,12 +111,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 3. Fetch pins from each fashion board in parallel, 10 pins per board.
+  // 3. Fetch pins from each fashion board in parallel. We pull more than we
+  //    keep (15) so the non-clothing metadata pre-filter has some headroom.
   const results: BoardWithPins[] = await Promise.all(
     fashionBoards.map(async (b): Promise<BoardWithPins> => {
       try {
         const pinsRes = await fetch(
-          `https://api.pinterest.com/v5/boards/${b.id}/pins?page_size=10&pin_fields=id,title,media`,
+          `https://api.pinterest.com/v5/boards/${b.id}/pins?page_size=15&pin_fields=id,title,description,alt_text,media`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -113,12 +138,19 @@ export async function GET(request: NextRequest) {
             const imageUrl =
               (images["736x"] ?? images["1200x"] ?? images["400x300"] ?? images["orig"])?.url ?? "";
             return {
-              id:       String(p.id ?? ""),
-              title:    String(p.title ?? ""),
+              id:          String(p.id ?? ""),
+              title:       String(p.title ?? ""),
+              description: String(p.description ?? ""),
+              alt_text:    String(p.alt_text ?? ""),
               imageUrl,
             };
           })
-          .filter((p) => p.imageUrl);
+          .filter((p) => p.imageUrl)
+          // Metadata pre-filter: drop pins whose text obviously describes
+          // non-clothing content (food, interiors, makeup, hair, etc.).
+          // Cheap string match that catches a lot of junk before embedding.
+          .filter((p) => !isNonClothingPin(p.title, p.description, p.alt_text))
+          .slice(0, 10);
         return { id: b.id, name: b.name, pins };
       } catch {
         return { id: b.id, name: b.name, pins: [] };

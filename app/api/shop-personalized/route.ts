@@ -28,9 +28,9 @@ import { getProductsByIds }                             from "@/lib/algolia";
 
 const MAX_PINS_TO_EMBED    = 24;
 const TOP_K                = 150;
-const CLOTHING_THRESHOLD   = 0.18; // cosine similarity lower bound against clothing prompts
+const CLOTHING_THRESHOLD   = 0.22; // tightened from 0.18 — drops more noise
 
-// Prompts used to build the "outfit-ness" reference centroid.
+// Prompts used to build the "outfit-ness" positive reference.
 const CLOTHING_PROMPTS = [
   "a photo of clothing",
   "a dress",
@@ -41,6 +41,22 @@ const CLOTHING_PROMPTS = [
   "a coat",
   "shoes",
   "a handbag",
+];
+
+// Negative reference — if a pin scores higher against these than against the
+// clothing prompts, it's filtered out. Catches portraits, interiors, food,
+// makeup and landscape shots that slip through the Pinterest metadata filter.
+const NON_CLOTHING_PROMPTS = [
+  "a portrait of a face",
+  "an interior photograph of a room",
+  "food photography",
+  "a landscape photo",
+  "a bowl of food",
+  "a flower arrangement",
+  "makeup on a face",
+  "nail art",
+  "a hairstyle",
+  "home decor",
 ];
 
 export async function POST(request: Request) {
@@ -63,25 +79,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ products: [] });
     }
 
-    // 2. Build clothing reference centroid from text prompts, run the filter.
-    //    If the text encoder fails entirely, fall through and use every pin.
-    const promptVecs = await Promise.all(
-      CLOTHING_PROMPTS.map((p) => embedTextQuery(p).catch(() => [] as number[])),
-    );
-    const validPromptVecs = promptVecs.filter((v) => v.length > 0);
+    // 2. Dual-prompt filter: positive (clothing) vs negative (portrait,
+    //    interior, food, makeup, landscape). Keep a pin only if its positive
+    //    score clears the threshold AND beats its negative score. Catches
+    //    pins whose metadata slipped past the keyword pre-filter.
+    const [positiveVecs, negativeVecs] = await Promise.all([
+      Promise.all(CLOTHING_PROMPTS.map((p) => embedTextQuery(p).catch(() => [] as number[]))),
+      Promise.all(NON_CLOTHING_PROMPTS.map((p) => embedTextQuery(p).catch(() => [] as number[]))),
+    ]);
+    const validPositives = positiveVecs.filter((v) => v.length > 0);
+    const validNegatives = negativeVecs.filter((v) => v.length > 0);
 
     let clothingEmbeds = valid;
-    if (validPromptVecs.length > 0) {
-      const score = (imgVec: number[]) =>
-        Math.max(...validPromptVecs.map((pVec) => cosineSimilarity(imgVec, pVec)));
-      const scored = valid.map((v) => ({ vec: v, s: score(v) }));
-      const kept = scored.filter((x) => x.s >= CLOTHING_THRESHOLD);
+    if (validPositives.length > 0) {
+      const maxSim = (imgVec: number[], refs: number[][]) =>
+        refs.length === 0 ? -Infinity : Math.max(...refs.map((r) => cosineSimilarity(imgVec, r)));
+      const scored = valid.map((v) => ({
+        vec:     v,
+        pos:     maxSim(v, validPositives),
+        neg:     maxSim(v, validNegatives),
+      }));
+      const kept = scored.filter((x) => x.pos >= CLOTHING_THRESHOLD && x.pos > x.neg);
       console.log(
-        `[shop-personalized] clothing-filter: kept ${kept.length}/${valid.length} pins ` +
-        `(threshold ${CLOTHING_THRESHOLD}, scores: ${scored.map((s) => s.s.toFixed(2)).join(", ")})`
+        `[shop-personalized] dual-filter: kept ${kept.length}/${valid.length} pins ` +
+        `(threshold ${CLOTHING_THRESHOLD}; scores pos/neg: ` +
+        `${scored.map((s) => `${s.pos.toFixed(2)}/${s.neg.toFixed(2)}`).join(", ")})`
       );
-      // If the filter dropped literally everything, fall back to all pins —
-      // better a noisy signal than no signal at all.
+      // If nothing survives, fall back to all pins rather than no signal.
       clothingEmbeds = kept.length > 0 ? kept.map((x) => x.vec) : valid;
     }
 
