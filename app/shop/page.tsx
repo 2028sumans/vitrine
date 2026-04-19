@@ -133,26 +133,52 @@ export default function ShopPage() {
     return [...seen, ...rankedProducts];
   }, []);
 
-  // Interleaves a flat batch with the personalized pool at 5:5 ratio. For
-  // every 10 output slots we emit 5 from the flat batch then 5 from the pool.
-  // Dedupes across everything seen so far (so a product can't appear twice).
+  // Interleaves a flat batch with the personalized pool.
+  //
+  // Two-phase blend so Pinterest is VISIBLY affecting what the user sees
+  // from the first scroll:
+  //   Phase 1 (lead-in, first batch only): take up to 10 pool products
+  //     straight up. Without this, the first rows of the feed are always
+  //     generic catalog no matter what the ratio says on paper — because
+  //     the interleave within a single batch of 48 flat items still ends
+  //     up emitting flat products in the opening slot. Users couldn't tell
+  //     Pinterest was being used at all.
+  //   Phase 2 (ongoing): 5 pool + 5 flat per 10 slots. Pool emits FIRST in
+  //     each round of 10 so the first card of every row stays tailored.
+  //
+  // Dedupes globally via seenIdsRef so a product never appears twice
+  // across pages.
   const interleaveWithPool = useCallback((flat: Product[]): Product[] => {
-    const pool      = personalizedPoolRef.current;
-    const seen      = seenIdsRef.current;
+    const pool = personalizedPoolRef.current;
+    const seen = seenIdsRef.current;
     const out: Product[] = [];
+
+    // Phase 1 — lead-in. Only on the FIRST batch (nothing shown yet AND
+    // pool index still at 0). Pulls up to 10 pool items straight to the
+    // top of the feed.
+    if (seen.size === 0 && personalizedIdxRef.current === 0 && pool.length > 0) {
+      let taken = 0;
+      while (taken < 10 && personalizedIdxRef.current < pool.length) {
+        const p = pool[personalizedIdxRef.current++];
+        if (seen.has(p.objectID)) continue;
+        seen.add(p.objectID);
+        out.push(p);
+        taken++;
+      }
+    }
+
+    // Phase 2 — 5:5 blend, pool first in each round.
     let flatI = 0;
     while (flatI < flat.length) {
-      // 5 from flat
-      for (let i = 0; i < 5 && flatI < flat.length; ) {
-        const p = flat[flatI++];
+      for (let i = 0; i < 5 && personalizedIdxRef.current < pool.length; ) {
+        const p = pool[personalizedIdxRef.current++];
         if (seen.has(p.objectID)) continue;
         seen.add(p.objectID);
         out.push(p);
         i++;
       }
-      // 5 from personalized pool (if any left)
-      for (let i = 0; i < 5 && personalizedIdxRef.current < pool.length; ) {
-        const p = pool[personalizedIdxRef.current++];
+      for (let i = 0; i < 5 && flatI < flat.length; ) {
+        const p = flat[flatI++];
         if (seen.has(p.objectID)) continue;
         seen.add(p.objectID);
         out.push(p);
@@ -973,62 +999,6 @@ function ProductScrollView({
             </form>
           )}
 
-          {/* Mobile rail — overlaid on the card's bottom-right, above the
-              product info overlay. Hidden on sm+ (the desktop rail below
-              handles that case via flex). */}
-          <div className="sm:hidden absolute right-3 bottom-40 z-20 flex flex-col items-center gap-5">
-            <RailButton
-              label={activeLiked ? "Liked" : "Like"}
-              onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5"
-                fill={activeLiked ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
-            </RailButton>
-            <RailButton
-              label={showSayMore ? "Cancel" : "Steer"}
-              onClick={() => setShowSayMore((v) => !v)}
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5"
-                fill={showSayMore ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            </RailButton>
-          </div>
-        </div>
-
-        {/* Desktop rail — flex sibling of the card, hidden on mobile. */}
-        <div className="hidden sm:flex flex-col items-center gap-6">
-          <RailButton
-            label={activeLiked ? "Liked" : "Like"}
-            onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
-          >
-            {/* When liked, the heart fills olive (currentColor === olive
-                foreground). Rest state: outline only. */}
-            <svg viewBox="0 0 24 24" className="w-5 h-5"
-              fill={activeLiked ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-          </RailButton>
-
-          <RailButton
-            label={showSayMore ? "Cancel" : "Steer"}
-            onClick={() => setShowSayMore((v) => !v)}
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5"
-              fill={showSayMore ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-          </RailButton>
         </div>
       </div>
     </div>
