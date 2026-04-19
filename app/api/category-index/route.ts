@@ -17,7 +17,8 @@
 import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
 
-export const revalidate = 3600; // 1 hour
+export const revalidate = 300; // 5 minutes — short so fixes to the hero
+                               // picks propagate fast without a redeploy.
 
 const INDEX_NAME = "vitrine_products";
 
@@ -35,13 +36,18 @@ type CategoryRequest = {
 // `query` biases which single hit Algolia picks for the card hero image.
 // The TITLE_WHITELIST below still filters afterward, so the query is a
 // ranking nudge, not a hard requirement.
+//
+// Shoes deliberately has filters=null: Algolia's category:"shoes" index is
+// heavily mis-tagged (a Momotaro hoodie with category="shoes" keeps winning
+// the pool), so instead we search the whole catalog by keyword and rely on
+// the TITLE_WHITELIST below to reject anything whose title isn't a shoe.
 const CATEGORIES: CategoryRequest[] = [
   { label: "Tops",                 filters: 'category:"top"',    query: "" },
   { label: "Dresses",              filters: 'category:"dress"',  query: "midi slip linen silk flowy modern" },
   { label: "Bottoms",              filters: 'category:"bottom"', query: "" },
   { label: "Knits",                filters: null,                query: "knit sweater cardigan cashmere wool" },
   { label: "Bags and accessories", filters: 'category:"bag"',    query: "" },
-  { label: "Shoes",                filters: 'category:"shoes"',  query: "heel boot sandal loafer" },
+  { label: "Shoes",                filters: null,                query: "heel boot sandal sneaker loafer pump mule espadrille oxford slide" },
   { label: "Outerwear",            filters: 'category:"jacket"', query: "" },
   { label: "Other",                filters: CORE_CATS.map((c) => `NOT category:"${c}"`).join(" AND "), query: "" },
 ];
@@ -115,9 +121,13 @@ export async function GET() {
             break;
           }
         }
-        // Pass 2 — fallback: first hit with any valid image, even if the
-        // title check missed. Prevents blank tiles in the degenerate case.
-        if (!imageUrl) {
+        // Pass 2 — fallback to first hit with any image, ONLY for categories
+        // without a whitelist. For Shoes / Dresses / etc., a miss on Pass 1
+        // means our pool is corrupted and showing the first image would
+        // just re-introduce the hoodie. Returning null makes the card
+        // render with the cream placeholder background instead — far
+        // better than a wrong hero.
+        if (!imageUrl && !TITLE_WHITELIST[label]) {
           for (const h of hits) {
             if (typeof h.image_url === "string" && h.image_url.startsWith("http")) {
               imageUrl = h.image_url;
