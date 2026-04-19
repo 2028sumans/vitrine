@@ -135,8 +135,12 @@ export async function GET(request: NextRequest) {
           .map((p) => {
             const media  = p.media as Record<string, Record<string, { url: string }>>;
             const images = media.images ?? {};
+            // Prefer small variants. Claude Haiku fetches each URL before it
+            // can analyse it, so a 236x thumbnail is 5–10× faster to pull
+            // from Pinterest's CDN than the 736x original. Haiku only needs
+            // to recognise garments — fabric-weave detail is wasted bytes.
             const imageUrl =
-              (images["736x"] ?? images["1200x"] ?? images["400x300"] ?? images["orig"])?.url ?? "";
+              (images["236x"] ?? images["400x300"] ?? images["736x"] ?? images["1200x"] ?? images["orig"])?.url ?? "";
             return {
               id:          String(p.id ?? ""),
               title:       String(p.title ?? ""),
