@@ -85,10 +85,14 @@ function mixBrands(list: Product[], cols: number): Product[] {
     // Tiered selection: each tier picks the highest-remaining brand that
     // satisfies the tier's constraints. Empty-brand items are treated as
     // unconstrained (no adjacency/row rule applies).
+    // Array.from(...) instead of `for (const x of map)` because the repo's
+    // tsconfig has no `target` set, which lands on a default that tsc
+    // rejects Map iterators under without --downlevelIteration. Same
+    // workaround as commit 21c5ac7.
     const pickBest = (allowAdj: boolean, allowRow: boolean): string | null => {
       let best: string | null = null;
       let bestN = -1;
-      for (const [brand, items] of buckets) {
+      for (const [brand, items] of Array.from(buckets.entries())) {
         if (items.length === 0) continue;
         if (brand) {
           if (!allowAdj && brand === prev) continue;
