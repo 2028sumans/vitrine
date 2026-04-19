@@ -465,9 +465,19 @@ export default function ShopPage() {
     setSteerQuery(trimmed);
   }, []);
 
-  // infinite scroll sentinel (grid only — scroll mode has its own logic)
+  // infinite scroll sentinel (grid only — scroll mode has its own logic).
+  //
+  // IMPORTANT: don't observe the sentinel until AFTER the first batch of
+  // products has loaded. If we observe it on mount while the grid is empty,
+  // the sentinel sits right at the top of the viewport with a 600px root
+  // margin — IntersectionObserver fires immediately, calls loadMore, and
+  // bypasses the `await tryPersonalize(...)` in the initial-load effect.
+  // That's what was causing products to appear before Pinterest finished
+  // and "reading your pinterest…" to hang in the corner afterwards.
+  const hasProducts = products.length > 0;
   useEffect(() => {
     if (viewMode !== "grid") return;
+    if (!hasProducts) return;
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver((entries) => {
@@ -475,7 +485,7 @@ export default function ShopPage() {
     }, { rootMargin: "600px" });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [viewMode, loadMore]);
+  }, [viewMode, loadMore, hasProducts]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -601,12 +611,17 @@ export default function ShopPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
               {products.map((p) => <GridTile key={p.objectID} product={p} />)}
             </div>
-            <div ref={sentinelRef} className="h-24 flex items-center justify-center mt-10">
-              {loading && products.length > 0 && <p className="font-display italic text-lg text-muted">Loading more…</p>}
-              {!hasMore && products.length > 0 && (
-                <p className="font-display italic text-lg text-muted">That&apos;s everything.</p>
-              )}
-            </div>
+            {/* Sentinel only exists once products are on screen. Keeps the
+                IntersectionObserver from firing loadMore at mount-time while
+                the grid is still empty (see the observer effect above). */}
+            {products.length > 0 && (
+              <div ref={sentinelRef} className="h-24 flex items-center justify-center mt-10">
+                {loading && <p className="font-display italic text-lg text-muted">Loading more…</p>}
+                {!hasMore && (
+                  <p className="font-display italic text-lg text-muted">That&apos;s everything.</p>
+                )}
+              </div>
+            )}
           </>
         )}
 
