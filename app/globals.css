@@ -67,3 +67,8 @@
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(42,51,22,0.30); border-radius: 2px; }
+
+/* Opt out of the thin scrollbar on specific elements (e.g. the /shop scroll
+   column — we want the image to fill edge-to-edge with no visible track). */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     const similarIds = await searchByLikedProductIds(
       likedProductIds,
       SIMILAR_FETCH_K,
-      aesthetic.price_range,
+      { priceRange: aesthetic.price_range },
       [...likedProductIds, ...excludeIds],
     );
     console.log(`[similar-on-like] Pinecone returned ${similarIds.length} similar IDs for ${likedProductIds.length} liked`);

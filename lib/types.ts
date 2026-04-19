@@ -71,6 +71,44 @@ export interface TasteMemory {
   styleCentroid: number[] | null;  // 512-dim CLIP vector, cross-session preference
 }
 
+// ── Pre-computed product enrichment ───────────────────────────────────────────
+// Written into Pinecone metadata at batch-embed time by scripts/enrich-product.mjs.
+// Gives every product concrete attributes + interpretable axes that FashionCLIP
+// alone cannot produce, so queries can filter/re-rank by silhouette, fabric,
+// aesthetic_tag, or scalar vibe axes (formality, minimalism, edge, romance, drape).
+
+export interface StyleAttributes {
+  silhouette:     string;
+  fabric:         string;
+  pattern:        string;
+  neckline:       string;
+  length:         string;
+  mood:           string;
+  aesthetic_tags: string[];
+}
+
+export interface StyleAxes {
+  formality:  number; // 0 = casual, 1 = black-tie
+  minimalism: number; // 0 = maximalist, 1 = stripped-back
+  edge:       number; // 0 = soft, 1 = subversive
+  romance:    number; // 0 = tailored, 1 = flowing
+  drape:      number; // 0 = structured, 1 = fluid
+}
+
+/** Flat Pinecone metadata shape — fields that search code reads back. */
+export interface ProductMetadata extends StyleAttributes, StyleAxes {
+  brand?:       string;
+  category?:    string;
+  price_range?: string;
+  retailer?:    string;
+  caption?:     string;
+}
+
+/** Signed deltas emitted by steer-interpret — e.g. "more minimalist" → {minimalism: +0.3}. */
+export type StyleAxesDelta = Partial<Record<keyof StyleAxes, number>>;
+
+export const STYLE_AXIS_KEYS = ["formality", "minimalism", "edge", "romance", "drape"] as const;
+
 // ── Search input modes ────────────────────────────────────────────────────────
 
 export type InputMode = "pinterest" | "text" | "images" | "quiz";

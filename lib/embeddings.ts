@@ -15,11 +15,51 @@
  *   PINECONE_INDEX     — e.g. "muse"
  */
 
-import type { VisionImage } from "@/lib/types";
+import type { ProductMetadata, StyleAxes, VisionImage } from "@/lib/types";
 
 // ── Model ID ──────────────────────────────────────────────────────────────────
 // Must match the model used in scripts/embed-with-qc.mjs exactly.
 const MODEL_ID = "ff13/fashion-clip";
+
+// Pinecone namespace holding the parallel "vibe vector" — FashionCLIP-text-
+// encoded Claude caption, one per product. Written by scripts/enrich-product.mjs.
+const VIBE_NAMESPACE = "vibe";
+
+// ── Axis filter → Pinecone filter ─────────────────────────────────────────────
+// A partial constraint set on the five style axes. Numbers are interpreted as
+// lower bounds by default, but a tuple [min, max] specifies a range. Missing
+// keys are unconstrained.
+export type AxisFilter = Partial<Record<keyof StyleAxes, number | [number, number]>>;
+
+export function buildAxisFilter(axes: AxisFilter | undefined): Record<string, unknown> | null {
+  if (!axes) return null;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(axes)) {
+    if (v == null) continue;
+    if (Array.isArray(v)) {
+      const [lo, hi] = v;
+      out[k] = { $gte: lo, $lte: hi };
+    } else {
+      out[k] = { $gte: v };
+    }
+  }
+  return Object.keys(out).length === 0 ? null : out;
+}
+
+/** Merge price + axis filters into a single Pinecone filter object. */
+function mergeFilters(
+  priceRange: string | undefined,
+  axes:       AxisFilter | undefined,
+): Record<string, unknown> | null {
+  const parts: Record<string, unknown>[] = [];
+  const price = buildPriceFilter(priceRange);
+  const axis  = buildAxisFilter(axes);
+  if (price) parts.push(price);
+  if (axis)  parts.push(axis);
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0];
+  return { $and: parts };
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -274,23 +314,32 @@ export async function getPineconeIndex() {
 
 // ── Core search by pre-computed embeddings ────────────────────────────────────
 
+export interface SearchOptions {
+  priceRange?: string;
+  /** Lower-bound (or range) constraints on style axes — e.g. {minimalism: 0.6}. */
+  axes?:       AxisFilter;
+  /** Pinecone namespace. Default = "" (visual); "vibe" = caption-based vectors. */
+  namespace?:  string;
+}
+
 export async function searchByEmbeddings(
   embeddings: number[][],
   totalK      = 120,
-  priceRange?: string
+  options:    SearchOptions = {},
 ): Promise<string[]> {
   const valid = embeddings.filter((e) => e.length > 0);
   if (valid.length === 0) return [];
 
   const clusters       = clusterEmbeddings(valid, 0.78);
-  const pineconeFilter = buildPriceFilter(priceRange);
+  const pineconeFilter = mergeFilters(options.priceRange, options.axes);
   const seen           = new Map<string, number>();
-  const index          = await getPineconeIndex();
+  const idx            = await getPineconeIndex();
+  const target         = options.namespace ? idx.namespace(options.namespace) : idx;
 
   await Promise.all(
     clusters.map(async (cluster) => {
       const k = Math.max(10, Math.round(totalK * cluster.weight));
-      const result = await index.query({
+      const result = await target.query({
         vector:          cluster.centroid,
         topK:            k,
         includeMetadata: false,
@@ -310,6 +359,45 @@ export async function searchByEmbeddings(
     .slice(0, totalK);
 }
 
+// ── Vibe-namespace search ─────────────────────────────────────────────────────
+// Encodes one or more Claude-caption-style query phrases and searches the
+// `vibe` namespace, which stores FashionCLIP-text-encoded product captions.
+// Complements visual search: vibe hits on "how it reads" (quiet luxury, edgy,
+// romantic) while visual hits on pixel similarity.
+
+export async function searchByVibeEmbeddings(
+  embeddings: number[][],
+  totalK      = 120,
+  options:    Omit<SearchOptions, "namespace"> = {},
+): Promise<string[]> {
+  return searchByEmbeddings(embeddings, totalK, { ...options, namespace: VIBE_NAMESPACE });
+}
+
+export async function searchByVibeText(
+  phrases:    string[],
+  totalK      = 120,
+  options:    Omit<SearchOptions, "namespace"> = {},
+): Promise<string[]> {
+  const vectors = await Promise.all(phrases.map((p) => embedTextQuery(p).catch(() => [] as number[])));
+  const valid   = vectors.filter((v) => v.length > 0);
+  if (valid.length === 0) return [];
+  return searchByVibeEmbeddings(valid, totalK, options);
+}
+
+// ── Fetch pre-computed product metadata (attrs + axes + caption) ──────────────
+
+export async function fetchProductMetadata(ids: string[]): Promise<Map<string, ProductMetadata>> {
+  const out = new Map<string, ProductMetadata>();
+  if (ids.length === 0) return out;
+  const idx     = await getPineconeIndex();
+  const fetched = await idx.fetch({ ids });
+  for (const [id, rec] of Object.entries(fetched.records ?? {})) {
+    const md = (rec as { metadata?: ProductMetadata }).metadata;
+    if (md) out.set(id, md);
+  }
+  return out;
+}
+
 // ── Text → Pinecone search ────────────────────────────────────────────────────
 // Encodes a text query and searches the visual index directly.
 // Useful for text-mode hybrid search when you want semantic image retrieval.
@@ -317,11 +405,11 @@ export async function searchByEmbeddings(
 export async function searchByTextQuery(
   text:       string,
   totalK      = 120,
-  priceRange?: string
+  options:    SearchOptions = {},
 ): Promise<string[]> {
   const embedding = await embedTextQuery(text);
   if (embedding.length === 0) return [];
-  return searchByEmbeddings([embedding], totalK, priceRange);
+  return searchByEmbeddings([embedding], totalK, options);
 }
 
 // ── Search by board image URLs ────────────────────────────────────────────────
@@ -329,11 +417,11 @@ export async function searchByTextQuery(
 export async function searchByBoardImages(
   boardImageUrls: string[],
   totalK          = 120,
-  priceRange?:    string
+  options:        SearchOptions = {},
 ): Promise<string[]> {
   if (!boardImageUrls.length) return [];
   const embeddings = await embedImageUrls(boardImageUrls);
-  return searchByEmbeddings(embeddings, totalK, priceRange);
+  return searchByEmbeddings(embeddings, totalK, options);
 }
 
 // ── Search by uploaded base64 images ─────────────────────────────────────────
@@ -341,11 +429,11 @@ export async function searchByBoardImages(
 export async function searchByUploadedImages(
   images:     VisionImage[],
   totalK      = 120,
-  priceRange?: string
+  options:    SearchOptions = {},
 ): Promise<string[]> {
   if (!images.length) return [];
   const embeddings = await embedBase64Images(images);
-  return searchByEmbeddings(embeddings, totalK, priceRange);
+  return searchByEmbeddings(embeddings, totalK, options);
 }
 
 // ── Search using liked product embeddings ─────────────────────────────────────
@@ -353,7 +441,7 @@ export async function searchByUploadedImages(
 export async function searchByLikedProductIds(
   objectIDs:  string[],
   totalK      = 60,
-  priceRange?: string,
+  options:    SearchOptions = {},
   excludeIds?: string[]
 ): Promise<string[]> {
   if (objectIDs.length === 0) return [];
@@ -366,7 +454,7 @@ export async function searchByLikedProductIds(
 
   if (vectors.length === 0) return [];
 
-  const ids = await searchByEmbeddings(vectors, totalK + (excludeIds?.length ?? 0), priceRange);
+  const ids = await searchByEmbeddings(vectors, totalK + (excludeIds?.length ?? 0), options);
 
   const excluded = new Set(excludeIds ?? []);
   return ids.filter((id) => !excluded.has(id)).slice(0, totalK);
