@@ -36,6 +36,54 @@ function formatPrice(p: number | null): string {
   return `$${Math.round(p).toLocaleString("en-US")}`;
 }
 
+// Current grid column count — mirrors Tailwind's `grid-cols-2 sm:grid-cols-3
+// lg:grid-cols-4` breakpoints (sm=640, lg=1024). Used by mixBrands to enforce
+// the "max 2 per line" rule based on what the user is actually seeing.
+function getGridCols(): number {
+  if (typeof window === "undefined") return 4;
+  if (window.matchMedia("(min-width: 1024px)").matches) return 4;
+  if (window.matchMedia("(min-width: 640px)").matches)  return 3;
+  return 2;
+}
+
+// Greedy brand mixer with two constraints:
+//   1. No two items from the same brand are adjacent in the flat list
+//      (covers both horizontal adjacency AND end-of-row → start-of-next-row).
+//   2. No three items from the same brand appear on the same grid row.
+// Takes the first candidate in the server-ranked pool that satisfies both;
+// falls through to the next item when nothing valid remains (so a pool of
+// mostly-one-brand can't stall). Pool appends at the end never reorder
+// earlier picks — so the mix is stable as infinite-scroll loads more pages.
+function mixBrands(list: Product[], cols: number): Product[] {
+  if (list.length <= 1 || cols <= 0) return list;
+  const out:  Product[] = [];
+  const pool: Product[] = list.slice();
+  while (pool.length > 0) {
+    const idx      = out.length;
+    const rowStart = idx - (idx % cols);
+    const prev     = (out[idx - 1]?.brand ?? "").toLowerCase();
+    const rowCount = new Map<string, number>();
+    for (let i = rowStart; i < idx; i++) {
+      const b = (out[i].brand ?? "").toLowerCase();
+      if (b) rowCount.set(b, (rowCount.get(b) ?? 0) + 1);
+    }
+    let picked = -1;
+    for (let i = 0; i < pool.length; i++) {
+      const b = (pool[i].brand ?? "").toLowerCase();
+      if (b) {
+        if (b === prev) continue;                   // adjacency
+        if ((rowCount.get(b) ?? 0) >= 2) continue;  // row cap
+      }
+      picked = i;
+      break;
+    }
+    if (picked === -1) picked = 0;
+    out.push(pool[picked]);
+    pool.splice(picked, 1);
+  }
+  return out;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 // Thin Suspense wrapper. Required because ShopPageContent reads URL params
@@ -70,6 +118,24 @@ function ShopPageContent() {
   const [hasMore, setHasMore]   = useState(true);
   const seenIdsRef              = useRef<Set<string>>(new Set());
   const sentinelRef             = useRef<HTMLDivElement>(null);
+
+  // Viewport column count — drives the brand-mixer's "max 2 per line" rule.
+  // Updates on resize so a window-drag past a Tailwind breakpoint re-mixes.
+  const [gridCols, setGridCols] = useState<number>(4);
+  useEffect(() => {
+    const update = () => setGridCols(getGridCols());
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Display order = server-ranked products run through the brand mixer.
+  // Derived (not state), so re-ranking on likes/dislikes composes cleanly:
+  // setProducts writes the re-ranked list, mixBrands re-runs on top.
+  const displayProducts = useMemo(
+    () => mixBrands(products, gridCols),
+    [products, gridCols],
+  );
 
   // Free-text Steer input from the scroll view. `steerQuery` holds the raw
   // text the user typed (used for scope hashing + pre-filling the input when
@@ -246,22 +312,63 @@ function ShopPageContent() {
   const lastScopeRef   = useRef<string>("__uninit__");
 
   useEffect(() => {
-    // Scope change (brand / category / steer) = fresh init.
+    // Scope change (brand / category / steer) = fresh init. We do the first
+    // fetch inline rather than calling loadMore, because loadMore's closure
+    // over `hasMore`/`loading` would still see stale (pre-reset) values if
+    // we setHasMore(true) + invoke loadMore() in the same tick. Inlining
+    // sidesteps that timing hazard cleanly.
     const scope = `${brandFilter}|${categoryFilter}|${steerQuery}`;
-    if (lastScopeRef.current !== scope) {
-      lastScopeRef.current   = scope;
-      initStartedRef.current = false;
-      // Also reset the feed state so we don't show stale products from the
-      // previous scope while the new batch is loading.
-      setProducts([]);
-      setPage(0);
-      setHasMore(true);
-      seenIdsRef.current = new Set();
-    }
-    if (initStartedRef.current) return;
+    if (lastScopeRef.current === scope && initStartedRef.current) return;
+    lastScopeRef.current   = scope;
     initStartedRef.current = true;
 
-    if (!isPickerMode) void loadMore();
+    setProducts([]);
+    setPage(0);
+    setHasMore(true);
+    seenIdsRef.current = new Set();
+
+    if (isPickerMode) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/shop-all`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            page:           0,
+            bias:           buildBias(),
+            brandFilter:    brandFilter    ?? "",
+            categoryFilter: categoryFilter ?? "",
+            steerQuery,
+            steerInterp,
+          }),
+        });
+        if (!res.ok) {
+          setHasMore(false);
+          return;
+        }
+        const data  = await res.json();
+        const fresh = (data.products ?? []) as Product[];
+        const seen  = seenIdsRef.current;
+        const batch: Product[] = [];
+        for (const p of fresh) {
+          if (seen.has(p.objectID)) continue;
+          seen.add(p.objectID);
+          batch.push(p);
+        }
+        setProducts(batch);
+        setPage(1);
+        if (!data.hasMore) setHasMore(false);
+      } catch (err) {
+        console.error("[shop] init load failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [brandFilter, categoryFilter, steerQuery, isPickerMode]);
 
@@ -579,7 +686,7 @@ function ShopPageContent() {
                 )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                  {products.map((p) => <GridTile key={p.objectID} product={p} />)}
+                  {displayProducts.map((p) => <GridTile key={p.objectID} product={p} />)}
                 </div>
                 {/* Sentinel only exists once products are on screen so the
                     IntersectionObserver can't fire loadMore at mount-time. */}
@@ -602,7 +709,7 @@ function ShopPageContent() {
           Only renders in scoped modes; picker mode has no products. */}
       {viewMode === "scroll" && !isPickerMode && (
         <ProductScrollView
-          products={products}
+          products={displayProducts}
           onNearEnd={loadMore}
           loading={loading}
           hasMore={hasMore}

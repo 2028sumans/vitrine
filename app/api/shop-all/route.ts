@@ -28,6 +28,13 @@ const NUM_SLICES    = 8;
 const PER_SLICE     = 6;
 const CATALOG_SIZE  = 120_000;
 const HITS_PER_PAGE = 48;
+// Over-fetch in scoped mode so interleaveByBrand has a wide enough pool to
+// actually mix brands. Without this, a category like Shoes comes back as
+// 48 consecutive Needledust rows because that's how Algolia's default
+// ranking clumps them — interleaving 48 Needledust products yields 48
+// Needledust products. 4x gives the mixer ~4 different brands' inventory
+// to draw from per page.
+const SCOPED_FETCH   = HITS_PER_PAGE * 4;
 
 // ── Category scopes ──────────────────────────────────────────────────────────
 // Display label → Algolia scope. The catalog's `category` field holds one of
@@ -43,24 +50,102 @@ type CategoryScope = {
   filters: string | null;
   /** Words injected into the Algolia `query` (with optionalWords ranking). */
   keywords: string[];
+  /**
+   * Strict check run as a post-filter on the Algolia hits. Belt-and-braces
+   * guard against mis-tagged catalog rows (e.g. a hoodie with category="shoes"
+   * slipping into the Shoes lane because the Algolia filter matched).
+   * Return true to keep a product, false to drop it.
+   */
+  enforce?: (p: Record<string, unknown>) => boolean;
 };
 
+// Title-keyword blocklist per display category — words whose presence in
+// a title strongly contradicts the category, even if the Algolia `category`
+// tag claims otherwise. Catches mis-tagged rows without requiring a positive
+// keyword match (which would over-filter legitimately-named pieces like
+// "Belle Strapless" in Tops).
+//
+// Matched with word-start boundaries so "heel" won't hit "loopwheel".
+const CATEGORY_BLOCKERS: Record<string, readonly string[]> = {
+  tops:       ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "skirt", "dress", "jean", "trouser", "bag", "tote", "handbag", "clutch"],
+  dresses:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "jean", "trouser", "bag", "tote", "handbag", "clutch", "jacket", "coat", "blazer"],
+  bottoms:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "shirt", "blouse", "top", "tee", "tank", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch"],
+  shoes:      ["hoody", "hoodie", "sweater", "sweatshirt", "cardigan", "jumper", "shirt", "blouse", "tee", "tank", "dress", "gown", "pant", "skirt", "short", "jean", "trouser", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch", "necklace", "bracelet", "ring", "earring", "belt"],
+  outerwear:  ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "gown", "skirt", "short", "jean", "trouser", "bag", "tote", "handbag", "clutch"],
+  "bags and accessories": ["shoe", "boot", "sandal", "heel", "sneaker", "pant", "skirt", "dress", "shirt", "blouse", "jacket", "coat"],
+};
+
+function passesCategoryBlocker(p: Record<string, unknown>, bucket: string): boolean {
+  const blockers = CATEGORY_BLOCKERS[bucket];
+  if (!blockers) return true;
+  const title = String(p.title ?? "").toLowerCase();
+  return !blockers.some((k) => new RegExp(`\\b${k}`, "i").test(title));
+}
+
 function scopeForCategory(label: string): CategoryScope | null {
-  switch (label.toLowerCase().trim()) {
-    case "tops":                 return { filters: 'category:"top"',    keywords: [] };
-    case "dresses":              return { filters: 'category:"dress"',  keywords: [] };
-    case "bottoms":              return { filters: 'category:"bottom"', keywords: [] };
-    case "shoes":                return { filters: 'category:"shoes"',  keywords: [] };
-    case "outerwear":            return { filters: 'category:"jacket"', keywords: [] };
-    case "bags and accessories": return { filters: 'category:"bag"',    keywords: [] };
-    case "knits":                return { filters: null, keywords: ["knit", "sweater", "cardigan", "cashmere", "wool"] };
+  const key = label.toLowerCase().trim();
+  switch (key) {
+    case "tops":                 return { filters: 'category:"top"',    keywords: [], enforce: (p) => passesCategoryBlocker(p, "tops") };
+    case "dresses":              return { filters: 'category:"dress"',  keywords: [], enforce: (p) => passesCategoryBlocker(p, "dresses") };
+    case "bottoms":              return { filters: 'category:"bottom"', keywords: [], enforce: (p) => passesCategoryBlocker(p, "bottoms") };
+    case "shoes":                return { filters: 'category:"shoes"',  keywords: [], enforce: (p) => passesCategoryBlocker(p, "shoes") };
+    case "outerwear":            return { filters: 'category:"jacket"', keywords: [], enforce: (p) => passesCategoryBlocker(p, "outerwear") };
+    case "bags and accessories": return { filters: 'category:"bag"',    keywords: [], enforce: (p) => passesCategoryBlocker(p, "bags and accessories") };
+    case "knits": {
+      // Knits IS keyword-driven, not a mis-tag guard — Algolia has no knit
+      // category, so we keyword-search and require at least one positive
+      // hit in the title so leggings/jeans/etc. don't leak in.
+      const knitHints = ["knit", "sweater", "cardigan", "cashmere", "wool", "cable", "jumper", "pullover", "turtleneck"];
+      return {
+        filters:  null,
+        keywords: ["knit", "sweater", "cardigan", "cashmere", "wool"],
+        enforce:  (p) => {
+          const title = String(p.title ?? "").toLowerCase();
+          return knitHints.some((k) => new RegExp(`\\b${k}`, "i").test(title));
+        },
+      };
+    }
     case "other": {
-      // Everything uncategorised or falling outside the six core buckets.
       const parts = CORE_CATS.map((c) => `NOT category:"${c}"`);
-      return { filters: parts.join(" AND "), keywords: [] };
+      return {
+        filters:  parts.join(" AND "),
+        keywords: [],
+        enforce:  (p) => {
+          const pc = String(p.category ?? "").toLowerCase().trim();
+          return !pc || !CORE_CATS.includes(pc as typeof CORE_CATS[number]);
+        },
+      };
     }
     default: return null;
   }
+}
+
+// Round-robin by brand so a single batch doesn't clump a brand's entire
+// inventory together. Group by brand (case-insensitive, falling back to
+// retailer), then take one from each bucket in order until all are drained.
+// Preserves Algolia's per-brand internal ranking while spreading brands out.
+function interleaveByBrand<T extends Record<string, unknown>>(products: T[]): T[] {
+  const byBrand = new Map<string, T[]>();
+  for (const p of products) {
+    const key = String(p.brand ?? p.retailer ?? "").toLowerCase().trim() || "__unknown__";
+    const bucket = byBrand.get(key);
+    if (bucket) bucket.push(p);
+    else byBrand.set(key, [p]);
+  }
+  const buckets = Array.from(byBrand.values());
+  const out: T[] = [];
+  let anyLeft = true;
+  while (anyLeft) {
+    anyLeft = false;
+    for (const bucket of buckets) {
+      const p = bucket.shift();
+      if (p !== undefined) {
+        out.push(p);
+        anyLeft = true;
+      }
+    }
+  }
+  return out;
 }
 
 interface BiasPayload {
@@ -202,7 +287,7 @@ export async function POST(request: Request) {
           query:       q,
           ...(optionalWords ? { optionalWords } : {}),
           ...(filters ? { filters } : {}),
-          hitsPerPage: HITS_PER_PAGE,
+          hitsPerPage: SCOPED_FETCH,
           page,
           attributesToRetrieve,
         },
@@ -212,15 +297,26 @@ export async function POST(request: Request) {
       // Structured Steer post-filter (price tier / category / color / avoid).
       products = applySteerPostFilter(products, steerInterp);
 
-      const clean = products.filter((h) => {
+      // Strict category-scope enforcement — defensive against mis-tagged rows
+      // in the Algolia index (e.g. hoodies slipping into Shoes).
+      if (categoryScope?.enforce) {
+        products = products.filter(categoryScope.enforce);
+      }
+
+      let clean = products.filter((h) => {
         const u = h.image_url;
         return typeof u === "string" && u.startsWith("http");
       });
 
+      // Round-robin by brand so the page doesn't serve a long run of one
+      // retailer. Requires the over-fetched pool (SCOPED_FETCH) to have
+      // multiple brands in it — Algolia's default ranking otherwise clumps.
+      clean = interleaveByBrand(clean);
+
       return NextResponse.json({
         products: clean,
         page,
-        hasMore:  (res.hits?.length ?? 0) >= HITS_PER_PAGE,
+        hasMore:  (res.hits?.length ?? 0) >= SCOPED_FETCH,
         mode:     brandFilterQuery ? "brand" : "category",
         brand:    brandFilter    || undefined,
         category: categoryFilter || undefined,
@@ -260,10 +356,12 @@ export async function POST(request: Request) {
 
       products = applySteerPostFilter(products, steerInterp);
 
-      const clean = products.filter((p) => {
+      let clean = products.filter((p) => {
         const u = p.image_url;
         return typeof u === "string" && u.startsWith("http");
       });
+
+      clean = interleaveByBrand(clean);
 
       return NextResponse.json({
         products: clean,
