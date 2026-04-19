@@ -2,9 +2,16 @@
  * GET /api/category-index
  *
  * Returns a sample product image per display category for the /shop
- * category-picker grid. One Algolia search per category, run in parallel,
- * each pulling a single hit. Cached for an hour — the sample image can
- * rotate occasionally but doesn't need to be fresh on every visit.
+ * category-picker grid. One Algolia search per category, run in parallel.
+ * Cached for an hour — the sample image can rotate occasionally but
+ * doesn't need to be fresh on every visit.
+ *
+ * Data quality guard: the Algolia catalog has some mis-tagged rows (a
+ * Momotaro hoodie with category="shoes", etc.). We over-fetch a pool
+ * per category and walk until the first hit whose title matches the
+ * category's expected vocabulary — that way the card hero never ends
+ * up as a hoodie under Shoes or a vintage couture archive piece under
+ * Dresses, even when Algolia ranks those items first.
  */
 
 import { NextResponse }  from "next/server";
@@ -26,29 +33,50 @@ type CategoryRequest = {
 // lanes need to agree on what each display label means.
 //
 // `query` biases which single hit Algolia picks for the card hero image.
-// For Dresses the bare `category:"dress"` filter was pulling an archive
-// couture gown on a mannequin that looked dated on the card. Adding a
-// gentle editorial bias ("midi slip linen silk flowy") nudges Algolia
-// toward a cleaner, more current piece without hard-filtering. We also
-// pick from a wider slice below so a tweak here is easy.
+// The TITLE_WHITELIST below still filters afterward, so the query is a
+// ranking nudge, not a hard requirement.
 const CATEGORIES: CategoryRequest[] = [
   { label: "Tops",                 filters: 'category:"top"',    query: "" },
-  { label: "Dresses",              filters: 'category:"dress"',  query: "midi slip linen silk flowy" },
+  { label: "Dresses",              filters: 'category:"dress"',  query: "midi slip linen silk flowy modern" },
   { label: "Bottoms",              filters: 'category:"bottom"', query: "" },
   { label: "Knits",                filters: null,                query: "knit sweater cardigan cashmere wool" },
   { label: "Bags and accessories", filters: 'category:"bag"',    query: "" },
-  { label: "Shoes",                filters: 'category:"shoes"',  query: "" },
+  { label: "Shoes",                filters: 'category:"shoes"',  query: "heel boot sandal loafer" },
   { label: "Outerwear",            filters: 'category:"jacket"', query: "" },
   { label: "Other",                filters: CORE_CATS.map((c) => `NOT category:"${c}"`).join(" AND "), query: "" },
 ];
 
-// How many hits to pull from Algolia per category, and which index to use
-// for the card image. Wider pool + non-zero pick index = an easy knob to
-// skip obvious duds per category without rewriting queries.
-const PICK_INDEX: Record<string, number> = {
-  "Dresses": 2, // skip the first two hits — top slot keeps picking an archive couture gown
+// Per-category required title vocabulary. A hit is only picked as the hero
+// if its title matches at least one of these words (word-start boundary, so
+// "heel" matches "heel"/"heels" but NOT "loopwheel"). If no hit in the pool
+// matches, we fall back to the first hit with any valid image URL.
+const TITLE_WHITELIST: Record<string, readonly string[]> = {
+  "Shoes":                ["heel", "boot", "sandal", "sneaker", "loafer", "pump", "mule", "shoe", "slipper", "espadrille", "oxford", "moccasin", "derby", "clog", "slide"],
+  "Dresses":              ["dress", "gown", "slip", "midi", "maxi", "sundress"],
+  "Tops":                 ["top", "shirt", "blouse", "tee", "tank", "cami", "bodice", "halter", "bustier"],
+  "Bottoms":              ["pant", "skirt", "jean", "trouser", "legging", "short", "culotte"],
+  "Outerwear":            ["jacket", "coat", "blazer", "trench", "parka", "puffer", "peacoat", "bomber", "cape"],
+  "Bags and accessories": ["bag", "tote", "clutch", "purse", "handbag", "backpack", "satchel", "crossbody"],
+  "Knits":                ["knit", "sweater", "cardigan", "cashmere", "wool", "jumper", "pullover", "turtleneck"],
 };
-const HITS_PER_PAGE = 8;
+
+// Avoid archive/vintage couture as the hero for a category — those pieces
+// photograph dated on a modern product card. Applied on top of the positive
+// whitelist.
+const TITLE_BLACKLIST: Record<string, readonly string[]> = {
+  "Dresses": ["haute", "couture", "archive"],
+};
+
+function titleOk(label: string, title: string): boolean {
+  const t = title.toLowerCase();
+  const allow = TITLE_WHITELIST[label];
+  if (allow && !allow.some((k) => new RegExp(`\\b${k}`, "i").test(t))) return false;
+  const block = TITLE_BLACKLIST[label];
+  if (block && block.some((k) => new RegExp(`\\b${k}`, "i").test(t))) return false;
+  return true;
+}
+
+const POOL_SIZE = 32;
 
 export async function GET() {
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
@@ -71,20 +99,30 @@ export async function GET() {
             query,
             ...(filters ? { filters } : {}),
             ...(query ? { optionalWords: query.split(/\s+/).filter(Boolean) } : {}),
-            hitsPerPage: HITS_PER_PAGE,
-            attributesToRetrieve: ["objectID", "image_url"],
+            hitsPerPage: POOL_SIZE,
+            attributesToRetrieve: ["objectID", "image_url", "title"],
           },
         });
-        // Walk starting at the per-category pick index and take the first
-        // hit that actually has a usable http image URL.
-        const hits     = (res.hits ?? []) as Array<{ image_url?: string }>;
-        const startIdx = PICK_INDEX[label] ?? 0;
+        const hits = (res.hits ?? []) as Array<{ image_url?: string; title?: string }>;
+        // Pass 1 — first hit with a valid image AND a title that matches
+        // the category's whitelist / clears the blacklist.
         let imageUrl: string | null = null;
-        for (let i = 0; i < hits.length; i++) {
-          const h = hits[(startIdx + i) % hits.length];
-          if (typeof h?.image_url === "string" && h.image_url.startsWith("http")) {
-            imageUrl = h.image_url;
+        for (const h of hits) {
+          const img   = typeof h.image_url === "string" && h.image_url.startsWith("http") ? h.image_url : null;
+          const title = typeof h.title === "string" ? h.title : "";
+          if (img && titleOk(label, title)) {
+            imageUrl = img;
             break;
+          }
+        }
+        // Pass 2 — fallback: first hit with any valid image, even if the
+        // title check missed. Prevents blank tiles in the degenerate case.
+        if (!imageUrl) {
+          for (const h of hits) {
+            if (typeof h.image_url === "string" && h.image_url.startsWith("http")) {
+              imageUrl = h.image_url;
+              break;
+            }
           }
         }
         return { label, imageUrl, count: res.nbHits ?? null };

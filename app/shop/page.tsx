@@ -46,19 +46,33 @@ function getGridCols(): number {
   return 2;
 }
 
-// Greedy brand mixer with two constraints:
+// Brand mixer — "rearrange-string" greedy with two constraints:
 //   1. No two items from the same brand are adjacent in the flat list
 //      (covers both horizontal adjacency AND end-of-row → start-of-next-row).
 //   2. No three items from the same brand appear on the same grid row.
-// Takes the first candidate in the server-ranked pool that satisfies both;
-// falls through to the next item when nothing valid remains (so a pool of
-// mostly-one-brand can't stall). Pool appends at the end never reorder
-// earlier picks — so the mix is stable as infinite-scroll loads more pages.
+// At each step we pick the brand with the MOST remaining items (subject to
+// the two constraints) rather than the first valid item in server order.
+// Frequency-first is the standard optimal strategy for spread problems: it
+// prevents a dominant brand from being held back until the end of the feed
+// and then dumped in one unmixable run. If no brand satisfies both hard
+// constraints, we relax — row-cap first, adjacency last — so the function
+// never stalls on degenerate data (e.g. 140-of-150 items from one brand).
+// Within a brand, original server order is preserved, so the ranking signal
+// survives the reorder.
 function mixBrands(list: Product[], cols: number): Product[] {
   if (list.length <= 1 || cols <= 0) return list;
-  const out:  Product[] = [];
-  const pool: Product[] = list.slice();
-  while (pool.length > 0) {
+
+  const buckets = new Map<string, Product[]>();
+  for (const p of list) {
+    const key = (p.brand ?? "").toLowerCase();
+    const arr = buckets.get(key);
+    if (arr) arr.push(p);
+    else buckets.set(key, [p]);
+  }
+
+  const out: Product[] = [];
+
+  while (buckets.size > 0) {
     const idx      = out.length;
     const rowStart = idx - (idx % cols);
     const prev     = (out[idx - 1]?.brand ?? "").toLowerCase();
@@ -67,20 +81,34 @@ function mixBrands(list: Product[], cols: number): Product[] {
       const b = (out[i].brand ?? "").toLowerCase();
       if (b) rowCount.set(b, (rowCount.get(b) ?? 0) + 1);
     }
-    let picked = -1;
-    for (let i = 0; i < pool.length; i++) {
-      const b = (pool[i].brand ?? "").toLowerCase();
-      if (b) {
-        if (b === prev) continue;                   // adjacency
-        if ((rowCount.get(b) ?? 0) >= 2) continue;  // row cap
+
+    // Tiered selection: each tier picks the highest-remaining brand that
+    // satisfies the tier's constraints. Empty-brand items are treated as
+    // unconstrained (no adjacency/row rule applies).
+    const pickBest = (allowAdj: boolean, allowRow: boolean): string | null => {
+      let best: string | null = null;
+      let bestN = -1;
+      for (const [brand, items] of buckets) {
+        if (items.length === 0) continue;
+        if (brand) {
+          if (!allowAdj && brand === prev) continue;
+          if (!allowRow && (rowCount.get(brand) ?? 0) >= 2) continue;
+        }
+        if (items.length > bestN) { best = brand; bestN = items.length; }
       }
-      picked = i;
-      break;
-    }
-    if (picked === -1) picked = 0;
-    out.push(pool[picked]);
-    pool.splice(picked, 1);
+      return best;
+    };
+
+    const picked =
+      pickBest(false, false) ??  // strict: both rules
+      pickBest(false, true)  ??  // relax row cap
+      pickBest(true,  true)!;    // forced: nothing else left
+
+    const arr = buckets.get(picked)!;
+    out.push(arr.shift()!);
+    if (arr.length === 0) buckets.delete(picked);
   }
+
   return out;
 }
 
