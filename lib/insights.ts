@@ -14,12 +14,42 @@ const INSIGHTS_URL    = `https://insights.algolia.io/1/events`;
 // Anonymous UUID per browser, persisted in localStorage.
 // Swap this for your real user ID once auth is in place.
 
+/**
+ * UUID v4 generator that works on every browser we care about.
+ *
+ *   Tier 1: native crypto.randomUUID()     — Chrome 92+, Firefox 95+, Safari 15.4+
+ *   Tier 2: crypto.getRandomValues + bit-fiddle  — iOS 6+, all modern browsers
+ *   Tier 3: Math.random (non-crypto, fine for an anonymous analytics id)
+ *
+ * The native form gets called first when present. Older iPads stuck below
+ * iOS 15.4 would otherwise throw TypeError on crypto.randomUUID() and take
+ * down the entire page via the uncaught exception.
+ */
+function uuidv4(): string {
+  const c = typeof crypto !== "undefined" ? crypto : undefined;
+  if (c && typeof c.randomUUID === "function") {
+    return c.randomUUID();
+  }
+  if (c && typeof c.getRandomValues === "function") {
+    const b = new Uint8Array(16);
+    c.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40; // version 4
+    b[8] = (b[8] & 0x3f) | 0x80; // RFC 4122 variant
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, "0"));
+    return `${h.slice(0, 4).join("")}-${h.slice(4, 6).join("")}-${h.slice(6, 8).join("")}-${h.slice(8, 10).join("")}-${h.slice(10, 16).join("")}`;
+  }
+  // Last-resort fallback — not cryptographically random, but adequate for
+  // an anonymous analytics token on a device too old to have getRandomValues.
+  const r = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
+  return `${r()}${r()}-${r()}-4${r().slice(1)}-${((Math.random() * 4) | 8).toString(16)}${r().slice(1)}-${r()}${r()}${r()}`;
+}
+
 export function getUserToken(): string {
   if (typeof window === "undefined") return "anon";
   const key = "muse_user_token";
   let token = localStorage.getItem(key);
   if (!token) {
-    token = "anon-" + crypto.randomUUID();
+    token = "anon-" + uuidv4();
     localStorage.setItem(key, token);
   }
   return token;
