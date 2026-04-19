@@ -128,11 +128,18 @@ export async function POST(request: Request) {
   // if an older client hasn't been upgraded yet.
   const steerInterp: SteerInterp | null = body?.steerInterp ?? null;
   const steerQueryRaw: string = typeof body?.steerQuery === "string" ? body.steerQuery.trim() : "";
-  // Effective text query: prefer the structured interp's search terms, else
-  // fall back to the raw text. Empty string if neither is set.
+  // Pinterest interpretation: same shape as steerInterp. Extracted once at
+  // sign-in time from the user's Pinterest fashion boards and forwarded on
+  // every page fetch so the catalog side of the feed is pinterest-influenced
+  // too, not just the pool portion. When both pinterest AND steer signals
+  // are present, BOTH contribute to optionalWords.
+  const pinterestInterp: SteerInterp | null = body?.pinterestInterp ?? null;
+  // Effective text query: merge pinterest + steer search terms, plus the
+  // raw steer fallback if structured parse didn't yield anything.
   const steerQuery = hasSteerSignals(steerInterp)
     ? buildSteerQuery(steerInterp)
     : steerQueryRaw;
+  const pinterestQuery = hasSteerSignals(pinterestInterp) ? buildSteerQuery(pinterestInterp) : "";
 
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -173,13 +180,15 @@ export async function POST(request: Request) {
       // brand taste re-ranking still happens client-side via the scoring
       // algorithm. Disliked-category post-filter is also skipped — a
       // whole brand scope shouldn't get trimmed by cross-brand dislikes.
-      const optionalWords = steerQuery
-        ? steerQuery.split(/\s+/).filter(Boolean)
-        : undefined;
+      // Merge pinterest + steer words into one optionalWords list so the
+      // brand's results rank-boost items that match the user's taste. Steer
+      // dominates (user just typed it) with pinterest as baseline below.
+      const q = [steerQuery, pinterestQuery].filter(Boolean).join(" ");
+      const optionalWords = q ? q.split(/\s+/).filter(Boolean) : undefined;
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
         searchParams: {
-          query:       steerQuery,
+          query:       q,
           ...(optionalWords ? { optionalWords } : {}),
           filters:     brandFilterQuery,
           hitsPerPage: HITS_PER_PAGE,
@@ -191,7 +200,9 @@ export async function POST(request: Request) {
 
       // Post-filter by structured Steer directives (price tier, category,
       // color, avoid words) so "cheaper", "no florals", etc actually work.
+      // Pinterest's avoid_terms / price_range also apply.
       products = applySteerPostFilter(products, steerInterp);
+      products = applySteerPostFilter(products, pinterestInterp);
 
       const clean = products.filter((h) => {
         const u = h.image_url;
@@ -209,14 +220,16 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── Query-driven path: fires whenever the user has signaled anything
-    //     — either an explicit Steer query, or bias from their likes. In
-    //     both cases we run ONE Algolia search over the full catalog and
-    //     treat every term as optionalWords (ranking hint, not filter).
-    if (steerQuery || hasLikedSignals(bias)) {
+    // ── Query-driven path: fires whenever the user has signaled ANYTHING
+    //     — pinterest interpretation (signed-in users), explicit Steer
+    //     query, or bias from their session likes. All three merge into
+    //     one Algolia search with every term treated as optionalWords
+    //     (ranking hint, not filter).
+    if (steerQuery || pinterestQuery || hasLikedSignals(bias)) {
       const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
-      // Steer first so it dominates the relevance score; bias words follow.
-      const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
+      // Order: steer first (what the user JUST typed dominates), then
+      // pinterest (baseline taste), then session bias (recent likes).
+      const q = [steerQuery, pinterestQuery, biasQuery].filter(Boolean).join(" ");
       // Mark every word as optional. Algolia's default AND semantics would
       // otherwise require every term to match simultaneously — e.g.
       // "Everlane dress white" → 0 hits because almost no product has all
@@ -248,8 +261,9 @@ export async function POST(request: Request) {
         });
       }
 
-      // Steer post-filter (price, category, color, avoid terms).
+      // Steer + Pinterest post-filters (price, category, color, avoid).
       products = applySteerPostFilter(products, steerInterp);
+      products = applySteerPostFilter(products, pinterestInterp);
 
       // Image-url sanity
       const clean = products.filter((p) => {

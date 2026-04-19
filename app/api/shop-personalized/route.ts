@@ -162,11 +162,25 @@ export async function POST(request: Request) {
       return typeof u === "string" && u.startsWith("http");
     });
 
+    // Expose the Claude-extracted interpretation so the client can forward
+    // it to /api/shop-all on every subsequent page fetch. That way even the
+    // "flat" half of the 5:5 interleave is biased by the user's Pinterest
+    // taste, not just the products in this pool. Shape matches
+    // SteerInterpretation so shop-all can treat pinterest + steer
+    // identically.
     return NextResponse.json({
       products:    clean,
       pinsUsed:    urls.length,
       searchTerms: terms,
       avoidTerms:  parsed.avoid_terms ?? [],
+      interp: {
+        search_terms: terms,
+        avoid_terms:  parsed.avoid_terms ?? [],
+        price_range:  parsed.price_range ?? null,
+        categories:   [],
+        colors:       [],
+        intent:       "from your Pinterest boards",
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

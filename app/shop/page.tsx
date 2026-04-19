@@ -78,6 +78,15 @@ export default function ShopPage() {
   const [steerInterp,      setSteerInterp]      = useState<SteerInterpretation | null>(null);
   const [interpretingSteer, setInterpretingSteer] = useState(false);
 
+  // Pinterest-derived baseline taste (the structured interpretation Claude
+  // extracts from the user's fashion boards). Stored in a ref because it's
+  // written inside the tryPersonalize closure and must be readable by the
+  // very next loadMore call that's awaiting it — state would still be stale
+  // in the effect's closure at that moment. Every /api/shop-all fetch
+  // forwards this so the "flat" half of the 5:5 blend is pinterest-biased
+  // too, not just the pool portion.
+  const pinterestInterpRef = useRef<SteerInterpretation | null>(null);
+
   // ── Session scoring algorithm state ────────────────────────────────────────
   // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
   // swipes add to dislikedSignals, and both re-rank the upcoming queue so
@@ -248,10 +257,11 @@ export default function ShopPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           page,
-          bias:         buildBias(),
-          brandFilter:  brandFilter ?? "",
+          bias:             buildBias(),
+          brandFilter:      brandFilter ?? "",
           steerQuery,
           steerInterp,
+          pinterestInterp:  pinterestInterpRef.current,
         }),
       });
       if (!res.ok) {
@@ -300,6 +310,12 @@ export default function ShopPage() {
       if (!shopRes.ok) return;
       const shopData = await shopRes.json();
       const pool: Product[] = shopData?.products ?? [];
+      // Capture Claude's interpretation so subsequent shop-all fetches can
+      // fold it into the catalog query (makes the flat half pinterest-
+      // influenced too). Even if the pool itself is empty, the interp can
+      // still be useful as a bias source.
+      const interp = (shopData?.interp ?? null) as SteerInterpretation | null;
+      if (interp) pinterestInterpRef.current = interp;
       if (pool.length === 0) return;
 
       // Only record the pool — existing flat products stay in place.
@@ -379,7 +395,14 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page: 0, bias, brandFilter, steerQuery, steerInterp }),
+        body:    JSON.stringify({
+          page:             0,
+          bias,
+          brandFilter,
+          steerQuery,
+          steerInterp,
+          pinterestInterp:  pinterestInterpRef.current,
+        }),
       });
       if (!res.ok) return;
       const data  = await res.json();
@@ -947,7 +970,7 @@ function ProductScrollView({
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="w-full h-full sm:w-[440px] sm:max-w-[92vw] sm:h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
+            className="no-scrollbar w-full h-full sm:w-[440px] sm:max-w-[92vw] sm:h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
             style={{ scrollSnapType: "y mandatory" }}
           >
             {products.map((p, i) => (
@@ -999,6 +1022,62 @@ function ProductScrollView({
             </form>
           )}
 
+          {/* Mobile rail — overlaid on the card's bottom-right, above the
+              product info overlay. Hidden on sm+ (the desktop rail below
+              handles that case via flex). */}
+          <div className="sm:hidden absolute right-3 bottom-40 z-20 flex flex-col items-center gap-5">
+            <RailButton
+              label={activeLiked ? "Liked" : "Like"}
+              onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5"
+                fill={activeLiked ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </RailButton>
+            <RailButton
+              label={showSayMore ? "Cancel" : "Steer"}
+              onClick={() => setShowSayMore((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5"
+                fill={showSayMore ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </RailButton>
+          </div>
+        </div>
+
+        {/* Desktop rail — flex sibling of the card, hidden on mobile. */}
+        <div className="hidden sm:flex flex-col items-center gap-6">
+          <RailButton
+            label={activeLiked ? "Liked" : "Like"}
+            onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
+          >
+            {/* When liked, the heart fills olive (currentColor === olive
+                foreground). Rest state: outline only. */}
+            <svg viewBox="0 0 24 24" className="w-5 h-5"
+              fill={activeLiked ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </RailButton>
+
+          <RailButton
+            label={showSayMore ? "Cancel" : "Steer"}
+            onClick={() => setShowSayMore((v) => !v)}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5"
+              fill={showSayMore ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </RailButton>
         </div>
       </div>
     </div>

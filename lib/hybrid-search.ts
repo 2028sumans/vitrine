@@ -13,7 +13,7 @@
 
 import type { AlgoliaProduct, CategoryCandidates, ClothingCategory } from "@/lib/algolia";
 import { getProductsByIds, groupByCategory, searchByCategory } from "@/lib/algolia";
-import { searchByEmbeddings } from "@/lib/embeddings";
+import { searchByEmbeddings, searchByVibeText } from "@/lib/embeddings";
 import type { StyleDNA } from "@/lib/types";
 
 const CATEGORIES: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
@@ -37,11 +37,36 @@ function rrfMerge(lists: string[][], maxResults: number): string[] {
     .slice(0, maxResults);
 }
 
+/** Build the Claude-native vibe phrases we'll encode against the `vibe` namespace. */
+function vibePhrases(dna: StyleDNA): string[] {
+  const out: string[] = [];
+  // Full-sentence retrieval phrases are already written in FashionCLIP-native
+  // vocabulary, so they're ideal anchors against captioned product vectors.
+  for (const p of dna.retrieval_phrases ?? []) {
+    if (typeof p === "string" && p.trim()) out.push(p.trim());
+  }
+  if (out.length > 0) return out.slice(0, 8);
+
+  // Fallback: synthesise a short vibe line from the structured fields.
+  const synthesised = [
+    dna.primary_aesthetic, dna.secondary_aesthetic, dna.mood,
+    ...(dna.color_palette ?? []).slice(0, 3),
+    ...(dna.silhouettes   ?? []).slice(0, 2),
+    ...(dna.style_keywords ?? []).slice(0, 4),
+  ].filter((s): s is string => Boolean(s?.trim())).join(", ");
+  return synthesised ? [synthesised] : [];
+}
+
 /**
- * Run Pinecone visual search + Algolia text search in parallel,
- * merge results per category with RRF.
+ * Run Pinecone visual search + Algolia text search + Pinecone vibe-vector
+ * search in parallel, merge results per category with RRF.
  *
- * Falls back to pure Algolia if Pinecone returns nothing.
+ * Three rankers now vote instead of two:
+ *   - visual  : FashionCLIP image-text vector similarity (default namespace)
+ *   - vibe    : Claude-caption vector similarity         (`vibe` namespace)
+ *   - algolia : category-aware keyword search
+ *
+ * Falls back to whatever subset is non-empty.
  */
 export async function hybridSearch(
   embeddings:     number[][],
@@ -49,15 +74,18 @@ export async function hybridSearch(
   userToken:      string,
   maxPerCategory  = 20,
 ): Promise<CategoryCandidates> {
-  const valid = embeddings.filter((e) => e.length > 0);
+  const valid   = embeddings.filter((e) => e.length > 0);
+  const phrases = vibePhrases(aesthetic);
 
-  const [pineconeIds, algoliaCandidates] = await Promise.all([
-    // Pinecone: visual similarity search (fetch generous 200 to have enough per category)
+  const [pineconeIds, vibeIds, algoliaCandidates] = await Promise.all([
     valid.length > 0
-      ? searchByEmbeddings(valid, 200, aesthetic.price_range).catch(() => [] as string[])
+      ? searchByEmbeddings(valid, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
-    // Algolia: category-aware text search using Claude-generated aesthetic queries
+    phrases.length > 0
+      ? searchByVibeText(phrases, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
+      : Promise.resolve([] as string[]),
+
     searchByCategory(
       aesthetic.category_queries,
       aesthetic.style_keywords ?? [],
@@ -67,33 +95,38 @@ export async function hybridSearch(
     ).catch(() => emptyBuckets()),
   ]);
 
-  // If Pinecone returned nothing, pure Algolia result is the best we can do
-  if (pineconeIds.length === 0) {
-    console.log("[hybrid] Pinecone empty — using Algolia only");
+  const allPineconeIds = Array.from(new Set([...pineconeIds, ...vibeIds]));
+  if (allPineconeIds.length === 0) {
+    console.log("[hybrid] Pinecone empty (visual + vibe) — using Algolia only");
     return algoliaCandidates;
   }
 
-  // Hydrate Pinecone IDs → full product objects
-  const pineconeProducts = await getProductsByIds(pineconeIds);
-  const pineconeBuckets  = groupByCategory(pineconeProducts, maxPerCategory * 2);
-
-  console.log(
-    `[hybrid] Pinecone: ${pineconeIds.length} ids → ${pineconeProducts.length} products | ` +
-    `Algolia: ${Object.values(algoliaCandidates).flat().length} products`
+  // Hydrate the union of IDs returned by either Pinecone namespace once.
+  const pineconeProducts = await getProductsByIds(allPineconeIds);
+  const visualBuckets    = groupByCategory(
+    pineconeProducts.filter((p) => pineconeIds.includes(p.objectID)),
+    maxPerCategory * 2,
+  );
+  const vibeBuckets      = groupByCategory(
+    pineconeProducts.filter((p) => vibeIds.includes(p.objectID)),
+    maxPerCategory * 2,
   );
 
-  // RRF per category bucket
+  console.log(
+    `[hybrid] visual=${pineconeIds.length} vibe=${vibeIds.length} algolia=${Object.values(algoliaCandidates).flat().length}`
+  );
+
   const merged = emptyBuckets();
 
   for (const cat of CATEGORIES) {
-    const pinIds = pineconeBuckets[cat].map((p) => p.objectID);
+    const visIds = visualBuckets[cat].map((p) => p.objectID);
+    const vibIds = vibeBuckets[cat].map((p) => p.objectID);
     const algIds = algoliaCandidates[cat].map((p) => p.objectID);
 
-    const mergedIds = rrfMerge([pinIds, algIds], maxPerCategory);
+    const mergedIds = rrfMerge([visIds, vibIds, algIds], maxPerCategory);
 
-    // Build lookup — Algolia data preferred (fresher, has queryID for Insights)
     const lookup = new Map<string, AlgoliaProduct>();
-    [...pineconeBuckets[cat], ...algoliaCandidates[cat]].forEach((p) => {
+    [...visualBuckets[cat], ...vibeBuckets[cat], ...algoliaCandidates[cat]].forEach((p) => {
       if (!lookup.has(p.objectID)) lookup.set(p.objectID, p);
     });
 
