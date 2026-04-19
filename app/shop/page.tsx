@@ -11,6 +11,7 @@ import {
   type ClickSignalLike,
   type ScoringCard,
 } from "@/lib/scoring";
+import type { SteerInterpretation } from "@/lib/steer-interpret";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,12 +67,16 @@ export default function ShopPage() {
   const sentinelRef           = useRef<HTMLDivElement>(null);
   const personalizeTriedRef   = useRef(false);
 
-  // Free-text Steer query from the scroll view. When the user types something
-  // like "black only" in the Steer input, we apply it as an Algolia text query
-  // (with optionalWords so it ranks rather than strictly filters) over the
-  // current scope — brand if we're in brand mode, full catalog otherwise.
-  // Empty string = no steer active.
-  const [steerQuery, setSteerQuery] = useState<string>("");
+  // Free-text Steer input from the scroll view. `steerQuery` holds the raw
+  // text the user typed (used for scope hashing + pre-filling the input when
+  // re-opened); `steerInterp` holds the Claude-parsed structured filters
+  // (price tier, categories, colors, search/avoid terms). Empty string +
+  // null interp = no steer active.
+  // `interpretingSteer` covers the ~1–2 s window while Claude runs so the
+  // loader stays visible through the whole submit-to-refetch transition.
+  const [steerQuery,       setSteerQuery]       = useState<string>("");
+  const [steerInterp,      setSteerInterp]      = useState<SteerInterpretation | null>(null);
+  const [interpretingSteer, setInterpretingSteer] = useState(false);
 
   // ── Session scoring algorithm state ────────────────────────────────────────
   // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
@@ -128,8 +133,8 @@ export default function ShopPage() {
     return [...seen, ...rankedProducts];
   }, []);
 
-  // Interleaves a flat batch with the personalized pool at 7:3 ratio. For
-  // every 10 output slots we emit 7 from the flat batch then 3 from the pool.
+  // Interleaves a flat batch with the personalized pool at 5:5 ratio. For
+  // every 10 output slots we emit 5 from the flat batch then 5 from the pool.
   // Dedupes across everything seen so far (so a product can't appear twice).
   const interleaveWithPool = useCallback((flat: Product[]): Product[] => {
     const pool      = personalizedPoolRef.current;
@@ -137,16 +142,16 @@ export default function ShopPage() {
     const out: Product[] = [];
     let flatI = 0;
     while (flatI < flat.length) {
-      // 7 from flat
-      for (let i = 0; i < 7 && flatI < flat.length; ) {
+      // 5 from flat
+      for (let i = 0; i < 5 && flatI < flat.length; ) {
         const p = flat[flatI++];
         if (seen.has(p.objectID)) continue;
         seen.add(p.objectID);
         out.push(p);
         i++;
       }
-      // 3 from personalized pool (if any left)
-      for (let i = 0; i < 3 && personalizedIdxRef.current < pool.length; ) {
+      // 5 from personalized pool (if any left)
+      for (let i = 0; i < 5 && personalizedIdxRef.current < pool.length; ) {
         const p = pool[personalizedIdxRef.current++];
         if (seen.has(p.objectID)) continue;
         seen.add(p.objectID);
@@ -215,7 +220,13 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page, bias: buildBias(), brandFilter: brandFilter ?? "", steerQuery }),
+        body:    JSON.stringify({
+          page,
+          bias:         buildBias(),
+          brandFilter:  brandFilter ?? "",
+          steerQuery,
+          steerInterp,
+        }),
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
@@ -234,7 +245,7 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter, steerQuery]);
+  }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter, steerQuery, steerInterp]);
 
   // Fetch the user's fashion-board pin URLs → Claude Vision extracts search
   // terms → Algolia search → store as a pool. Pool is drawn from by
@@ -280,12 +291,8 @@ export default function ShopPage() {
   // The useEffect below has four deps (session, accessToken, brandFilter,
   // steerQuery) — and each of those can settle in stages on mount (session
   // goes undefined → authed, URL read swaps brandFilter null → value, etc).
-  // Without a guard the effect body runs 2–3 times in quick succession; on
-  // run #2 tryPersonalize's personalizeTriedRef makes the `await` a no-op
-  // and loadMore fires *before* the in-flight Pinterest fetches from run
-  // #1 finish. Symptom: flat catalog appears immediately, "reading
-  // pinterest…" stays pinned for another 5 s, and the feed never gets
-  // blended because the pool arrived after the batch.
+  // Without a guard the effect body runs 2–3 times in quick succession,
+  // firing duplicate loadMore / tryPersonalize calls.
   //
   // initStartedRef blocks all subsequent runs until the scope (brand +
   // steer) changes, at which point we reset it and let the init fire
@@ -295,12 +302,13 @@ export default function ShopPage() {
 
   // Initial load AND Steer-driven reload.
   //
-  // Ordering matters: if the user is signed into Pinterest we AWAIT the
-  // personalization call before firing loadMore. That way the first batch
-  // of products the user sees is already blended with the Pinterest pool,
-  // instead of a generic flat batch appearing for ~5 s and then getting
-  // reshuffled. Signed-out users skip the await and get the flat catalog
-  // immediately, same as before.
+  // Personalization and the first catalog fetch fire in parallel. The flat
+  // batch paints as soon as it arrives (usually <1 s) so the user isn't
+  // staring at "reading your pinterest…" for the full Claude-vision round
+  // trip. Once the personalized pool lands, interleaveWithPool picks it up
+  // on the next loadMore (triggered by the scroll sentinel), so subsequent
+  // batches blend 7:3. Tradeoff: the first batch is unpersonalized, but
+  // that's strictly better than an empty grid for 30–60 s.
   useEffect(() => {
     if (session === undefined) return;
     if (brandFilter === null) return;
@@ -314,11 +322,8 @@ export default function ShopPage() {
     if (initStartedRef.current) return;
     initStartedRef.current = true;
 
-    const init = async () => {
-      if (accessToken) await tryPersonalize(accessToken);
-      loadMore();
-    };
-    void init();
+    if (accessToken) void tryPersonalize(accessToken);
+    void loadMore();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [session, accessToken, brandFilter, steerQuery]);
 
@@ -348,7 +353,7 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page: 0, bias, brandFilter, steerQuery }),
+        body:    JSON.stringify({ page: 0, bias, brandFilter, steerQuery, steerInterp }),
       });
       if (!res.ok) return;
       const data  = await res.json();
@@ -375,7 +380,7 @@ export default function ShopPage() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, brandFilter, steerQuery, isBrandMode]);
+  }, [buildBias, brandFilter, steerQuery, steerInterp, isBrandMode]);
 
   const handleLike = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
@@ -445,23 +450,59 @@ export default function ShopPage() {
     if (signal === "negative") void refreshBiasedAhead();
   }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead]);
 
-  // Steer submit from inside the scroll view. Resets products/page/seen so
-  // the initial-load useEffect (which depends on steerQuery) refires and
-  // re-populates the feed against the new query. An empty comment clears
-  // the steer back out. IMPORTANT: never navigate away — the user is in
-  // a specific context (brand or flat) and wants to refine it in place,
-  // not be kicked to /dashboard.
-  const handleSteer = useCallback((comment: string) => {
+  // Steer submit from inside the scroll view.
+  //
+  // Ordering:
+  //   1. Reset the feed immediately so the loader shows.
+  //   2. Ask Claude to interpret the free text into structured filters
+  //      (price_range, categories, colors, search_terms, avoid_terms)
+  //      — this is what makes "cheaper" actually filter by price instead
+  //      of searching for titles containing the word "cheaper".
+  //   3. Commit the interpretation + raw text in one batch; the initial-
+  //      load useEffect is keyed on steerQuery and picks it up to re-
+  //      fetch with the new structured filter.
+  //
+  // Empty submit clears the filter entirely.
+  //
+  // IMPORTANT: never navigate away — the user is in a specific context
+  // (brand or flat) and wants to refine it in place, not be kicked to
+  // /dashboard.
+  const handleSteer = useCallback(async (comment: string) => {
     const trimmed = comment.trim();
-    // Reset the feed state; initial-load effect will re-fetch with the
-    // new steerQuery. Keep clickHistory / likedIds / disliked refs so
-    // session-accumulated bias still applies on top of the steer query.
+
+    // Immediate feed reset so the loader replaces the current grid.
+    // Keep clickHistory / likedIds / disliked refs so session-accumulated
+    // bias still applies on top of the steer.
     setProducts([]);
     setPage(0);
     setHasMore(true);
     setLoading(false);
     seenIdsRef.current = new Set();
     personalizedIdxRef.current = 0;
+
+    if (!trimmed) {
+      // Empty submit → clear the steer.
+      setSteerInterp(null);
+      setSteerQuery("");
+      return;
+    }
+
+    setInterpretingSteer(true);
+    let interp: SteerInterpretation | null = null;
+    try {
+      const res = await fetch("/api/steer-interpret", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ text: trimmed }),
+      });
+      if (res.ok) interp = (await res.json()) as SteerInterpretation;
+    } catch (err) {
+      console.warn("[shop] steer interpret failed:", err);
+    }
+
+    // Commit interp + raw text + unset interpreting in one batch.
+    setInterpretingSteer(false);
+    setSteerInterp(interp);
     setSteerQuery(trimmed);
   }, []);
 
@@ -528,7 +569,7 @@ export default function ShopPage() {
                   )}
                   {!personalizing && fashionBoardCount > 0 && personalizedPoolRef.current.length > 0 && (
                     <span className="text-accent normal-case tracking-normal font-display italic text-sm">
-                      30% blended from your pinterest
+                      50% blended from your pinterest
                       {` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})`}
                     </span>
                   )}
@@ -593,12 +634,14 @@ export default function ShopPage() {
                 italic message instead of an empty grid — otherwise the page
                 just looks broken for ~5 seconds. Disappears the moment the
                 first products arrive. */}
-            {products.length === 0 && (personalizing || loading) && (
+            {products.length === 0 && (personalizing || loading || interpretingSteer) && (
               <div className="py-28 flex flex-col items-center justify-center text-center">
                 <p className="font-display font-light italic text-2xl sm:text-3xl text-muted-strong mb-3">
                   {personalizing
                     ? "Reading your Pinterest to tailor your feed…"
-                    : "Loading your feed…"}
+                    : interpretingSteer
+                      ? "Tuning the feed to what you asked for…"
+                      : "Loading your feed…"}
                 </p>
                 {personalizing && (
                   <p className="font-sans text-[10px] tracking-widest uppercase text-muted">

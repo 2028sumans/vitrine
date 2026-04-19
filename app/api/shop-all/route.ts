@@ -37,6 +37,14 @@ interface BiasPayload {
   dislikedCategories?:  string[];
 }
 
+interface SteerInterp {
+  search_terms?: string[];
+  avoid_terms?:  string[];
+  price_range?:  "budget" | "mid" | "luxury" | null;
+  categories?:   string[];
+  colors?:       string[];
+}
+
 function buildQueryFromBias(bias: BiasPayload): string {
   const terms: string[] = [];
   for (const b of bias.likedBrands      ?? []) terms.push(b);
@@ -51,15 +59,80 @@ function hasLikedSignals(bias: BiasPayload): boolean {
       || (bias.likedColors?.length ?? 0) > 0;
 }
 
+function hasSteerSignals(s: SteerInterp | null): boolean {
+  if (!s) return false;
+  return (s.search_terms?.length ?? 0) > 0
+      || (s.avoid_terms?.length  ?? 0) > 0
+      || !!s.price_range
+      || (s.categories?.length   ?? 0) > 0
+      || (s.colors?.length       ?? 0) > 0;
+}
+
+function buildSteerQuery(s: SteerInterp | null): string {
+  if (!s) return "";
+  const terms: string[] = [];
+  for (const t of s.search_terms ?? []) terms.push(t);
+  for (const c of s.colors       ?? []) terms.push(c);
+  for (const c of s.categories   ?? []) terms.push(c);
+  return terms.filter(Boolean).join(" ").trim();
+}
+
+// Apply the semantic pieces of a SteerInterp (price_range, categories,
+// colors, avoid_terms) as a lenient post-filter. Lenient means: only drops
+// a product if it HAS the field and the field disagrees — products missing
+// the field are kept so we don't nuke the whole feed over incomplete data.
+function applySteerPostFilter(
+  products: Array<Record<string, unknown>>,
+  s: SteerInterp | null,
+): Array<Record<string, unknown>> {
+  if (!s) return products;
+  const priceRange = s.price_range;
+  const cats       = (s.categories ?? []).map((c) => c.toLowerCase().trim()).filter(Boolean);
+  const cols       = (s.colors     ?? []).map((c) => c.toLowerCase().trim()).filter(Boolean);
+  const avoids     = (s.avoid_terms ?? []).map((a) => a.toLowerCase().trim()).filter((a) => a.length > 2);
+  if (!priceRange && cats.length === 0 && cols.length === 0 && avoids.length === 0) return products;
+
+  return products.filter((p) => {
+    // Price tier — exact match when product has the field.
+    if (priceRange) {
+      const pr = String(p.price_range ?? "").toLowerCase().trim();
+      if (pr && pr !== priceRange) return false;
+    }
+    // Category — substring match (product's "dress" matches ["dress", "top"]).
+    if (cats.length > 0) {
+      const pc = String(p.category ?? "").toLowerCase().trim();
+      if (pc && !cats.some((c) => pc.includes(c) || c.includes(pc))) return false;
+    }
+    // Color — substring match.
+    if (cols.length > 0) {
+      const pcol = String(p.color ?? "").toLowerCase().trim();
+      if (pcol && !cols.some((c) => pcol.includes(c))) return false;
+    }
+    // Avoid words appear anywhere in title/category/color.
+    if (avoids.length > 0) {
+      const hay = `${String(p.title ?? "")} ${String(p.category ?? "")} ${String(p.color ?? "")}`.toLowerCase();
+      if (avoids.some((a) => hay.includes(a))) return false;
+    }
+    return true;
+  });
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const page: number = Math.max(0, parseInt(String(body?.page ?? 0), 10) || 0);
   const bias: BiasPayload = body?.bias ?? {};
   const brandFilter: string = typeof body?.brandFilter === "string" ? body.brandFilter.trim() : "";
-  // Free-text Steer query from the scroll view ("black only", "no prints",
-  // "more linen", etc). When present it's folded into the Algolia search as
-  // optionalWords so it acts as a ranking boost rather than a hard filter.
-  const steerQuery: string = typeof body?.steerQuery === "string" ? body.steerQuery.trim() : "";
+  // Structured Steer interpretation from the client (Claude-parsed). Holds
+  // search_terms + avoid_terms + price_range + categories + colors. See
+  // lib/steer-interpret.ts for the schema. Falls back to the raw steerQuery
+  // if an older client hasn't been upgraded yet.
+  const steerInterp: SteerInterp | null = body?.steerInterp ?? null;
+  const steerQueryRaw: string = typeof body?.steerQuery === "string" ? body.steerQuery.trim() : "";
+  // Effective text query: prefer the structured interp's search terms, else
+  // fall back to the raw text. Empty string if neither is set.
+  const steerQuery = hasSteerSignals(steerInterp)
+    ? buildSteerQuery(steerInterp)
+    : steerQueryRaw;
 
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -114,7 +187,11 @@ export async function POST(request: Request) {
           attributesToRetrieve,
         },
       });
-      const products = (res.hits ?? []) as Array<Record<string, unknown>>;
+      let products = (res.hits ?? []) as Array<Record<string, unknown>>;
+
+      // Post-filter by structured Steer directives (price tier, category,
+      // color, avoid words) so "cheaper", "no florals", etc actually work.
+      products = applySteerPostFilter(products, steerInterp);
 
       const clean = products.filter((h) => {
         const u = h.image_url;
@@ -170,6 +247,9 @@ export async function POST(request: Request) {
           return true;
         });
       }
+
+      // Steer post-filter (price, category, color, avoid terms).
+      products = applySteerPostFilter(products, steerInterp);
 
       // Image-url sanity
       const clean = products.filter((p) => {
