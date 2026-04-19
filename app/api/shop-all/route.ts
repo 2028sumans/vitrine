@@ -84,30 +84,26 @@ export async function POST(request: Request) {
     const client = algoliasearch(appId, key);
 
     if (brandFilterQuery) {
-      // Brand mode: always filter to the brand; if session signals exist,
-      // also apply a taste-query so items matching your likes rank higher
-      // WITHIN the brand. Disliked-brand post-filter is a no-op here (the
-      // whole page is one brand) but disliked categories still apply.
-      const q = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
+      // Brand mode: show EVERYTHING the brand has. We deliberately do NOT
+      // apply a bias-derived text query here — Algolia treats `query` as a
+      // filter (hits must match query AND filters), so layering a taste
+      // query like "Everlane jacket white" on top of brand:"4028" drops the
+      // brand's 25 products down to whichever 0–3 happen to mention those
+      // words. Within-brand taste re-ranking still happens client-side via
+      // the scoring algorithm on returned products. We also skip the
+      // dislikedCategories post-filter here for the same reason — an entire
+      // brand scope shouldn't be trimmed based on cross-brand dislike counts.
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
         searchParams: {
-          query:       q,
+          query:       "",
           filters:     brandFilterQuery,
           hitsPerPage: HITS_PER_PAGE,
           page,
           attributesToRetrieve,
         },
       });
-      let products = (res.hits ?? []) as Array<Record<string, unknown>>;
-
-      const dislikedCategories = new Set((bias.dislikedCategories ?? []).map((s) => s.toLowerCase()));
-      if (dislikedCategories.size > 0) {
-        products = products.filter((p) => {
-          const c = String((p.category ?? "")).toLowerCase();
-          return !c || !dislikedCategories.has(c);
-        });
-      }
+      const products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
       const clean = products.filter((h) => {
         const u = h.image_url;
@@ -120,7 +116,6 @@ export async function POST(request: Request) {
         hasMore:  (res.hits?.length ?? 0) >= HITS_PER_PAGE,
         mode:     "brand",
         brand:    brandFilter,
-        query:    q,
         total:    res.nbHits ?? null,
       });
     }
@@ -128,10 +123,18 @@ export async function POST(request: Request) {
     // ── Biased path: use a taste-query, ranges over the full catalog ──────
     if (hasLikedSignals(bias)) {
       const q = buildQueryFromBias(bias);
+      // Mark every bias word as optional. Algolia's default AND semantics
+      // would otherwise require every liked term to match simultaneously —
+      // e.g. "Everlane dress white" → 0 hits because almost no product has
+      // all three words. With optionalWords, products matching ANY of the
+      // terms come back, and ones matching more terms rank higher. That's
+      // the "bias" we actually want: a ranking hint, not a filter.
+      const optionalWords = q.split(/\s+/).filter(Boolean);
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
         searchParams: {
           query:       q,
+          optionalWords,
           hitsPerPage: HITS_PER_PAGE,
           page,
           attributesToRetrieve,

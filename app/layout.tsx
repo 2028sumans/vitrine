@@ -21,6 +21,16 @@ export const metadata: Metadata = {
   title: "MUSE — Ethical fashion, tailored to you",
   description:
     "MUSE pulls from hundreds of sustainable labels, vintage stores around the world, preloved platforms, and ethical small-batch makers — and puts them in a private feed tailored to your taste.",
+  // Explicit favicon registration. We also have app/icon.svg which Next's
+  // file-convention picks up automatically, but browsers cache favicons so
+  // aggressively that being explicit here (and in layout) helps guarantee the
+  // link tag is emitted on every page.
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+  },
   openGraph: {
     title: "MUSE — Ethical fashion, tailored to you",
     description:

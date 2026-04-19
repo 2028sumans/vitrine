@@ -85,9 +85,13 @@ export default function HomePage() {
 
       <main className="flex-1">
 
-        {/* ══ 1. HERO — olive bg, cream text ═══════════════════════════════════ */}
+        {/* ══ 1. HERO — olive bg, cream text ═══════════════════════════════════
+            Symmetric pt/pb so content is actually centered in the viewport
+            (previously pb-only biased everything upward, crowding the fixed
+            header). A slight extra top nudge keeps the big MUSE wordmark
+            clear of the nav at every viewport height. */}
         <section
-          className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pb-24 overflow-hidden"
+          className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pt-32 pb-24 overflow-hidden"
           style={{ backgroundColor: HERO_BG, color: HERO_TEXT }}
         >
 
