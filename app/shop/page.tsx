@@ -743,30 +743,63 @@ function ProductScrollView({
       {/* Card + button rail as siblings. Buttons sit to the right of the
           column, not on top of the product image. */}
       <div className="relative z-10 flex items-center gap-8">
-        {/* Scroll column */}
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          className="w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
-          style={{ scrollSnapType: "y mandatory" }}
-        >
-          {products.map((p, i) => (
-            <ProductScrollCard
-              key={p.objectID}
-              product={p}
-              index={i}
-              activeIdx={activeIdx}
-            />
-          ))}
-          {loading && (
-            <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-              <p className="font-display italic text-xl text-muted">Loading more…</p>
-            </div>
-          )}
-          {!hasMore && !loading && (
-            <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-              <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
-            </div>
+        {/* Card wrapper — gives the Steer overlay a positioning context that
+            tracks the card itself, not the viewport. Without this wrapper the
+            bar centers on the overlay (which also contains the rail) and ends
+            up visually offset to the right of the card. */}
+        <div className="relative">
+          {/* Scroll column */}
+          <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            className="w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
+            style={{ scrollSnapType: "y mandatory" }}
+          >
+            {products.map((p, i) => (
+              <ProductScrollCard
+                key={p.objectID}
+                product={p}
+                index={i}
+                activeIdx={activeIdx}
+              />
+            ))}
+            {loading && (
+              <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+                <p className="font-display italic text-xl text-muted">Loading more…</p>
+              </div>
+            )}
+            {!hasMore && !loading && (
+              <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+                <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Steer input — centered across the card (NOT the viewport).
+              Narrower than the card itself so it reads as a whispered aside
+              over the product image rather than a full-width search bar. */}
+          {showSayMore && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const t = sayMoreText.trim();
+                if (t) { handleSteerSubmit(t); setShowSayMore(false); setSayMoreText(""); }
+              }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[300px] max-w-[80%]"
+            >
+              <div className="flex gap-1.5">
+                <input
+                  autoFocus
+                  value={sayMoreText}
+                  onChange={(e) => setSayMoreText(e.target.value)}
+                  placeholder="more minimalist… no florals…"
+                  className="flex-1 bg-background border border-border-mid px-3 py-2 font-display font-light italic text-base text-foreground placeholder-muted/80 focus:outline-none focus:border-foreground/60"
+                />
+                <button type="submit" className="px-3 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">
+                  →
+                </button>
+              </div>
+            </form>
           )}
         </div>
 
@@ -799,33 +832,6 @@ function ProductScrollView({
           </RailButton>
         </div>
       </div>
-
-      {/* Steer input — floats horizontally across the middle of the card when
-          Steer is active. Uses the hero display-italic so it reads like a
-          whispered aside against the product image, not a utility search bar. */}
-      {showSayMore && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const t = sayMoreText.trim();
-            if (t) { handleSteerSubmit(t); setShowSayMore(false); setSayMoreText(""); }
-          }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[440px] max-w-[92vw]"
-        >
-          <div className="flex gap-2">
-            <input
-              autoFocus
-              value={sayMoreText}
-              onChange={(e) => setSayMoreText(e.target.value)}
-              placeholder="more minimalist… no florals… show me bags…"
-              className="flex-1 bg-background border border-border-mid px-4 py-3 font-display font-light italic text-lg text-foreground placeholder-muted/80 focus:outline-none focus:border-foreground/60"
-            />
-            <button type="submit" className="px-4 py-3 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">
-              →
-            </button>
-          </div>
-        </form>
-      )}
     </div>
   );
 }
