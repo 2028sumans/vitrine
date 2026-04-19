@@ -683,10 +683,11 @@ function ProductScrollView({
 
   useEffect(() => { nearEndFired.current = false; }, [products.length]);
 
-  // Wheel → snap by viewport height, but half as sensitive:
-  //   - accumulates wheel delta and only advances after the user has scrolled
-  //     ~180 px total (filters out trackpad micro-flicks)
-  //   - cooldown bumped 800 ms → 1600 ms so at most one advance per ~1.6 s
+  // Wheel → snap by viewport height. Sensitivity bumped ~25% over the
+  // original tuning:
+  //   - delta threshold dropped 180 → 144 px, so a slightly smaller flick
+  //     triggers an advance (still ignores micro-flicks)
+  //   - cooldown dropped 1600 → 1280 ms so consecutive snaps feel quicker
   //   - accumulator resets after 200 ms of no wheel input so stale delta
   //     doesn't trigger a jump on the next session.
   useEffect(() => {
@@ -700,12 +701,12 @@ function ProductScrollView({
       deltaAccum += e.deltaY;
       if (resetTimer != null) window.clearTimeout(resetTimer);
       resetTimer = window.setTimeout(() => { deltaAccum = 0; }, 200);
-      if (Math.abs(deltaAccum) < 180) return;
+      if (Math.abs(deltaAccum) < 144) return;
       isScrolling.current = true;
       const direction = Math.sign(deltaAccum);
       deltaAccum = 0;
       el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 1600);
+      setTimeout(() => { isScrolling.current = false; }, 1280);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
