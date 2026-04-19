@@ -40,7 +40,7 @@ function formatPrice(p: number | null): string {
 
 // Current grid column count — mirrors Tailwind's `grid-cols-2 sm:grid-cols-3
 // lg:grid-cols-4` breakpoints (sm=640, lg=1024). Used by mixBrands to enforce
-// the "max 2 per line" rule based on what the user is actually seeing.
+// the "no brand repeats in a row" rule based on what the user is actually seeing.
 function getGridCols(): number {
   if (typeof window === "undefined") return 4;
   if (window.matchMedia("(min-width: 1024px)").matches) return 4;
@@ -51,7 +51,8 @@ function getGridCols(): number {
 // Brand mixer — "rearrange-string" greedy with two constraints:
 //   1. No two items from the same brand are adjacent in the flat list
 //      (covers both horizontal adjacency AND end-of-row → start-of-next-row).
-//   2. No three items from the same brand appear on the same grid row.
+//   2. No two items from the same brand appear on the same grid row
+//      (i.e. every row is all-unique brands, unless the pool is exhausted).
 // At each step we pick the brand with the MOST remaining items (subject to
 // the two constraints) rather than the first valid item in server order.
 // Frequency-first is the standard optimal strategy for spread problems: it
@@ -98,7 +99,7 @@ function mixBrands(list: Product[], cols: number): Product[] {
         if (items.length === 0) continue;
         if (brand) {
           if (!allowAdj && brand === prev) continue;
-          if (!allowRow && (rowCount.get(brand) ?? 0) >= 2) continue;
+          if (!allowRow && (rowCount.get(brand) ?? 0) >= 1) continue;
         }
         if (items.length > bestN) { best = brand; bestN = items.length; }
       }
@@ -923,7 +924,13 @@ function CategoryPickerGrid() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/category-index", { cache: "force-cache" });
+        // No cache directive here. The route itself has revalidate: 300
+        // (5 min Vercel-side cache), which is enough — force-cache on the
+        // client would pin whatever JSON was fetched on first visit and
+        // ignore every subsequent override, which is exactly the bug that
+        // kept re-surfacing the old Shoes/Dresses hero images after they
+        // were replaced in CATEGORY_IMAGE_OVERRIDE.
+        const res = await fetch("/api/category-index");
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
