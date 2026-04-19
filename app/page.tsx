@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Reveal } from "./_components/Reveal";
+import { MobileMenu } from "./_components/MobileMenu";
 
 // Deep olive hero background + warm cream foreground. Kept as literals here
 // (instead of tailwind tokens) so the rest of the app — cream bg + olive text —
@@ -20,7 +21,7 @@ const steps = [
   {
     num: "II",
     title: "We read the aesthetic",
-    body: "An AI with a fashion editor's eye decodes your palette, silhouettes, mood, and references from everything you share. It looks for specifics, not generic categories.",
+    body: "We read your palette, silhouettes, mood, and references with a fashion editor's eye. Specifics over generic categories.",
   },
   {
     num: "III",
@@ -36,7 +37,7 @@ const features = [
   },
   {
     label: "Styled, not searched",
-    body: "An AI reads your exact aesthetic with a fashion editor's eye: palette, silhouette, mood, references. No keyword shortcuts.",
+    body: "We read your exact aesthetic with a fashion editor's eye: palette, silhouette, mood, references. No keyword shortcuts.",
   },
   {
     label: "Sustainable, vintage, preloved",
@@ -64,9 +65,10 @@ export default function HomePage() {
           className="font-display font-light text-base tracking-[0.22em] hover:opacity-80 transition-opacity duration-200"
           style={{ color: HERO_TEXT }}
         >
-          MUSE
+          SHORTLIST
         </Link>
-        <div className="flex items-center gap-8">
+        {/* Desktop links — hidden on mobile, replaced by the hamburger below. */}
+        <div className="hidden sm:flex items-center gap-8">
           <Link
             href="/brands"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
@@ -89,6 +91,18 @@ export default function HomePage() {
             Get started →
           </Link>
         </div>
+
+        {/* Mobile hamburger — olive-bar version so it reads against the
+            olive header background. Renders nothing on sm+. */}
+        <MobileMenu
+          variant="olive"
+          links={[
+            { href: "/shop",      label: "Shop" },
+            { href: "/brands",    label: "Brands" },
+            { href: "/edit",      label: "Your edit" },
+            { href: "/dashboard", label: "Get started →" },
+          ]}
+        />
       </header>
 
       <main className="flex-1">
@@ -96,7 +110,7 @@ export default function HomePage() {
         {/* ══ 1. HERO — olive bg, cream text ═══════════════════════════════════
             Symmetric pt/pb so content is actually centered in the viewport
             (previously pb-only biased everything upward, crowding the fixed
-            header). A slight extra top nudge keeps the big MUSE wordmark
+            header). A slight extra top nudge keeps the big SHORTLIST wordmark
             clear of the nav at every viewport height. */}
         <section
           className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pt-32 pb-24 overflow-hidden"
@@ -113,7 +127,7 @@ export default function HomePage() {
               className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] mb-10"
               style={{ color: HERO_TEXT }}
             >
-              MUSE
+              SHORTLIST
             </h1>
 
             <p
@@ -236,7 +250,7 @@ export default function HomePage() {
       <footer className="bg-background border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <span className="font-display font-light tracking-[0.18em] text-sm text-muted">
-            MUSE
+            SHORTLIST
           </span>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">

@@ -28,13 +28,12 @@ const NUM_SLICES    = 8;
 const PER_SLICE     = 6;
 const CATALOG_SIZE  = 120_000;
 const HITS_PER_PAGE = 48;
-// Over-fetch in scoped mode so interleaveByBrand has a wide enough pool to
-// actually mix brands. Without this, a category like Shoes comes back as
-// 48 consecutive Needledust rows because that's how Algolia's default
-// ranking clumps them — interleaving 48 Needledust products yields 48
-// Needledust products. 4x gives the mixer ~4 different brands' inventory
-// to draw from per page.
-const SCOPED_FETCH   = HITS_PER_PAGE * 4;
+// Over-fetch in scoped mode so the diversifier has a wide enough pool to
+// mix across aesthetic × brand axes. Without this, Algolia's default
+// ranking clumps a single brand/aesthetic. 8x gives the mixer enough
+// inventory from 12+ aesthetic buckets to emit a genuinely varied feed —
+// faster preference elicitation as the user scrolls and likes things.
+const SCOPED_FETCH   = HITS_PER_PAGE * 8;
 
 // ── Category scopes ──────────────────────────────────────────────────────────
 // Display label → Algolia scope. The catalog's `category` field holds one of
@@ -148,6 +147,73 @@ function interleaveByBrand<T extends Record<string, unknown>>(products: T[]): T[
   return out;
 }
 
+// Aesthetic buckets mirror the AESTHETIC_MAP keys in scripts/upload-to-algolia.mjs.
+// Anything not matching one of these lands in the __unknown__ bucket.
+const KNOWN_AESTHETICS = new Set([
+  "minimalist", "bohemian", "romantic", "edgy", "preppy", "casual",
+  "elegant", "sporty", "cottagecore", "party", "y2k", "coastal",
+]);
+
+function pickAesthetic(p: Record<string, unknown>): string {
+  const tags = Array.isArray(p.aesthetic_tags) ? p.aesthetic_tags : [];
+  for (const t of tags) {
+    const s = String(t).toLowerCase();
+    if (KNOWN_AESTHETICS.has(s)) return s;
+  }
+  return "__unknown__";
+}
+
+function pickBrandKey(p: Record<string, unknown>): string {
+  return String(p.brand ?? p.retailer ?? "").toLowerCase().trim() || "__unknown__";
+}
+
+// Nested round-robin: outer by aesthetic, inner by brand. Each pass emits one
+// item from each aesthetic bucket (rotating brands inside), so the first N
+// products span as many style dimensions as the pool allows. This gives the
+// scroll feed a genuinely varied seed — a liked item narrows across multiple
+// axes at once instead of just reinforcing whichever aesthetic we happened
+// to land on first.
+function interleaveByAestheticAndBrand<T extends Record<string, unknown>>(products: T[]): T[] {
+  const byAesthetic = new Map<string, Map<string, T[]>>();
+  for (const p of products) {
+    const a = pickAesthetic(p);
+    const b = pickBrandKey(p);
+    let brandMap = byAesthetic.get(a);
+    if (!brandMap) { brandMap = new Map(); byAesthetic.set(a, brandMap); }
+    const bucket = brandMap.get(b);
+    if (bucket) bucket.push(p);
+    else brandMap.set(b, [p]);
+  }
+
+  // Flatten each aesthetic's products via inner brand round-robin.
+  const aestheticQueues: T[][] = [];
+  for (const brandMap of Array.from(byAesthetic.values())) {
+    const brandBuckets: T[][] = Array.from(brandMap.values());
+    const queue: T[] = [];
+    let anyLeft = true;
+    while (anyLeft) {
+      anyLeft = false;
+      for (const bucket of brandBuckets) {
+        const item = bucket.shift();
+        if (item !== undefined) { queue.push(item); anyLeft = true; }
+      }
+    }
+    aestheticQueues.push(queue);
+  }
+
+  // Outer round-robin across aesthetic queues.
+  const out: T[] = [];
+  let anyLeft = true;
+  while (anyLeft) {
+    anyLeft = false;
+    for (const q of aestheticQueues) {
+      const item = q.shift();
+      if (item !== undefined) { out.push(item); anyLeft = true; }
+    }
+  }
+  return out;
+}
+
 interface BiasPayload {
   likedBrands?:         string[];
   likedCategories?:     string[];
@@ -256,7 +322,7 @@ export async function POST(request: Request) {
   const attributesToRetrieve = [
     "objectID", "title", "brand", "retailer", "price",
     "image_url", "product_url",
-    "category", "color", "price_range",
+    "category", "color", "price_range", "aesthetic_tags",
   ];
 
   // Resolve scope filters. Brand and category are mutually exclusive — the UI
@@ -308,10 +374,11 @@ export async function POST(request: Request) {
         return typeof u === "string" && u.startsWith("http");
       });
 
-      // Round-robin by brand so the page doesn't serve a long run of one
-      // retailer. Requires the over-fetched pool (SCOPED_FETCH) to have
-      // multiple brands in it — Algolia's default ranking otherwise clumps.
-      clean = interleaveByBrand(clean);
+      // Diversify across aesthetic × brand so the first N products span as
+      // many style dimensions as the pool has. Speeds up preference
+      // elicitation: each like/dislike narrows the feed across multiple
+      // axes at once instead of reinforcing a single clump.
+      clean = interleaveByAestheticAndBrand(clean);
 
       return NextResponse.json({
         products: clean,

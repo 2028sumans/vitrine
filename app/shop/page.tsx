@@ -13,6 +13,7 @@ import {
 } from "@/lib/scoring";
 import type { SteerInterpretation } from "@/lib/steer-interpret";
 import { addSaved, removeSaved, readSaved } from "@/lib/saved";
+import { MobileMenu } from "../_components/MobileMenu";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -664,14 +665,23 @@ function ShopPageContent() {
       {/* Nav — matches /brands + homepage cream-olive */}
       <header className="fixed top-0 left-0 right-0 z-50 px-8 py-2.5 bg-background/80 backdrop-blur-sm flex items-center justify-between">
         <Link href="/" className="font-display font-light text-base tracking-[0.22em] text-foreground hover:opacity-80 transition-opacity">
-          MUSE
+          SHORTLIST
         </Link>
-        <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
+        <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"   className="text-foreground hover:text-accent transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
           <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your edit</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
+        <MobileMenu
+          variant="cream"
+          links={[
+            { href: "/shop",      label: "Shop" },
+            { href: "/brands",    label: "Brands" },
+            { href: "/edit",      label: "Your edit" },
+            { href: "/dashboard", label: "Tailor to my taste →" },
+          ]}
+        />
       </header>
 
       <main className="flex-1 pt-20 pb-24 px-8 max-w-7xl mx-auto w-full">
@@ -829,7 +839,7 @@ function ShopPageContent() {
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">MUSE</Link>
+          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">SHORTLIST</Link>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <span>© 2025</span>
@@ -1123,7 +1133,7 @@ function ProductScrollView({
           where backdrop-filter blurs the underlying page to a soft cream
           wash — but iOS Safari de-prioritises backdrop-filter on lower-
           powered iPads, leaving only the 40% cream overlay. The fixed
-          page header (also z-50) then bled through, stacking the MUSE
+          page header (also z-50) then bled through, stacking the SHORTLIST
           wordmark and "← GRID" button on top of each other.
           Bumping the base opacity to 92% keeps the backdrop readable
           regardless of whether the blur filter actually rendered. */}

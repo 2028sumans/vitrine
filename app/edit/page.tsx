@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { readSaved, removeSaved, type SavedProduct } from "@/lib/saved";
+import { MobileMenu } from "../_components/MobileMenu";
 
 function formatPrice(p: number | null): string {
   if (p == null) return "";
@@ -36,14 +37,23 @@ export default function EditPage() {
       {/* Nav — matches /shop and /brands */}
       <header className="fixed top-0 left-0 right-0 z-50 px-8 py-2.5 bg-background/85 backdrop-blur-sm flex items-center justify-between">
         <Link href="/" className="font-display font-light text-base tracking-[0.22em] text-foreground hover:opacity-80 transition-opacity">
-          MUSE
+          SHORTLIST
         </Link>
-        <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
+        <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"     className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands"   className="text-muted hover:text-foreground transition-colors">Brands</Link>
           <Link href="/edit"     className="text-foreground hover:text-accent transition-colors">Your edit</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
+        <MobileMenu
+          variant="cream"
+          links={[
+            { href: "/shop",      label: "Shop" },
+            { href: "/brands",    label: "Brands" },
+            { href: "/edit",      label: "Your edit" },
+            { href: "/dashboard", label: "Tailor to my taste →" },
+          ]}
+        />
       </header>
 
       <main className="flex-1 pt-24 pb-24 px-8 max-w-7xl mx-auto w-full">
@@ -80,7 +90,7 @@ export default function EditPage() {
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">MUSE</Link>
+          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">SHORTLIST</Link>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <span>© 2025</span>
