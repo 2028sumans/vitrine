@@ -84,13 +84,19 @@ function titleOk(label: string, title: string): boolean {
 
 const POOL_SIZE = 32;
 
-// Hardcoded hero image overrides — for categories where the Algolia data is
-// too corrupted or inconsistent to pick a good shot automatically. Keys are
-// display labels; values are paths served from `public/`. The Algolia
-// search still runs (to get the product count), but the image comes from
-// here.
+// Hardcoded hero image overrides — for categories where the Algolia data
+// is too corrupted or inconsistent to pick a good shot automatically.
+// Keys are display labels, values are either an absolute URL (e.g. a
+// Shopify CDN image from an actual catalog product) or a relative path
+// served from `public/`. The Algolia search still runs so the card's
+// count badge stays accurate.
+//
+// Shoes → Khaite Miles Loafer in Black Alligator. Algolia's category
+// index for shoes was mis-tagged badly enough that no amount of filter /
+// whitelist tuning found a real shoe — using a specific product image
+// from the catalog is the least fragile fix.
 const CATEGORY_IMAGE_OVERRIDE: Record<string, string> = {
-  "Shoes": "/category-hero/shoes.jpg",
+  "Shoes": "https://cdn.shopify.com/s/files/1/1519/7996/files/MILES-LOAFER-35_BLACK-ALLIGATOR_F4060-929-200_A.jpg?v=1768485966",
 };
 
 export async function GET() {
