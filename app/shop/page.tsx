@@ -266,6 +266,56 @@ export default function ShopPage() {
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
+  // Single-flight guard so a burst of likes doesn't fire multiple parallel
+  // biased fetches. If one's in the air, skip subsequent until it finishes.
+  const biasRefetchInFlightRef = useRef(false);
+
+  // After any meaningful signal change, pull a fresh biased batch from the
+  // server and splice it in just past the active card. The user's current
+  // card + the next one stay put (so the view doesn't jolt), but everything
+  // beyond gets replaced with products that reflect the updated bias. So
+  // their preference shows up in ~2 cards instead of ~48.
+  const refreshBiasedAhead = useCallback(async () => {
+    if (biasRefetchInFlightRef.current) return;
+    const bias = buildBias();
+    const hasLiked = (bias.likedBrands?.length ?? 0) > 0
+      || (bias.likedCategories?.length ?? 0) > 0
+      || (bias.likedColors?.length ?? 0) > 0;
+    if (!hasLiked) return;
+    biasRefetchInFlightRef.current = true;
+    try {
+      const res = await fetch(`/api/shop-all`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ page: 0, bias }),
+      });
+      if (!res.ok) return;
+      const data  = await res.json();
+      const fresh = (data.products ?? []) as Product[];
+      if (fresh.length === 0) return;
+
+      // Splice fresh products in at activeIdx + 2 so the next swipe lands
+      // on something biased. Keep everything up to and including the next
+      // card stable so the UI doesn't visibly jump.
+      setProducts((prev) => {
+        const insertAt = Math.min(activeScrollIdxRef.current + 2, prev.length);
+        const keep     = prev.slice(0, insertAt);
+        const keepIds  = new Set(keep.map((p) => p.objectID));
+        const freshUnseen = fresh.filter((p) => !keepIds.has(p.objectID));
+        // Track in global seen set so future flat/pool fetches don't dupe
+        freshUnseen.forEach((p) => seenIdsRef.current.add(p.objectID));
+        return [...keep, ...freshUnseen];
+      });
+      // Next loadMore should continue from page 1 of the biased query
+      setPage(1);
+      setHasMore(true);
+    } catch (err) {
+      console.warn("[shop] refreshBiasedAhead failed:", err);
+    } finally {
+      biasRefetchInFlightRef.current = false;
+    }
+  }, [buildBias]);
+
   const handleLike = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
     if (!product) return;
@@ -298,7 +348,11 @@ export default function ShopPage() {
       };
       return reRankUpcomingProducts(prev, activeScrollIdxRef.current, signals);
     });
-  }, [products, likedIds, dwellTimes, reRankUpcomingProducts]);
+    // ...and pull a freshly-biased batch from the server so the next swipe
+    // lands on products the catalog itself thinks match this new signal,
+    // not just a reshuffle of what's already loaded.
+    void refreshBiasedAhead();
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead]);
 
   const handleDwell = useCallback((productId: string, ms: number) => {
     setDwellTimes((prev) => ({ ...prev, [productId]: ms }));
@@ -324,7 +378,11 @@ export default function ShopPage() {
       };
       return reRankUpcomingProducts(prev, activeScrollIdxRef.current, signals);
     });
-  }, [products, likedIds, dwellTimes, reRankUpcomingProducts]);
+    // A fresh fast-swipe expands the disliked set, so pull a new biased
+    // batch too — keeps the feed responsive rather than having to wait
+    // until the next natural pagination trigger.
+    if (signal === "negative") void refreshBiasedAhead();
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead]);
 
   // infinite scroll sentinel (grid only — scroll mode has its own logic)
   useEffect(() => {
