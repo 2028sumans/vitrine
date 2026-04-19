@@ -42,6 +42,16 @@ export default function ShopPage() {
   const { data: session } = useSession();
   const accessToken = (session as { accessToken?: string } | null)?.accessToken;
 
+  // If the user arrived from /brands via a brand card, scope everything to
+  // that brand. Starts as null (not yet read from URL) so the initial-load
+  // effect can wait until we know which mode we're in before firing a fetch.
+  const [brandFilter, setBrandFilter] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") { setBrandFilter(""); return; }
+    setBrandFilter(new URLSearchParams(window.location.search).get("brand") ?? "");
+  }, []);
+  const isBrandMode = !!brandFilter;
+
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage]         = useState(0);
@@ -197,7 +207,7 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page, bias: buildBias() }),
+        body:    JSON.stringify({ page, bias: buildBias(), brandFilter: brandFilter ?? "" }),
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
@@ -216,7 +226,7 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, interleaveWithPool, buildBias]);
+  }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter]);
 
   // Fetch the user's fashion-board pin URLs → embed → Pinecone similarity →
   // store as a pool. Pool is then drawn from by interleaveWithPool at 30%.
@@ -254,15 +264,16 @@ export default function ShopPage() {
     }
   }, []);
 
-  // Initial load: always fetch the flat feed (fast). Concurrently, if a
-  // Pinterest token is available, try to build the personalized pool — once
-  // it lands, subsequent page loads interleave it in.
+  // Initial load: waits until (a) the session has resolved and (b) we've
+  // read the ?brand=… URL param. Pinterest-pool personalization is skipped
+  // in brand mode — the whole point there is to see that one brand's goods.
   useEffect(() => {
     if (session === undefined) return;
+    if (brandFilter === null) return;
     if (products.length === 0) loadMore();
-    if (accessToken) void tryPersonalize(accessToken);
+    if (accessToken && !isBrandMode) void tryPersonalize(accessToken);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [session, accessToken]);
+  }, [session, accessToken, brandFilter]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
@@ -277,6 +288,9 @@ export default function ShopPage() {
   // their preference shows up in ~2 cards instead of ~48.
   const refreshBiasedAhead = useCallback(async () => {
     if (biasRefetchInFlightRef.current) return;
+    // In brand mode the user is intentionally scoped to one brand. Don't
+    // pull a "biased" re-fetch that would leak products from other brands.
+    if (isBrandMode) return;
     const bias = buildBias();
     const hasLiked = (bias.likedBrands?.length ?? 0) > 0
       || (bias.likedCategories?.length ?? 0) > 0
@@ -287,7 +301,7 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page: 0, bias }),
+        body:    JSON.stringify({ page: 0, bias, brandFilter }),
       });
       if (!res.ok) return;
       const data  = await res.json();
@@ -314,7 +328,7 @@ export default function ShopPage() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias]);
+  }, [buildBias, brandFilter, isBrandMode]);
 
   const handleLike = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
@@ -414,33 +428,51 @@ export default function ShopPage() {
         {/* Header + refine CTA */}
         <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
           <div>
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4 flex items-center gap-3">
-              <span>The catalog</span>
-              {personalizing && (
-                <span className="text-accent normal-case tracking-normal font-display italic text-sm">
-                  reading your pinterest…
-                </span>
-              )}
-              {!personalizing && fashionBoardCount > 0 && personalizedPoolRef.current.length > 0 && (
-                <span className="text-accent normal-case tracking-normal font-display italic text-sm">
-                  30% blended from your pinterest
-                  {` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})`}
-                </span>
-              )}
-            </p>
-            <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
-              Shop all
-            </h1>
-            <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
-              Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
-            </p>
+            {isBrandMode ? (
+              <>
+                <Link href="/brands" className="font-sans text-[9px] tracking-widest uppercase text-muted hover:text-foreground transition-colors mb-4 inline-block">
+                  ← All brands
+                </Link>
+                <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
+                  {brandFilter}
+                </h1>
+                <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
+                  Everything in our catalog from {brandFilter}.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4 flex items-center gap-3">
+                  <span>The catalog</span>
+                  {personalizing && (
+                    <span className="text-accent normal-case tracking-normal font-display italic text-sm">
+                      reading your pinterest…
+                    </span>
+                  )}
+                  {!personalizing && fashionBoardCount > 0 && personalizedPoolRef.current.length > 0 && (
+                    <span className="text-accent normal-case tracking-normal font-display italic text-sm">
+                      30% blended from your pinterest
+                      {` (${fashionBoardCount} board${fashionBoardCount === 1 ? "" : "s"})`}
+                    </span>
+                  )}
+                </p>
+                <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
+                  Shop all
+                </h1>
+                <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
+                  Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
+                </p>
+              </>
+            )}
           </div>
-          <Link
-            href="/dashboard"
-            className="inline-block self-start sm:self-end px-6 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 whitespace-nowrap"
-          >
-            Tailor to your taste →
-          </Link>
+          {!isBrandMode && (
+            <Link
+              href="/dashboard"
+              className="inline-block self-start sm:self-end px-6 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 whitespace-nowrap"
+            >
+              Tailor to your taste →
+            </Link>
+          )}
         </div>
 
         {/* Prominent view toggle */}

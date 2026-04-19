@@ -66,7 +66,10 @@ export default function BrandsPage() {
 function BrandCard({ brand }: { brand: Brand }) {
   const [imgFailed, setImgFailed] = useState(false);
   return (
-    <div className="group relative aspect-[3/4] overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card hover:shadow-card-hover transition-all duration-300">
+    <Link
+      href={`/shop?brand=${encodeURIComponent(brand.name)}`}
+      className="group relative aspect-[3/4] overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card hover:shadow-card-hover transition-all duration-300 block"
+    >
       {brand.imageUrl && !imgFailed ? (
         <Image
           src={brand.imageUrl}
@@ -82,6 +85,6 @@ function BrandCard({ brand }: { brand: Brand }) {
       <div className="absolute bottom-0 left-0 right-0 p-4">
         <h3 className="font-display font-light text-xl text-white leading-tight drop-shadow-sm">{brand.name}</h3>
       </div>
-    </div>
+    </Link>
   );
 }

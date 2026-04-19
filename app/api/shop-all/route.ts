@@ -55,6 +55,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const page: number = Math.max(0, parseInt(String(body?.page ?? 0), 10) || 0);
   const bias: BiasPayload = body?.bias ?? {};
+  const brandFilter: string = typeof body?.brandFilter === "string" ? body.brandFilter.trim() : "";
 
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -71,8 +72,41 @@ export async function POST(request: Request) {
     "category", "color", "price_range",
   ];
 
+  // Brand-scoped mode: /brands cards link here with ?brand= → we hard-filter
+  // the catalog to just that brand and serve paginated results in whatever
+  // order Algolia returns. Bias signals are ignored in brand mode — the
+  // whole point is to see everything from THIS brand.
+  const brandFilterQuery = brandFilter
+    ? `brand:"${brandFilter.replace(/"/g, '\\"')}" OR retailer:"${brandFilter.replace(/"/g, '\\"')}"`
+    : "";
+
   try {
     const client = algoliasearch(appId, key);
+
+    if (brandFilterQuery) {
+      const res = await client.searchSingleIndex({
+        indexName: INDEX_NAME,
+        searchParams: {
+          query:       "",
+          filters:     brandFilterQuery,
+          hitsPerPage: HITS_PER_PAGE,
+          page,
+          attributesToRetrieve,
+        },
+      });
+      const products = ((res.hits ?? []) as Array<Record<string, unknown>>).filter((h) => {
+        const u = h.image_url;
+        return typeof u === "string" && u.startsWith("http");
+      });
+      return NextResponse.json({
+        products,
+        page,
+        hasMore: (res.hits?.length ?? 0) >= HITS_PER_PAGE,
+        mode:    "brand",
+        brand:   brandFilter,
+        total:   res.nbHits ?? null,
+      });
+    }
 
     // ── Biased path: use a taste-query, ranges over the full catalog ──────
     if (hasLikedSignals(bias)) {
