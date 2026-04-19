@@ -705,9 +705,18 @@ function ProductScrollView({
   }, [onClose]);
 
   // Steer submit → route to /dashboard with the comment as ?describe=…
-  const handleSteer = useCallback((comment: string) => {
+  const handleSteerSubmit = useCallback((comment: string) => {
     router.push(`/dashboard?describe=${encodeURIComponent(comment)}`);
   }, [router]);
+
+  // Steer input toggle lives at the view level now so it follows the active
+  // card instead of being re-created per scroll snap.
+  const [showSayMore, setShowSayMore] = useState(false);
+  const [sayMoreText, setSayMoreText] = useState("");
+  useEffect(() => { setShowSayMore(false); setSayMoreText(""); }, [activeIdx]);
+
+  const activeProduct = products[activeIdx];
+  const activeLiked   = activeProduct ? likedIds.has(activeProduct.objectID) : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -731,68 +740,131 @@ function ProductScrollView({
         </span>
       </div>
 
-      {/* Narrow centered scroll column */}
-      <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="relative z-10 w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
-        style={{ scrollSnapType: "y mandatory" }}
-      >
-        {products.map((p, i) => (
-          <ProductScrollCard
-            key={p.objectID}
-            product={p}
-            index={i}
-            activeIdx={activeIdx}
-            onSayMore={handleSteer}
-          />
-        ))}
-        {loading && (
-          <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-            <p className="font-display italic text-xl text-muted">Loading more…</p>
-          </div>
-        )}
-        {!hasMore && !loading && (
-          <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-            <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
-          </div>
-        )}
+      {/* Card + button rail as siblings. Buttons sit to the right of the
+          column, not on top of the product image. */}
+      <div className="relative z-10 flex items-center gap-8">
+        {/* Scroll column */}
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
+          style={{ scrollSnapType: "y mandatory" }}
+        >
+          {products.map((p, i) => (
+            <ProductScrollCard
+              key={p.objectID}
+              product={p}
+              index={i}
+              activeIdx={activeIdx}
+            />
+          ))}
+          {loading && (
+            <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+              <p className="font-display italic text-xl text-muted">Loading more…</p>
+            </div>
+          )}
+          {!hasMore && !loading && (
+            <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+              <p className="font-display italic text-xl text-muted">That&apos;s everything.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Button rail — cream/olive palette, French-minimalist refinement */}
+        <div className="flex flex-col items-center gap-6">
+          <RailButton
+            label={activeLiked ? "Liked" : "Like"}
+            onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
+          >
+            {/* When liked, the heart fills olive (currentColor === olive
+                foreground). Rest state: outline only. */}
+            <svg viewBox="0 0 24 24" className="w-5 h-5"
+              fill={activeLiked ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </RailButton>
+
+          <RailButton
+            label={showSayMore ? "Cancel" : "Steer"}
+            onClick={() => setShowSayMore((v) => !v)}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5"
+              fill={showSayMore ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </RailButton>
+        </div>
       </div>
+
+      {/* Steer input — shows below the card/rail row when Steer is active */}
+      {showSayMore && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const t = sayMoreText.trim();
+            if (t) { handleSteerSubmit(t); setShowSayMore(false); setSayMoreText(""); }
+          }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-[440px] max-w-[92vw]"
+        >
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={sayMoreText}
+              onChange={(e) => setSayMoreText(e.target.value)}
+              placeholder="more minimalist… no florals… show me bags…"
+              className="flex-1 bg-background border border-border-mid px-3 py-2.5 font-sans text-xs text-foreground placeholder-muted focus:outline-none focus:border-foreground/60"
+            />
+            <button type="submit" className="px-4 py-2.5 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">
+              →
+            </button>
+          </div>
+        </form>
+      )}
     </div>
+  );
+}
+
+// ── Rail button: French-minimalist round button in the site's olive palette.
+// The button container stays cream + thin olive border at all times — the
+// active state is communicated by the ICON itself (heart fills olive, etc.),
+// not by flipping the whole button to filled olive.
+
+function RailButton({
+  label, onClick, children,
+}: {
+  label:    string;
+  onClick:  () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col items-center gap-2 transition-transform active:scale-95"
+    >
+      <div className="w-11 h-11 rounded-full flex items-center justify-center border bg-background border-border-mid text-foreground group-hover:border-foreground/60 group-hover:-translate-y-0.5 group-hover:shadow-sm transition-all duration-200">
+        {children}
+      </div>
+      <span className="font-sans text-[9px] tracking-widest uppercase text-muted group-hover:text-foreground transition-colors">
+        {label}
+      </span>
+    </button>
   );
 }
 
 // ── Scroll card — full-bleed image in the column, buttons on right edge ──────
 
 function ProductScrollCard({
-  product, index, activeIdx, onSayMore,
+  product, index, activeIdx,
 }: {
-  product:    Product;
-  index:      number;
-  activeIdx:  number;
-  onSayMore?: (comment: string) => void;
+  product:   Product;
+  index:     number;
+  activeIdx: number;
 }) {
   const isNear = Math.abs(index - activeIdx) <= 2;
-  const [liked, setLiked]             = useState(false);
-  const [showSayMore, setShowSayMore] = useState(false);
-  const [sayMoreText, setSayMoreText] = useState("");
-
-  const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setLiked((l) => !l);
-  };
-
-  const handleSayMoreSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const trimmed = sayMoreText.trim();
-    if (trimmed) {
-      onSayMore?.(trimmed);
-      setSayMoreText("");
-      setShowSayMore(false);
-    }
-  };
 
   return (
     <a
@@ -819,70 +891,6 @@ function ProductScrollCard({
           <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
         )}
       </div>
-
-      {/* Brand label top-left */}
-      {product.brand && (
-        <div className="absolute top-6 left-5 z-10 pointer-events-none">
-          <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/70">{product.brand}</span>
-        </div>
-      )}
-
-      {/* Right-edge rail: Like + Steer */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-5">
-        <button onClick={handleLike} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform" aria-label={liked ? "Unlike" : "Like"}>
-          <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center shadow-lg">
-            <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
-              fill={liked ? "#FF2D55" : "none"}
-              stroke={liked ? "#FF2D55" : "white"}
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-          </div>
-          <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
-            {liked ? "Liked" : "Like"}
-          </span>
-        </button>
-
-        {onSayMore && (
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSayMore((v) => !v); }}
-            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
-            aria-label="Steer"
-          >
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors duration-150 shadow-lg ${showSayMore ? "bg-white" : "bg-black"}`}>
-              <svg viewBox="0 0 24 24" className="w-[26px] h-[26px]"
-                fill="none"
-                stroke={showSayMore ? "black" : "white"}
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            </div>
-            <span className="font-sans text-[11px] font-semibold text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
-              {showSayMore ? "Cancel" : "Steer"}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Say-more input */}
-      {showSayMore && (
-        <form
-          onSubmit={handleSayMoreSubmit}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-28 left-3 right-3 z-30"
-        >
-          <div className="flex gap-2">
-            <input
-              autoFocus
-              value={sayMoreText}
-              onChange={(e) => setSayMoreText(e.target.value)}
-              placeholder="more minimalist… no florals… show me bags…"
-              className="flex-1 bg-background/95 backdrop-blur-sm border border-border-mid px-3 py-2 font-sans text-xs text-foreground placeholder-muted focus:outline-none focus:border-foreground/60"
-            />
-            <button type="submit" className="px-3 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">→</button>
-          </div>
-        </form>
-      )}
 
       {/* Bottom overlay — brand, title, price, shop */}
       <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-6 bg-gradient-to-t from-background via-background/85 to-transparent">
