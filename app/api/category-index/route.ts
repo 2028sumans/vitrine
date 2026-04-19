@@ -96,7 +96,10 @@ const POOL_SIZE = 32;
 // whitelist tuning found a real shoe — using a specific product image
 // from the catalog is the least fragile fix.
 const CATEGORY_IMAGE_OVERRIDE: Record<string, string> = {
-  "Shoes": "https://cdn.shopify.com/s/files/1/1519/7996/files/MILES-LOAFER-35_BLACK-ALLIGATOR_F4060-929-200_A.jpg?v=1768485966",
+  // Khaite Miles Loafer in Black Alligator — shpfy-khaitecom-7899772420159
+  "Shoes":   "https://cdn.shopify.com/s/files/1/1519/7996/files/MILES-LOAFER-35_BLACK-ALLIGATOR_F4060-929-200_A.jpg?v=1768485966",
+  // Cult Gaia Blythe Dress in Off White — shpfy-cultgaiacom-7894424911946
+  "Dresses": "https://cdn.shopify.com/s/files/1/0336/7793/files/260120_DR_CG_SP_HS26_RESHT_04_BLYTHE_DRESS_WHT_0010_WEBBED.jpg?v=1769043190",
 };
 
 export async function GET() {
