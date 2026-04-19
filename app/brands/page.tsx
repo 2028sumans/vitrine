@@ -42,12 +42,12 @@ export default function BrandsPage() {
     <div className="min-h-screen flex flex-col">
       <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between bg-background/80 backdrop-blur-sm">
         <Link href="/" className="font-display font-light text-xl tracking-[0.22em] text-foreground">
-          SHORTLIST
+          MUSE
         </Link>
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"   className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands" className="text-foreground hover:text-accent transition-colors">Brands</Link>
-          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your edit</Link>
+          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
         </div>
         <MobileMenu
@@ -55,7 +55,7 @@ export default function BrandsPage() {
           links={[
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/edit",      label: "Your edit" },
+            { href: "/edit",      label: "Your shortlist" },
             { href: "/dashboard", label: "Get started →" },
           ]}
         />
@@ -82,7 +82,7 @@ export default function BrandsPage() {
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">SHORTLIST</Link>
+          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">MUSE</Link>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <span>© 2025</span>

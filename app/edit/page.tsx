@@ -37,12 +37,12 @@ export default function EditPage() {
       {/* Nav — matches /shop and /brands */}
       <header className="fixed top-0 left-0 right-0 z-50 px-8 py-2.5 bg-background/85 backdrop-blur-sm flex items-center justify-between">
         <Link href="/" className="font-display font-light text-base tracking-[0.22em] text-foreground hover:opacity-80 transition-opacity">
-          SHORTLIST
+          MUSE
         </Link>
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"     className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands"   className="text-muted hover:text-foreground transition-colors">Brands</Link>
-          <Link href="/edit"     className="text-foreground hover:text-accent transition-colors">Your edit</Link>
+          <Link href="/edit"     className="text-foreground hover:text-accent transition-colors">Your shortlist</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
         <MobileMenu
@@ -50,7 +50,7 @@ export default function EditPage() {
           links={[
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/edit",      label: "Your edit" },
+            { href: "/edit",      label: "Your shortlist" },
             { href: "/dashboard", label: "Tailor to my taste →" },
           ]}
         />
@@ -60,7 +60,7 @@ export default function EditPage() {
         <div className="mb-10">
           <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Saved pieces</p>
           <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
-            Your edit
+            Your shortlist
           </h1>
           <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
             {loaded && items.length === 0
@@ -90,7 +90,7 @@ export default function EditPage() {
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">SHORTLIST</Link>
+          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">MUSE</Link>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <span>© 2025</span>

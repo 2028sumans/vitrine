@@ -33,7 +33,7 @@ const OLIVE_DARK  = "#2A3316";
 export function MobileMenu({
   links,
   variant = "cream",
-  brand = "SHORTLIST",
+  brand = "MUSE",
 }: {
   links:    MenuLink[];
   variant?: Variant;

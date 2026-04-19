@@ -1134,7 +1134,7 @@ function OnboardingQuiz({ onComplete }: { onComplete: () => void }) {
                 disabled={!canNext2}
                 className="flex-1 px-8 py-3.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
               >
-                Build my edit →
+                Build my feed →
               </button>
             </div>
           </div>
@@ -1356,9 +1356,9 @@ const SHOPPING_STEPS = [
 ];
 
 const EDIT_STEPS = [
-  { label: "Shortlisting finalists",  sub: "Narrowing to the strongest fits" },
+  { label: "Picking finalists",       sub: "Narrowing to the strongest fits" },
   { label: "Seeing the products",     sub: "Claude views each image, builds outfits" },
-  { label: "Writing your edit",       sub: "Styling notes & editorial intro" },
+  { label: "Writing your shortlist",  sub: "Styling notes & editorial intro" },
 ];
 
 const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
@@ -2066,7 +2066,7 @@ export default function DashboardPage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">MUSE</Link>
           <div className="flex items-center gap-8">
-            {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Musing<MusingDots /></span>}
+            {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Curating<MusingDots /></span>}
             {step === "results" && (
               <button onClick={() => setStep("shopping")} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← My picks</button>
             )}
@@ -2222,7 +2222,7 @@ export default function DashboardPage() {
                   (b.type === "quiz" && !!b.answers)
                 )}
                 className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
-                Build my edit →
+                Build my feed →
               </button>
             </div>
           </div>
@@ -2278,7 +2278,7 @@ export default function DashboardPage() {
                 <div className="mb-14 flex items-center gap-6">
                   <button onClick={() => handleBuildEdit()}
                     className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200">
-                    Build my edit →
+                    Build my feed →
                   </button>
                   <p className="font-sans text-[11px] text-muted">Claude will style the best finds into a curated edit.</p>
                 </div>
@@ -2293,7 +2293,7 @@ export default function DashboardPage() {
                   </p>
                   <button onClick={() => handleBuildEdit()}
                     className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200">
-                    Build my edit →
+                    Build my feed →
                   </button>
                 </div>
               </div>
@@ -2302,7 +2302,7 @@ export default function DashboardPage() {
         })()}
 
         {/* ── Edit loading ── */}
-        {step === "edit_loading" && <LoadingScreen title="Building your edit." steps={EDIT_STEPS} currentStep={editStep} />}
+        {step === "edit_loading" && <LoadingScreen title="Building your shortlist." steps={EDIT_STEPS} currentStep={editStep} />}
 
         {/* ── Error ── */}
         {step === "error" && (
@@ -2325,7 +2325,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">Personal edit</p>
                   <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">
-                    {selectedBoard?.name ?? "Your edit"}
+                    {selectedBoard?.name ?? "Your shortlist"}
                   </h1>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 mt-1">

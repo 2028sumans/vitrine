@@ -25,7 +25,7 @@ const steps = [
   },
   {
     num: "III",
-    title: "Shop the shortlist",
+    title: "Shop the edit",
     body: "A private, personally curated feed, pulling from sustainable labels, vintage sellers, preloved platforms, and small-batch makers. These are the brands you wouldn't have found on your own.",
   },
 ];
@@ -65,7 +65,7 @@ export default function HomePage() {
           className="font-display font-light text-base tracking-[0.22em] hover:opacity-80 transition-opacity duration-200"
           style={{ color: HERO_TEXT }}
         >
-          SHORTLIST
+          MUSE
         </Link>
         {/* Desktop links — hidden on mobile, replaced by the hamburger below. */}
         <div className="hidden sm:flex items-center gap-8">
@@ -81,7 +81,7 @@ export default function HomePage() {
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` }}
           >
-            Your edit
+            Your shortlist
           </Link>
           <Link
             href="/dashboard"
@@ -99,7 +99,7 @@ export default function HomePage() {
           links={[
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/edit",      label: "Your edit" },
+            { href: "/edit",      label: "Your shortlist" },
             { href: "/dashboard", label: "Get started →" },
           ]}
         />
@@ -110,7 +110,7 @@ export default function HomePage() {
         {/* ══ 1. HERO — olive bg, cream text ═══════════════════════════════════
             Symmetric pt/pb so content is actually centered in the viewport
             (previously pb-only biased everything upward, crowding the fixed
-            header). A slight extra top nudge keeps the big SHORTLIST wordmark
+            header). A slight extra top nudge keeps the big MUSE wordmark
             clear of the nav at every viewport height. */}
         <section
           className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pt-32 pb-24 overflow-hidden"
@@ -127,7 +127,7 @@ export default function HomePage() {
               className="fade-in-up delay-100 font-display font-light text-[clamp(72px,14vw,160px)] leading-[0.9] tracking-[0.1em] mb-10"
               style={{ color: HERO_TEXT }}
             >
-              SHORTLIST
+              MUSE
             </h1>
 
             <p
@@ -250,7 +250,7 @@ export default function HomePage() {
       <footer className="bg-background border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <span className="font-display font-light tracking-[0.18em] text-sm text-muted">
-            SHORTLIST
+            MUSE
           </span>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">

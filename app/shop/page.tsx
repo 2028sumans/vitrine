@@ -204,7 +204,7 @@ function ShopPageContent() {
     setSavedIds(new Set(rows.map((r) => r.objectID)));
   }, []);
 
-  // Transient confirmation banner ("saved to your edit"). Fades out after
+  // Transient confirmation banner ("saved to your shortlist"). Fades out after
   // ~2 seconds. Rendered at page level, fixed z-60 so it sits above the
   // scroll view overlay.
   const [toast, setToast] = useState<string | null>(null);
@@ -518,7 +518,7 @@ function ShopPageContent() {
       price_range: product.price_range,
     });
     setSavedIds((prev) => new Set(prev).add(productId));
-    setToast("saved to your edit");
+    setToast("saved to your shortlist");
   }, [products, savedIds]);
 
   const handleLike = useCallback((productId: string) => {
@@ -665,12 +665,12 @@ function ShopPageContent() {
       {/* Nav — matches /brands + homepage cream-olive */}
       <header className="fixed top-0 left-0 right-0 z-50 px-8 py-2.5 bg-background/80 backdrop-blur-sm flex items-center justify-between">
         <Link href="/" className="font-display font-light text-base tracking-[0.22em] text-foreground hover:opacity-80 transition-opacity">
-          SHORTLIST
+          MUSE
         </Link>
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"   className="text-foreground hover:text-accent transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
-          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your edit</Link>
+          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
         <MobileMenu
@@ -678,7 +678,7 @@ function ShopPageContent() {
           links={[
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/edit",      label: "Your edit" },
+            { href: "/edit",      label: "Your shortlist" },
             { href: "/dashboard", label: "Tailor to my taste →" },
           ]}
         />
@@ -822,7 +822,7 @@ function ShopPageContent() {
         />
       )}
 
-      {/* Transient confirmation banner ("saved to your edit"). Lives at
+      {/* Transient confirmation banner ("saved to your shortlist"). Lives at
           page level so it floats above the scroll view overlay (z-50).
           Fades in/out via inline transition + top/opacity. */}
       {toast && (
@@ -839,7 +839,7 @@ function ShopPageContent() {
 
       <footer className="border-t border-border px-8 py-7">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">SHORTLIST</Link>
+          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">MUSE</Link>
           <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <span>© 2025</span>
@@ -1133,7 +1133,7 @@ function ProductScrollView({
           where backdrop-filter blurs the underlying page to a soft cream
           wash — but iOS Safari de-prioritises backdrop-filter on lower-
           powered iPads, leaving only the 40% cream overlay. The fixed
-          page header (also z-50) then bled through, stacking the SHORTLIST
+          page header (also z-50) then bled through, stacking the MUSE
           wordmark and "← GRID" button on top of each other.
           Bumping the base opacity to 92% keeps the backdrop readable
           regardless of whether the blur filter actually rendered. */}
@@ -1250,7 +1250,7 @@ function ProductScrollView({
             </RailButton>
             {/* Save — same cream/olive aesthetic as Like + Steer. Bookmark
                 icon fills olive when the active card is saved. Toast on
-                the page layer confirms "saved to your edit". */}
+                the page layer confirms "saved to your shortlist". */}
             <RailButton
               label={activeSaved ? "Saved" : "Save"}
               onClick={() => { if (activeProduct) onSave(activeProduct.objectID); }}

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-04-18T19:58:47.778Z",
-  "totalProducts": 116992,
-  "totalBrands": 249,
+  "generatedAt": "2026-04-19T22:14:12.505Z",
+  "totalProducts": 124071,
+  "totalBrands": 261,
   "brands": [
     {
       "name": "Camilla",
-      "count": 17957,
+      "count": 17510,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0069/1575/2054/files/CAMILLA_00043204_CROSS_OVER_COAT_MUSEUM_MEMOIRS_MODEL_1.jpg?v=1775698816"
     },
     {
@@ -54,6 +54,11 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0429/6120/7445/files/12DAYSONER_FLEECE_JACKET_HEATHERGREY_250930_PDP_1440x1800_01.jpg?v=1764672810"
     },
     {
+      "name": "The Row",
+      "count": 1747,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0552/0313/5593/files/IKB_THEROW_DAY2_DIGITAL_13.jpg?v=1774377208"
+    },
+    {
       "name": "Dissh",
       "count": 1695,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0265/5590/8132/files/DSI02023BCHO.572.jpg?v=1775523058"
@@ -61,7 +66,7 @@
     {
       "name": "Bymerrachi",
       "count": 1668,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0754/6893/1381/files/Trench_Abaya_Black_BM_E_0322.jpg?v=1762266852"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0754/6893/1381/files/2024.04.20_oversized_abaya_light_kaki555_555_550827.jpg?v=1729762806"
     },
     {
       "name": "Farm Rio",
@@ -144,6 +149,11 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0130/3137/4906/products/IA10172BILLIEJACKETTANF3.jpg?v=1634695239"
     },
     {
+      "name": "Totême",
+      "count": 1033,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0452/1374/5316/files/TOTEME_ECOM_PS26_ASPEN_EXCLUSIVE_COAT_261-WRO0158_MONOCHROME_SHEARLING_COAT_BLACK_WHITE__2726_A.jpg?v=1765795672"
+    },
+    {
       "name": "Derschutze",
       "count": 959,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0520/8843/8949/files/2025-04-23-20-2_1.jpg?v=1746016101"
@@ -152,6 +162,11 @@
       "name": "Bec + Bridge",
       "count": 940,
       "imageUrl": "https://cdn.shopify.com/s/files/1/2994/5224/files/BecBridge-BM-13318-WHITE_1775_92c865a1-ee07-465e-8e71-8a5b0d5ab41e.jpg?v=1775625938"
+    },
+    {
+      "name": "St. Agni",
+      "count": 927,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_130_BAMBI_5649copy.jpg?v=1768956513"
     },
     {
       "name": "Mother Denim",
@@ -172,6 +187,11 @@
       "name": "Manière De Voir",
       "count": 889,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0282/6678/files/MDV_0116_MDV1_0ef8a5f5-cc11-4f18-a520-e63a70316057.jpg?v=1763524184"
+    },
+    {
+      "name": "Khaite",
+      "count": 887,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1519/7996/files/CATE-HANDBAG_DARK-HONEY-ALLIGATOR_H2039-929-888_A.jpg?v=1768485946"
     },
     {
       "name": "Faithfull The Brand",
@@ -211,12 +231,17 @@
     {
       "name": "RIXO",
       "count": 693,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0327/1609/5533/files/010.03048.225.06018_Dune_Dress_Solid_Ivory_1.jpg?v=1768922590"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0327/1609/5533/files/318.05588.425.07349_Ellis_Coat_Solid_Cream_1.jpg?v=1758296931"
     },
     {
       "name": "Annie's Ibiza",
       "count": 684,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0033/9640/3318/files/20240723_Annies-Ibiza-Ecomm14350.jpg?v=1749725677"
+    },
+    {
+      "name": "St. John",
+      "count": 649,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0884/4155/3184/files/K12PC21-BK00-644.jpg?v=1770762858"
     },
     {
       "name": "Eme Studios",
@@ -227,6 +252,11 @@
       "name": "Laruicci",
       "count": 641,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0031/9872/files/06_FW_0004.jpg?v=1710336899"
+    },
+    {
+      "name": "Tove",
+      "count": 601,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0155/8868/7920/files/emily_shearling_tove.jpg?v=1710886755"
     },
     {
       "name": "Cult Form",
@@ -299,14 +329,14 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0599/8755/8461/files/ha2433479001-ponte_jacket-black_2_5b776b04-9506-41fa-8b0a-7b90c71d4b93.jpg?v=1768371407"
     },
     {
+      "name": "Kallmeyer",
+      "count": 462,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0743/5708/0376/files/DKRT26LA6003DonnaShearlingCarCoat_natural_RT26_3118.jpg?v=1762530436"
+    },
+    {
       "name": "Lameeramoda",
       "count": 456,
       "imageUrl": "https://cdn.shopify.com/s/files/1/1132/4288/files/NEWYORK25-_0136_Layer62.jpg?v=1747178073"
-    },
-    {
-      "name": "Kallmeyer",
-      "count": 431,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0743/5708/0376/files/DKRT26LA6003DonnaShearlingCarCoat_natural_RT26_3118.jpg?v=1762530436"
     },
     {
       "name": "Brandon Blackwood",
@@ -321,12 +351,17 @@
     {
       "name": "Folkloore",
       "count": 401,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0865/8468/files/FOLKLOORE_20-11-24_4273.jpg?v=1732708834"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0865/8468/files/FOLKLOORE_18-10-24_3388.jpg?v=1729675560"
     },
     {
       "name": "One Mile The Label",
       "count": 395,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0334/8171/9945/files/Artboard54_e9bfbbfb-e0a2-48d9-950c-454cd156da3c.jpg?v=1750217265"
+    },
+    {
+      "name": "Destree",
+      "count": 384,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0573/1103/5562/files/24F4COA42101_WEB.jpg?v=1744470894"
     },
     {
       "name": "Mkdtstudio",
@@ -359,6 +394,16 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0320/4907/0220/files/JUDE_009.jpg?v=1757327921"
     },
     {
+      "name": "Lisa Yang",
+      "count": 306,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0550/4407/9778/files/LISAYANG_AW25_CAPSULE_RHEA_CARDIGAN-COAT_2025507GR_GRAPHITE_0053.jpg?v=1758531321"
+    },
+    {
+      "name": "Boyy",
+      "count": 303,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0279/0447/5214/files/BOYY_INDEX02_GloveBoot_01_6fd0d165-c25a-4e63-bcee-427462bf40e6.png?v=1699523697"
+    },
+    {
       "name": "Pixie Market",
       "count": 303,
       "imageUrl": "https://cdn.shopify.com/s/files/1/2037/5461/files/4764861.jpg?v=1727499255"
@@ -367,6 +412,11 @@
       "name": "Manning Cartell",
       "count": 302,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0044/1250/6227/files/16_52713-PAVED-WITH-GOLD-GOWN_L-070.jpg?v=1756865427"
+    },
+    {
+      "name": "Róhe",
+      "count": 298,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0567/3136/9633/files/418-10-188_987_004.jpg?v=1764062842"
     },
     {
       "name": "Glamabayasss",
@@ -421,7 +471,7 @@
     {
       "name": "Indigo Luna",
       "count": 256,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/1963/6793/files/Dove-Dress-Outdoor-Film-3.jpg?v=1740037822"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1963/6793/files/PALOMAJUMPERCOFFEE_OLIVIASHORTPECAN-19.jpg?v=1759202257"
     },
     {
       "name": "Hertunba",
@@ -469,14 +519,14 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0413/9794/4478/files/PSS_Tieknee_ANGLE_02-EDIT.jpg?v=1755566323"
     },
     {
-      "name": "Azva",
-      "count": 226,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0845/6195/3094/files/91ed6f35-028d-4340-ad84-5cbb7b5b3096.jpg?v=1721749263"
-    },
-    {
       "name": "Apparis",
       "count": 224,
       "imageUrl": "https://cdn.shopify.com/s/files/1/1198/5066/files/F5CT344BMK_SYLKE_BLONDEMINK_1.jpg?v=1754326519"
+    },
+    {
+      "name": "Nour Hammour",
+      "count": 220,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0030/2946/7203/files/Birthday-Coat-Merigold-Packshot.jpg?v=1764863684&width=1200&height=630&crop=top"
     },
     {
       "name": "Elywood",
@@ -539,6 +589,11 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0046/5020/5218/files/AC_7777.jpg?v=1774935572"
     },
     {
+      "name": "High Sport",
+      "count": 185,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0056/4330/5027/files/BLACK_JACKET_1886.jpg?v=1775857528"
+    },
+    {
       "name": "Hosbjerg",
       "count": 181,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0553/3306/0762/files/BRIANNA_JACKET_1.jpg?v=1772110995"
@@ -562,6 +617,11 @@
       "name": "Marmar Halim",
       "count": 167,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0841/1824/1561/files/M2701_PTC1_1.jpg?v=1753176261"
+    },
+    {
+      "name": "Morgane Le Fay",
+      "count": 167,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1396/8815/files/100925_MorganeLeFay_0843.jpg?v=1771956186"
     },
     {
       "name": "Beare Park",
@@ -641,7 +701,7 @@
     {
       "name": "Contessa Mills",
       "count": 119,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0693/0058/4676/files/ContessaMillsHiRes-213_1.jpg?v=1747752730"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0693/0058/4676/files/ContessaMillsHiRes-397.jpg?v=1747790065"
     },
     {
       "name": "Clio Peppiatt",
@@ -699,6 +759,11 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0792/2875/files/5-second-sari-black-genna-crop-top-106385.jpg?v=1726817522"
     },
     {
+      "name": "Yume Yume",
+      "count": 98,
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0572/5922/9324/files/Eva22augustus3608.jpg?v=1692969643"
+    },
+    {
       "name": "Colomas",
       "count": 95,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0821/5268/5915/files/LOOK10_1_0eefaaf8-8df0-4722-876f-4c5c5b82bab0.jpg?v=1760185210"
@@ -744,11 +809,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0770/1132/1145/files/C6C28FF3-95F8-420A-8C9A-CF4DFB2C6A3E.jpg?v=1774496140"
     },
     {
-      "name": "High Sport",
-      "count": 84,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0056/4330/5027/files/BLACK_JACKET_1886.jpg?v=1775857528"
-    },
-    {
       "name": "Bubon",
       "count": 83,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0578/5704/8623/files/redbomberfront.png?v=1763510811"
@@ -761,7 +821,7 @@
     {
       "name": "Klaythelabel",
       "count": 83,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0621/6830/1720/files/IMG_3580.png?v=1751690162"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0621/6830/1720/files/IMG_1111_9cf7ec60-d3a8-4ff8-90e0-aa574a67a142.png?v=1732438972"
     },
     {
       "name": "Laguna Co",
@@ -776,7 +836,7 @@
     {
       "name": "Cyklar",
       "count": 81,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0830/2195/5375/files/1-CYKL_Keychain_PDP_RoseBud.jpg?v=1771890316"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0830/2195/5375/files/1-CYKL_PDP_CreamRefill_VV-1.jpg?v=1761098502"
     },
     {
       "name": "Heaven Mayhem",
@@ -826,12 +886,12 @@
     {
       "name": "Esha Soni",
       "count": 68,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0641/0010/6496/files/IMG_2199_2.jpg?v=1759942088"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0641/0010/6496/files/IMG_9018.jpg?v=1764005485"
     },
     {
       "name": "Hadiyatt",
       "count": 68,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0658/7783/5995/files/FF728A63-535D-405F-8007-39A13D6135AD.jpg?v=1757878244"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0658/7783/5995/products/DSC01366_1a24db0b-8e23-4152-ad0c-ed845edae5f4.jpg?v=1671039484"
     },
     {
       "name": "Into Gaia",
@@ -846,12 +906,12 @@
     {
       "name": "Paula Mendoza",
       "count": 65,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0509/9978/7698/files/Magdalena_Triple_Producto_Dorado.jpg?v=1756137300"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0509/9978/7698/files/PULSERAJCREWDORADA_02.jpg?v=1713988859"
     },
     {
       "name": "8rb4",
       "count": 65,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0709/4412/9304/files/PROGRESS.jpg?v=1744039541"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0709/4412/9304/files/PATCHWORK_BROWN_FRONT.jpg?v=1744039669"
     },
     {
       "name": "Chalay",
@@ -946,12 +1006,12 @@
     {
       "name": "Dream Dress Delivered",
       "count": 41,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0825/1762/3097/files/custom_resized_14ea539a-d65c-40b6-b1c2-ec3785e5d7da.jpg?v=1694319762"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0825/1762/3097/files/IMG_8784.heic?v=1771994244"
     },
     {
       "name": "Bayabydesign",
       "count": 39,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0715/3808/2045/files/ECD740BE-6305-4B8A-8E46-DD57D1ECBD56.jpg?v=1770557437"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0715/3808/2045/files/IMG_9083.jpg?v=1762172640"
     },
     {
       "name": "Autrique Brand",
@@ -971,7 +1031,7 @@
     {
       "name": "Daughters Of The Sun",
       "count": 33,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0738/2466/5876/files/hydratankweb.jpg?v=1744334344"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0738/2466/5876/files/arizona-robe.jpg?v=1694026546"
     },
     {
       "name": "Hermanos Koumori",
@@ -1001,12 +1061,12 @@
     {
       "name": "Aware Official",
       "count": 30,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0684/3065/9834/files/AW2025_Ecom-10.jpg?v=1759381806"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0684/3065/9834/files/aw25-06_707f9b5e-d773-4990-ae54-e446eb044bb8.jpg?v=1761757388"
     },
     {
       "name": "Linaīa",
       "count": 30,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0667/6126/1122/files/F7A1C98B-5F07-4AAC-95E0-0411C011959E.jpg?v=1771697378"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0667/6126/1122/files/IMG-7820.jpg?v=1771697377"
     },
     {
       "name": "Meji Meji",
@@ -1061,7 +1121,7 @@
     {
       "name": "4028",
       "count": 25,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0738/3600/3592/files/artists.png?v=1775839498"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0738/3600/3592/files/bkbkb.png?v=1775698941"
     },
     {
       "name": "Pact",
@@ -1146,7 +1206,7 @@
     {
       "name": "Ceerinity",
       "count": 14,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0816/9789/8840/files/0CA6249B-CF4E-4E21-A2BF-02CBBC409C63.jpg?v=1775238553"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0816/9789/8840/files/1B0F591D-6C6C-4B40-A0D1-000BCA6BD5C2.jpg?v=1776191698"
     },
     {
       "name": "Felaçi",
@@ -1191,12 +1251,12 @@
     {
       "name": "Ella Mia Store",
       "count": 9,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0888/5852/6038/files/IMG_3364.jpg?v=1766761048"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0888/5852/6038/files/IMG_3374.jpg?v=1774535548"
     },
     {
       "name": "Kadiwa The Label",
       "count": 9,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0695/8383/1195/files/DSC02097-2.jpg?v=1764303492"
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0695/8383/1195/files/E9929C9E-A753-4F36-8480-8719459BAA4F_1_201_a.jpg?v=1764308822"
     },
     {
       "name": "Findthara",
