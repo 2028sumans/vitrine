@@ -12,6 +12,7 @@ import {
   type ScoringCard,
 } from "@/lib/scoring";
 import type { SteerInterpretation } from "@/lib/steer-interpret";
+import { addSaved, removeSaved, readSaved } from "@/lib/saved";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -190,6 +191,27 @@ function ShopPageContent() {
   const clickHistoryRef               = useRef<ClickSignalLike[]>([]);
   const dislikedSignalsRef            = useRef<ClickSignalLike[]>([]);
   const activeScrollIdxRef            = useRef(0);
+
+  // Saved products ("Your Edit"). Persisted to localStorage via lib/saved.
+  // Only the ID set lives in component state — the full product rows are
+  // in localStorage and /edit reads them directly, so we don't need to
+  // double-store here.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    // Hydrate from localStorage on mount.
+    const rows = readSaved();
+    setSavedIds(new Set(rows.map((r) => r.objectID)));
+  }, []);
+
+  // Transient confirmation banner ("saved to your edit"). Fades out after
+  // ~2 seconds. Rendered at page level, fixed z-60 so it sits above the
+  // scroll view overlay.
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 2200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   const productToSignal = (p: Product): ClickSignalLike => ({
     objectID:    p.objectID,
@@ -466,6 +488,38 @@ function ShopPageContent() {
     }
   }, [buildBias, brandFilter, steerQuery, steerInterp, isBrandMode]);
 
+  // Toggle-save handler. On a new save we also fire the toast. Unlike
+  // handleLike, save does NOT feed the scoring algorithm — "saving" is a
+  // bookmark action, not a taste signal.
+  const handleSave = useCallback((productId: string) => {
+    const product = products.find((p) => p.objectID === productId);
+    if (!product) return;
+    const isCurrentlySaved = savedIds.has(productId);
+    if (isCurrentlySaved) {
+      removeSaved(productId);
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+      return;
+    }
+    addSaved({
+      objectID:    product.objectID,
+      title:       product.title,
+      brand:       product.brand,
+      retailer:    product.retailer,
+      price:       product.price,
+      image_url:   product.image_url,
+      product_url: product.product_url,
+      category:    product.category,
+      color:       product.color,
+      price_range: product.price_range,
+    });
+    setSavedIds((prev) => new Set(prev).add(productId));
+    setToast("saved to your edit");
+  }, [products, savedIds]);
+
   const handleLike = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
     if (!product) return;
@@ -615,6 +669,7 @@ function ShopPageContent() {
         <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"   className="text-foreground hover:text-accent transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
+          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your edit</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
       </header>
@@ -752,7 +807,24 @@ function ShopPageContent() {
           onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }}
           onSteer={handleSteer}
           steerQuery={steerQuery}
+          savedIds={savedIds}
+          onSave={handleSave}
         />
+      )}
+
+      {/* Transient confirmation banner ("saved to your edit"). Lives at
+          page level so it floats above the scroll view overlay (z-50).
+          Fades in/out via inline transition + top/opacity. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] pointer-events-none"
+        >
+          <div className="font-sans text-[10px] tracking-widest uppercase bg-foreground text-background px-5 py-2.5 shadow-xl">
+            {toast}
+          </div>
+        </div>
       )}
 
       <footer className="border-t border-border px-8 py-7">
@@ -916,6 +988,7 @@ function ProductScrollView({
   products, onNearEnd, loading, hasMore, onClose,
   likedIds, onLike, onDwell, onActiveChange,
   onSteer, steerQuery,
+  savedIds, onSave,
 }: {
   products:       Product[];
   onNearEnd:      () => void;
@@ -928,6 +1001,8 @@ function ProductScrollView({
   onActiveChange: (idx: number) => void;
   onSteer:        (comment: string) => void;
   steerQuery:     string;
+  savedIds:       Set<string>;
+  onSave:         (productId: string) => void;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const isScrolling   = useRef(false);
@@ -1039,6 +1114,7 @@ function ProductScrollView({
 
   const activeProduct = products[activeIdx];
   const activeLiked   = activeProduct ? likedIds.has(activeProduct.objectID) : false;
+  const activeSaved   = activeProduct ? savedIds.has(activeProduct.objectID) : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -1162,6 +1238,20 @@ function ProductScrollView({
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
             </RailButton>
+            {/* Save — same cream/olive aesthetic as Like + Steer. Bookmark
+                icon fills olive when the active card is saved. Toast on
+                the page layer confirms "saved to your edit". */}
+            <RailButton
+              label={activeSaved ? "Saved" : "Save"}
+              onClick={() => { if (activeProduct) onSave(activeProduct.objectID); }}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5"
+                fill={activeSaved ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </RailButton>
           </div>
         </div>
 
@@ -1190,6 +1280,20 @@ function ProductScrollView({
               stroke="currentColor"
               strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </RailButton>
+
+          {/* Save — sits below Steer. Same cream/olive aesthetic; bookmark
+              icon fills olive when the active card is saved. */}
+          <RailButton
+            label={activeSaved ? "Saved" : "Save"}
+            onClick={() => { if (activeProduct) onSave(activeProduct.objectID); }}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5"
+              fill={activeSaved ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
           </RailButton>
         </div>

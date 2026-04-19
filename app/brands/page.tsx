@@ -44,7 +44,9 @@ export default function BrandsPage() {
           MUSE
         </Link>
         <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
+          <Link href="/shop"   className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands" className="text-foreground hover:text-accent transition-colors">Brands</Link>
+          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your edit</Link>
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
         </div>
       </header>

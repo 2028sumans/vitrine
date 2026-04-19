@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Reveal } from "./_components/Reveal";
 
 // Deep olive hero background + warm cream foreground. Kept as literals here
 // (instead of tailwind tokens) so the rest of the app — cream bg + olive text —
@@ -72,6 +73,13 @@ export default function HomePage() {
             style={{ color: `${HERO_TEXT}b3` /* ~70% alpha */ }}
           >
             Brands
+          </Link>
+          <Link
+            href="/edit"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` }}
+          >
+            Your edit
           </Link>
           <Link
             href="/dashboard"
@@ -146,15 +154,17 @@ export default function HomePage() {
         {/* ══ 2. HOW IT WORKS — CREAM ═════════════════════════════════════════ */}
         <section className="bg-cream px-8 py-28 max-w-full">
           <div className="max-w-6xl mx-auto">
-            <div className="mb-20">
-              <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
-                Three steps.
-              </h2>
-            </div>
+            <Reveal>
+              <div className="mb-20">
+                <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
+                  Three steps.
+                </h2>
+              </div>
+            </Reveal>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-8">
-              {steps.map((step) => (
-                <div key={step.num}>
+              {steps.map((step, i) => (
+                <Reveal key={step.num} delay={i * 120}>
                   <p className="font-display font-light text-6xl text-navy/40 mb-6 leading-none select-none">
                     {step.num}
                   </p>
@@ -164,7 +174,7 @@ export default function HomePage() {
                   <p className="font-sans text-base text-navy-strong leading-relaxed">
                     {step.body}
                   </p>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -173,43 +183,49 @@ export default function HomePage() {
         {/* ══ 3. STATEMENT — NAVY ═════════════════════════════════════════════ */}
         <section className="bg-background px-8 py-32">
           <div className="max-w-6xl mx-auto">
-            <div className="max-w-3xl">
-              <h2 className="font-display font-light text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-foreground mb-8">
-                The best brands are tiny.
-                They&apos;re scattered everywhere.
-              </h2>
-              <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
-                A vintage seller in Tokyo stocks a dozen pieces you&apos;d love.
-                So does one in London, one in Stockholm, one in Toronto.
-                Every preloved platform and small-batch label has the same story:
-                a thin catalog on its own site. Stitching a wardrobe together
-                used to mean endless open tabs. Bring the taste you&apos;ve
-                spent years building, and we&apos;ll put the ethical labels
-                that fit it right in front of you.
-              </p>
-            </div>
+            <Reveal>
+              <div className="max-w-3xl">
+                <h2 className="font-display font-light text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-foreground mb-8">
+                  The best brands are tiny.
+                  They&apos;re scattered everywhere.
+                </h2>
+                <p className="font-sans text-base text-muted-strong leading-relaxed max-w-lg">
+                  A vintage seller in Tokyo stocks a dozen pieces you&apos;d love.
+                  So does one in London, one in Stockholm, one in Toronto.
+                  Every preloved platform and small-batch label has the same story:
+                  a thin catalog on its own site. Stitching a wardrobe together
+                  used to mean endless open tabs. Bring the taste you&apos;ve
+                  spent years building, and we&apos;ll put the ethical labels
+                  that fit it right in front of you.
+                </p>
+              </div>
+            </Reveal>
           </div>
         </section>
 
         {/* ══ 4. FEATURES — CREAM ═════════════════════════════════════════════ */}
         <section className="bg-cream px-8 py-24">
           <div className="max-w-6xl mx-auto">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-14">
-              What you get
-            </p>
+            <Reveal>
+              <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-14">
+                What you get
+              </p>
+            </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10">
-              {features.map(({ label, body }) => (
-                <div key={label} className="flex gap-6 items-start">
-                  <div className="w-px h-10 bg-navy-border-mid flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="font-display font-light text-xl text-navy mb-2">
-                      {label}
-                    </h3>
-                    <p className="font-sans text-base text-navy-strong leading-relaxed">
-                      {body}
-                    </p>
+              {features.map(({ label, body }, i) => (
+                <Reveal key={label} delay={i * 100}>
+                  <div className="flex gap-6 items-start">
+                    <div className="w-px h-10 bg-navy-border-mid flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="font-display font-light text-xl text-navy mb-2">
+                        {label}
+                      </h3>
+                      <p className="font-sans text-base text-navy-strong leading-relaxed">
+                        {body}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
