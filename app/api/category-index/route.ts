@@ -24,9 +24,16 @@ type CategoryRequest = {
 
 // Same mapping as app/api/shop-all/route.ts. Kept in sync manually — the two
 // lanes need to agree on what each display label means.
+//
+// `query` biases which single hit Algolia picks for the card hero image.
+// For Dresses the bare `category:"dress"` filter was pulling an archive
+// couture gown on a mannequin that looked dated on the card. Adding a
+// gentle editorial bias ("midi slip linen silk flowy") nudges Algolia
+// toward a cleaner, more current piece without hard-filtering. We also
+// pick from a wider slice below so a tweak here is easy.
 const CATEGORIES: CategoryRequest[] = [
   { label: "Tops",                 filters: 'category:"top"',    query: "" },
-  { label: "Dresses",              filters: 'category:"dress"',  query: "" },
+  { label: "Dresses",              filters: 'category:"dress"',  query: "midi slip linen silk flowy" },
   { label: "Bottoms",              filters: 'category:"bottom"', query: "" },
   { label: "Knits",                filters: null,                query: "knit sweater cardigan cashmere wool" },
   { label: "Bags and accessories", filters: 'category:"bag"',    query: "" },
@@ -34,6 +41,14 @@ const CATEGORIES: CategoryRequest[] = [
   { label: "Outerwear",            filters: 'category:"jacket"', query: "" },
   { label: "Other",                filters: CORE_CATS.map((c) => `NOT category:"${c}"`).join(" AND "), query: "" },
 ];
+
+// How many hits to pull from Algolia per category, and which index to use
+// for the card image. Wider pool + non-zero pick index = an easy knob to
+// skip obvious duds per category without rewriting queries.
+const PICK_INDEX: Record<string, number> = {
+  "Dresses": 2, // skip the first two hits — top slot keeps picking an archive couture gown
+};
+const HITS_PER_PAGE = 8;
 
 export async function GET() {
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
@@ -56,12 +71,22 @@ export async function GET() {
             query,
             ...(filters ? { filters } : {}),
             ...(query ? { optionalWords: query.split(/\s+/).filter(Boolean) } : {}),
-            hitsPerPage: 1,
+            hitsPerPage: HITS_PER_PAGE,
             attributesToRetrieve: ["objectID", "image_url"],
           },
         });
-        const hit = res.hits?.[0] as { image_url?: string } | undefined;
-        const imageUrl = typeof hit?.image_url === "string" && hit.image_url.startsWith("http") ? hit.image_url : null;
+        // Walk starting at the per-category pick index and take the first
+        // hit that actually has a usable http image URL.
+        const hits     = (res.hits ?? []) as Array<{ image_url?: string }>;
+        const startIdx = PICK_INDEX[label] ?? 0;
+        let imageUrl: string | null = null;
+        for (let i = 0; i < hits.length; i++) {
+          const h = hits[(startIdx + i) % hits.length];
+          if (typeof h?.image_url === "string" && h.image_url.startsWith("http")) {
+            imageUrl = h.image_url;
+            break;
+          }
+        }
         return { label, imageUrl, count: res.nbHits ?? null };
       } catch (e) {
         console.warn(`[category-index] ${label} failed:`, e instanceof Error ? e.message : e);
