@@ -247,7 +247,7 @@ export default function ShopPage() {
       const shopRes = await fetch("/api/shop-personalized", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ pinImageUrls }),
+        body:    JSON.stringify({ pinImageUrls, brandFilter: brandFilter ?? "" }),
       });
       if (!shopRes.ok) return;
       const shopData = await shopRes.json();
@@ -265,13 +265,14 @@ export default function ShopPage() {
   }, []);
 
   // Initial load: waits until (a) the session has resolved and (b) we've
-  // read the ?brand=… URL param. Pinterest-pool personalization is skipped
-  // in brand mode — the whole point there is to see that one brand's goods.
+  // read the ?brand=… URL param. In brand mode the Pinterest pool gets
+  // filtered to just that brand on the server side — so it still biases
+  // ordering toward your taste without leaking other brands in.
   useEffect(() => {
     if (session === undefined) return;
     if (brandFilter === null) return;
     if (products.length === 0) loadMore();
-    if (accessToken && !isBrandMode) void tryPersonalize(accessToken);
+    if (accessToken) void tryPersonalize(accessToken);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [session, accessToken, brandFilter]);
 
@@ -288,9 +289,9 @@ export default function ShopPage() {
   // their preference shows up in ~2 cards instead of ~48.
   const refreshBiasedAhead = useCallback(async () => {
     if (biasRefetchInFlightRef.current) return;
-    // In brand mode the user is intentionally scoped to one brand. Don't
-    // pull a "biased" re-fetch that would leak products from other brands.
-    if (isBrandMode) return;
+    // In brand mode the server applies brandFilter so the re-fetch stays
+    // within the brand — it's safe to still run this path, which keeps the
+    // feed responsive to session likes/dislikes inside the brand scope.
     const bias = buildBias();
     const hasLiked = (bias.likedBrands?.length ?? 0) > 0
       || (bias.likedCategories?.length ?? 0) > 0

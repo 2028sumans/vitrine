@@ -84,27 +84,44 @@ export async function POST(request: Request) {
     const client = algoliasearch(appId, key);
 
     if (brandFilterQuery) {
+      // Brand mode: always filter to the brand; if session signals exist,
+      // also apply a taste-query so items matching your likes rank higher
+      // WITHIN the brand. Disliked-brand post-filter is a no-op here (the
+      // whole page is one brand) but disliked categories still apply.
+      const q = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
         searchParams: {
-          query:       "",
+          query:       q,
           filters:     brandFilterQuery,
           hitsPerPage: HITS_PER_PAGE,
           page,
           attributesToRetrieve,
         },
       });
-      const products = ((res.hits ?? []) as Array<Record<string, unknown>>).filter((h) => {
+      let products = (res.hits ?? []) as Array<Record<string, unknown>>;
+
+      const dislikedCategories = new Set((bias.dislikedCategories ?? []).map((s) => s.toLowerCase()));
+      if (dislikedCategories.size > 0) {
+        products = products.filter((p) => {
+          const c = String((p.category ?? "")).toLowerCase();
+          return !c || !dislikedCategories.has(c);
+        });
+      }
+
+      const clean = products.filter((h) => {
         const u = h.image_url;
         return typeof u === "string" && u.startsWith("http");
       });
+
       return NextResponse.json({
-        products,
+        products: clean,
         page,
-        hasMore: (res.hits?.length ?? 0) >= HITS_PER_PAGE,
-        mode:    "brand",
-        brand:   brandFilter,
-        total:   res.nbHits ?? null,
+        hasMore:  (res.hits?.length ?? 0) >= HITS_PER_PAGE,
+        mode:     "brand",
+        brand:    brandFilter,
+        query:    q,
+        total:    res.nbHits ?? null,
       });
     }
 

@@ -46,6 +46,7 @@ const CLOTHING_PROMPTS = [
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const pinImageUrls: string[] = Array.isArray(body?.pinImageUrls) ? body.pinImageUrls : [];
+  const brandFilter: string    = typeof body?.brandFilter === "string" ? body.brandFilter.trim() : "";
 
   if (pinImageUrls.length === 0) {
     return NextResponse.json({ products: [] });
@@ -97,7 +98,18 @@ export async function POST(request: Request) {
       .map((id) => byId.get(id))
       .filter((p): p is NonNullable<typeof p> => p != null);
 
-    const clean = ordered.filter((p) => typeof p.image_url === "string" && p.image_url.startsWith("http"));
+    let clean = ordered.filter((p) => typeof p.image_url === "string" && p.image_url.startsWith("http"));
+
+    // Brand-mode scope: keep only products from the current brand so the
+    // pool can still bias /shop toward Pinterest taste within the brand.
+    if (brandFilter) {
+      const want = brandFilter.toLowerCase();
+      clean = clean.filter((p) => {
+        const b = String((p as { brand?: unknown }).brand ?? "").toLowerCase();
+        const r = String((p as { retailer?: unknown }).retailer ?? "").toLowerCase();
+        return b === want || r === want;
+      });
+    }
 
     return NextResponse.json({
       products:        clean,
