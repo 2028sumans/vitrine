@@ -740,19 +740,21 @@ function ProductScrollView({
         </span>
       </div>
 
-      {/* Card + button rail as siblings. Buttons sit to the right of the
-          column, not on top of the product image. */}
-      <div className="relative z-10 flex items-center gap-8">
-        {/* Card wrapper — gives the Steer overlay a positioning context that
-            tracks the card itself, not the viewport. Without this wrapper the
-            bar centers on the overlay (which also contains the rail) and ends
-            up visually offset to the right of the card. */}
-        <div className="relative">
-          {/* Scroll column */}
+      {/* Card + button rail.
+          Desktop (sm+): horizontal flex with the 440px card centered and the
+            rail as its right-hand sibling, gap-8 between them. Unchanged.
+          Mobile (<sm): the outer flex collapses to fill the viewport; the
+            card itself goes full-bleed (w-full h-full) and the rail is
+            absolutely positioned over the card's right edge, TikTok-style. */}
+      <div className="relative z-10 flex items-center w-full h-full sm:w-auto sm:h-auto sm:gap-8">
+        {/* Card wrapper — positioning context for the Steer overlay AND, on
+            mobile only, the rail. */}
+        <div className="relative w-full h-full sm:w-auto sm:h-auto">
+          {/* Scroll column — full-viewport on mobile, 440px column on desktop */}
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="w-[440px] max-w-[92vw] h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
+            className="w-full h-full sm:w-[440px] sm:max-w-[92vw] sm:h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
             style={{ scrollSnapType: "y mandatory" }}
           >
             {products.map((p, i) => (
@@ -801,10 +803,38 @@ function ProductScrollView({
               </div>
             </form>
           )}
+
+          {/* Mobile rail — overlaid on the card's bottom-right, above the
+              product info overlay. Hidden on sm+ (the desktop rail below
+              handles that case via flex). */}
+          <div className="sm:hidden absolute right-3 bottom-40 z-20 flex flex-col items-center gap-5">
+            <RailButton
+              label={activeLiked ? "Liked" : "Like"}
+              onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5"
+                fill={activeLiked ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </RailButton>
+            <RailButton
+              label={showSayMore ? "Cancel" : "Steer"}
+              onClick={() => setShowSayMore((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5"
+                fill={showSayMore ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </RailButton>
+          </div>
         </div>
 
-        {/* Button rail — cream/olive palette, French-minimalist refinement */}
-        <div className="flex flex-col items-center gap-6">
+        {/* Desktop rail — flex sibling of the card, hidden on mobile. */}
+        <div className="hidden sm:flex flex-col items-center gap-6">
           <RailButton
             label={activeLiked ? "Liked" : "Like"}
             onClick={() => { if (activeProduct) onLike(activeProduct.objectID); }}
@@ -893,7 +923,7 @@ function ProductScrollCard({
             unoptimized
             priority={isNear}
             className="object-cover"
-            sizes="440px"
+            sizes="(max-width: 640px) 100vw, 440px"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
