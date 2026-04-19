@@ -84,6 +84,15 @@ function titleOk(label: string, title: string): boolean {
 
 const POOL_SIZE = 32;
 
+// Hardcoded hero image overrides — for categories where the Algolia data is
+// too corrupted or inconsistent to pick a good shot automatically. Keys are
+// display labels; values are paths served from `public/`. The Algolia
+// search still runs (to get the product count), but the image comes from
+// here.
+const CATEGORY_IMAGE_OVERRIDE: Record<string, string> = {
+  "Shoes": "/category-hero/shoes.jpg",
+};
+
 export async function GET() {
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -110,6 +119,15 @@ export async function GET() {
           },
         });
         const hits = (res.hits ?? []) as Array<{ image_url?: string; title?: string }>;
+
+        // Hardcoded override takes precedence over everything else. Serves
+        // from `public/…`. We still ran the Algolia query so we get an
+        // accurate `count` for the card badge.
+        const override = CATEGORY_IMAGE_OVERRIDE[label];
+        if (override) {
+          return { label, imageUrl: override, count: res.nbHits ?? null };
+        }
+
         // Pass 1 — first hit with a valid image AND a title that matches
         // the category's whitelist / clears the blacklist.
         let imageUrl: string | null = null;
