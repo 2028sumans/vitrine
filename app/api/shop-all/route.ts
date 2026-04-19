@@ -1,35 +1,60 @@
 /**
- * GET /api/shop-all?page=N
+ * POST /api/shop-all
  *
- * Paginated flat-catalog listing for /shop, with BRAND INTERLEAVING.
+ * Paginated flat-catalog listing for /shop, with TWO behaviors:
  *
- * Algolia's default order clusters products by retailer (because products were
- * uploaded in per-brand batches). A naive paginated pass gives the user "100
- * Camilla, then 50 Retrofete, then 200 Showpo" — visually monotonous.
+ *   (a) No session signals — 8-slice catalog walk: fires 8 parallel Algolia
+ *       queries at evenly-spaced offsets across the catalog and round-robin
+ *       interleaves the hits so a single 48-product page mixes 8 different
+ *       brand clusters instead of 48 consecutive items from one brand.
  *
- * Strategy: for each requested page, we fire 8 parallel Algolia queries at
- * evenly-spaced offsets across the full catalog and then interleave the hits
- * (one from each slice, round-robin). A single page of 48 products therefore
- * pulls from 8 different parts of the catalog — effectively 8 different brand
- * clusters mixed together.
+ *   (b) With signals (likes/dislikes from the current session) — switch to a
+ *       text-query-driven search biased by the user's accumulated taste:
+ *         q = top liked brand + category + color terms concatenated
+ *         + client-side post-filter against strongly-disliked brands
+ *       Each page yields the next 48 results of that biased query, which
+ *       ranges over ALL products in the catalog (not just a fixed 48).
  *
- * The "user page" N shifts each slice's internal offset so subsequent pages
- * surface new products within each slice, not the same 48 over and over.
+ * Signals arrive as arrays of plain strings so composition stays trivial.
  */
 
 import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
 
-export const revalidate = 300;
+export const revalidate = 60; // shorter TTL since signals vary per request
 
 const INDEX_NAME    = "vitrine_products";
 const NUM_SLICES    = 8;
-const PER_SLICE     = 6;     // 8 * 6 = 48 per page
-const CATALOG_SIZE  = 120_000; // rough — used to evenly space slice offsets
+const PER_SLICE     = 6;       // 8 * 6 = 48 per page
+const CATALOG_SIZE  = 120_000; // rough
+const HITS_PER_PAGE = 48;
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const page = Math.max(0, parseInt(searchParams.get("page") ?? "0", 10) || 0);
+interface BiasPayload {
+  likedBrands?:         string[];
+  likedCategories?:     string[];
+  likedColors?:         string[];
+  dislikedBrands?:      string[];
+  dislikedCategories?:  string[];
+}
+
+function buildQueryFromBias(bias: BiasPayload): string {
+  const terms: string[] = [];
+  for (const b of bias.likedBrands      ?? []) terms.push(b);
+  for (const c of bias.likedCategories  ?? []) terms.push(c);
+  for (const c of bias.likedColors      ?? []) terms.push(c);
+  return terms.filter(Boolean).join(" ").trim();
+}
+
+function hasLikedSignals(bias: BiasPayload): boolean {
+  return (bias.likedBrands?.length ?? 0) > 0
+      || (bias.likedCategories?.length ?? 0) > 0
+      || (bias.likedColors?.length ?? 0) > 0;
+}
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const page: number = Math.max(0, parseInt(String(body?.page ?? 0), 10) || 0);
+  const bias: BiasPayload = body?.bias ?? {};
 
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -40,33 +65,73 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing Algolia credentials" }, { status: 500 });
   }
 
+  const attributesToRetrieve = [
+    "objectID", "title", "brand", "retailer", "price",
+    "image_url", "product_url",
+    "category", "color", "price_range",
+  ];
+
   try {
     const client = algoliasearch(appId, key);
 
-    // 8 starting positions evenly spaced across the catalog. We convert each
-    // offset into a (page, hitsPerPage) pair for the searchSingleIndex call,
-    // which is a more reliable shape than raw offset+length in a multi-query
-    // batch (the batch endpoint silently dropped most of our hits).
+    // ── Biased path: use a taste-query, ranges over the full catalog ──────
+    if (hasLikedSignals(bias)) {
+      const q = buildQueryFromBias(bias);
+      const res = await client.searchSingleIndex({
+        indexName: INDEX_NAME,
+        searchParams: {
+          query:       q,
+          hitsPerPage: HITS_PER_PAGE,
+          page,
+          attributesToRetrieve,
+        },
+      });
+      let products = (res.hits ?? []) as Array<Record<string, unknown>>;
+
+      // Post-filter strongly disliked brands / categories
+      const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
+      const dislikedCategories = new Set((bias.dislikedCategories ?? []).map((s) => s.toLowerCase()));
+      if (dislikedBrands.size > 0 || dislikedCategories.size > 0) {
+        products = products.filter((p) => {
+          const b = String((p.brand ?? p.retailer ?? "")).toLowerCase();
+          const c = String((p.category ?? "")).toLowerCase();
+          if (dislikedBrands.has(b)) return false;
+          if (c && dislikedCategories.has(c)) return false;
+          return true;
+        });
+      }
+
+      // Image-url sanity
+      const clean = products.filter((p) => {
+        const u = p.image_url;
+        return typeof u === "string" && u.startsWith("http");
+      });
+
+      return NextResponse.json({
+        products: clean,
+        page,
+        hasMore: (res.hits?.length ?? 0) >= HITS_PER_PAGE,
+        mode:    "biased",
+        query:   q,
+      });
+    }
+
+    // ── Default path: 8-slice catalog walk, interleaved ──────────────────
     const STRIDE = Math.floor(CATALOG_SIZE / NUM_SLICES);
     const offsets = Array.from({ length: NUM_SLICES }, (_, i) =>
       (page * PER_SLICE + i * STRIDE) % CATALOG_SIZE
     );
 
-    // Fire 8 slice queries in parallel. Using offset+length (not page+
-    // hitsPerPage) so we can reach products anywhere in the catalog — the
-    // index's paginationLimitedTo is set to 200_000 to support this.
     const sliceResults = await Promise.all(
       offsets.map(async (off) => {
         try {
           const res = await client.searchSingleIndex({
             indexName: INDEX_NAME,
             searchParams: {
-              query:                "",
-              offset:               off,
-              length:               PER_SLICE,
-              attributesToRetrieve: [
-                "objectID", "title", "brand", "retailer", "price", "image_url", "product_url",
-              ],
+              query:  "",
+              offset: off,
+              length: PER_SLICE,
+              attributesToRetrieve,
             },
           });
           return { hits: (res.hits ?? []) as Array<Record<string, unknown>> };
@@ -77,8 +142,6 @@ export async function GET(request: Request) {
       }),
     );
 
-    // Round-robin interleave: take slice 0's item i, then slice 1's item i, ...
-    // slice 7's item i; then i+1 round. Produces [s0_0, s1_0, ..., s7_0, s0_1, ...].
     const interleaved: Array<Record<string, unknown>> = [];
     for (let i = 0; i < PER_SLICE; i++) {
       for (let j = 0; j < NUM_SLICES; j++) {
@@ -87,16 +150,14 @@ export async function GET(request: Request) {
       }
     }
 
-    // Filter products without a usable image URL
     const products = interleaved.filter((h) => {
-      const url = h.image_url;
-      return typeof url === "string" && url.startsWith("http");
+      const u = h.image_url;
+      return typeof u === "string" && u.startsWith("http");
     });
 
-    // hasMore: if every slice returned a full batch, there's more to pull.
     const hasMore = sliceResults.every((r) => (r.hits?.length ?? 0) >= PER_SLICE);
 
-    return NextResponse.json({ products, page, hasMore });
+    return NextResponse.json({ products, page, hasMore, mode: "flat" });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[shop-all] failed:", message);

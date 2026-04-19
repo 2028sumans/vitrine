@@ -5,6 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import {
+  rankCards,
+  interpretDwell,
+  type ScoringSignals,
+  type ClickSignalLike,
+  type ScoringCard,
+} from "@/lib/scoring";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +23,10 @@ interface Product {
   price:        number | null;
   image_url:    string;
   product_url:  string;
+  // Optional fields used by the session scoring algorithm
+  category?:    string;
+  color?:       string;
+  price_range?: string;
 }
 
 type ViewMode = "grid" | "scroll";
@@ -46,6 +57,61 @@ export default function ShopPage() {
   const sentinelRef           = useRef<HTMLDivElement>(null);
   const personalizeTriedRef   = useRef(false);
 
+  // ── Session scoring algorithm state ────────────────────────────────────────
+  // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
+  // swipes add to dislikedSignals, and both re-rank the upcoming queue so
+  // session signals bubble up (or down) matching products that haven't been
+  // seen yet.
+  const [likedIds, setLikedIds]       = useState<Set<string>>(new Set());
+  const [dwellTimes, setDwellTimes]   = useState<Record<string, number>>({});
+  const clickHistoryRef               = useRef<ClickSignalLike[]>([]);
+  const dislikedSignalsRef            = useRef<ClickSignalLike[]>([]);
+  const activeScrollIdxRef            = useRef(0);
+
+  const productToSignal = (p: Product): ClickSignalLike => ({
+    objectID:    p.objectID,
+    category:    p.category ?? "",
+    brand:       p.brand ?? "",
+    color:       p.color ?? "",
+    price_range: p.price_range ?? "mid",
+    retailer:    p.retailer,
+  });
+
+  const buildSignals = useCallback((): ScoringSignals => ({
+    likedProductIds: likedIds,
+    clickHistory:    clickHistoryRef.current,
+    dislikedSignals: dislikedSignalsRef.current,
+    dwellTimes,
+    aestheticPrice:  "mid", // /shop has no aesthetic profile; mid is a safe default
+  }), [likedIds, dwellTimes]);
+
+  // Re-rank only the unseen portion of the products list. Each product is
+  // wrapped as a single-product ScoringCard so rankCards can evaluate it.
+  const reRankUpcomingProducts = useCallback((list: Product[], activeIdx: number, signals: ScoringSignals): Product[] => {
+    const seen     = list.slice(0, activeIdx + 1);
+    const upcoming = list.slice(activeIdx + 1);
+    if (upcoming.length <= 1) return list;
+    const cards: ScoringCard[] = upcoming.map((p) => ({
+      id:       p.objectID,
+      products: [{
+        objectID:    p.objectID,
+        category:    p.category,
+        brand:       p.brand,
+        color:       p.color,
+        price_range: p.price_range,
+        retailer:    p.retailer,
+      }],
+      liked: signals.likedProductIds.has(p.objectID),
+    }));
+    const ranked = rankCards(cards, signals) as ScoringCard[];
+    // Map ranked cards back to products by id
+    const byId = new Map(upcoming.map((p) => [p.objectID, p]));
+    const rankedProducts = ranked
+      .map((c) => byId.get(c.id))
+      .filter((p): p is Product => p != null);
+    return [...seen, ...rankedProducts];
+  }, []);
+
   // Interleaves a flat batch with the personalized pool at 7:3 ratio. For
   // every 10 output slots we emit 7 from the flat batch then 3 from the pool.
   // Dedupes across everything seen so far (so a product can't appear twice).
@@ -75,13 +141,64 @@ export default function ShopPage() {
     return out;
   }, []);
 
-  // Flat catalog walk; when a Pinterest pool is available, each returned
-  // batch is interleaved 7 flat : 3 personalized.
+  // Build a bias payload out of current session signals. Top-N brands,
+  // categories, and colors from clickHistory (likes) and dislikedSignals
+  // (fast-swipes), computed from the running refs so we always send the
+  // freshest state on each pagination request.
+  const buildBias = useCallback(() => {
+    const byKey = <T extends string>(items: ClickSignalLike[], key: keyof ClickSignalLike, max: number): string[] => {
+      const counts = new Map<string, number>();
+      for (const it of items) {
+        const v = String(it[key] ?? "").trim();
+        if (!v) continue;
+        counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, max)
+        .map(([v]) => v) as T[];
+    };
+    const liked    = clickHistoryRef.current;
+    const disliked = dislikedSignalsRef.current;
+    return {
+      likedBrands:        byKey<string>(liked, "brand", 5),
+      likedCategories:    byKey<string>(liked, "category", 4),
+      likedColors:        byKey<string>(liked, "color", 3),
+      // Only call something "strongly disliked" if the user fast-swiped past
+      // 2+ matching products. Single fast-swipe is noise.
+      dislikedBrands:     (() => {
+        const counts = new Map<string, number>();
+        for (const s of disliked) {
+          const v = (s.brand ?? "").trim();
+          if (!v) continue;
+          counts.set(v, (counts.get(v) ?? 0) + 1);
+        }
+        return Array.from(counts.entries()).filter(([, n]) => n >= 2).map(([v]) => v);
+      })(),
+      dislikedCategories: (() => {
+        const counts = new Map<string, number>();
+        for (const s of disliked) {
+          const v = (s.category ?? "").trim();
+          if (!v) continue;
+          counts.set(v, (counts.get(v) ?? 0) + 1);
+        }
+        return Array.from(counts.entries()).filter(([, n]) => n >= 3).map(([v]) => v);
+      })(),
+    };
+  }, []);
+
+  // Catalog fetch — each page is biased by the session's current signals.
+  // No signals = 8-slice flat walk. Signals = taste-query over the full
+  // 100K catalog. Pinterest pool still interleaves at 7:3 on top.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/shop-all?page=${page}`);
+      const res = await fetch(`/api/shop-all`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ page, bias: buildBias() }),
+      });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         console.error("[shop] non-ok:", res.status, body);
@@ -99,7 +216,7 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, interleaveWithPool]);
+  }, [page, loading, hasMore, interleaveWithPool, buildBias]);
 
   // Fetch the user's fashion-board pin URLs → embed → Pinecone similarity →
   // store as a pool. Pool is then drawn from by interleaveWithPool at 30%.
@@ -146,6 +263,68 @@ export default function ShopPage() {
     if (accessToken) void tryPersonalize(accessToken);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [session, accessToken]);
+
+  // ── Scoring-algorithm handlers ────────────────────────────────────────────
+
+  const handleLike = useCallback((productId: string) => {
+    const product = products.find((p) => p.objectID === productId);
+    if (!product) return;
+    const alreadyLiked = likedIds.has(productId);
+    if (alreadyLiked) {
+      // Unlike: just remove from the set; don't pop clickHistory (user may
+      // genuinely have liked then unliked, but the affinity signal stays).
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+      return;
+    }
+    // New like → record signal + re-rank upcoming
+    const signal = productToSignal(product);
+    clickHistoryRef.current = [signal, ...clickHistoryRef.current].slice(0, 30);
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      next.add(productId);
+      return next;
+    });
+    setProducts((prev) => {
+      const signals: ScoringSignals = {
+        likedProductIds: new Set(Array.from(likedIds).concat(productId)),
+        clickHistory:    clickHistoryRef.current,
+        dislikedSignals: dislikedSignalsRef.current,
+        dwellTimes,
+        aestheticPrice:  "mid",
+      };
+      return reRankUpcomingProducts(prev, activeScrollIdxRef.current, signals);
+    });
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts]);
+
+  const handleDwell = useCallback((productId: string, ms: number) => {
+    setDwellTimes((prev) => ({ ...prev, [productId]: ms }));
+    const signal = interpretDwell(ms);
+    if (signal !== "strong_positive" && signal !== "negative") return;
+
+    // Fast swipe past an UNliked product → capture its attributes as a
+    // penalty signal so similar upcoming products get pushed down.
+    if (signal === "negative") {
+      const product = products.find((p) => p.objectID === productId);
+      if (product && !likedIds.has(productId)) {
+        dislikedSignalsRef.current = [productToSignal(product), ...dislikedSignalsRef.current].slice(0, 40);
+      }
+    }
+
+    setProducts((prev) => {
+      const signals: ScoringSignals = {
+        likedProductIds: likedIds,
+        clickHistory:    clickHistoryRef.current,
+        dislikedSignals: dislikedSignalsRef.current,
+        dwellTimes:      { ...dwellTimes, [productId]: ms },
+        aestheticPrice:  "mid",
+      };
+      return reRankUpcomingProducts(prev, activeScrollIdxRef.current, signals);
+    });
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts]);
 
   // infinite scroll sentinel (grid only — scroll mode has its own logic)
   useEffect(() => {
@@ -264,6 +443,10 @@ export default function ShopPage() {
           loading={loading}
           hasMore={hasMore}
           onClose={() => setViewMode("grid")}
+          likedIds={likedIds}
+          onLike={handleLike}
+          onDwell={handleDwell}
+          onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }}
         />
       )}
 
@@ -331,12 +514,17 @@ function GridTile({ product }: { product: Product }) {
 
 function ProductScrollView({
   products, onNearEnd, loading, hasMore, onClose,
+  likedIds, onLike, onDwell, onActiveChange,
 }: {
-  products: Product[];
-  onNearEnd: () => void;
-  loading:   boolean;
-  hasMore:   boolean;
-  onClose:   () => void;
+  products:       Product[];
+  onNearEnd:      () => void;
+  loading:        boolean;
+  hasMore:        boolean;
+  onClose:        () => void;
+  likedIds:       Set<string>;
+  onLike:         (productId: string) => void;
+  onDwell:        (productId: string, ms: number) => void;
+  onActiveChange: (idx: number) => void;
 }) {
   const router        = useRouter();
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -344,16 +532,28 @@ function ProductScrollView({
   const [activeIdx, setActiveIdx] = useState(0);
   const nearEndFired  = useRef(false);
 
+  // Dwell tracking: when the active card changes, fire onDwell for the
+  // one we just scrolled past with the time we spent on it.
+  const cardEnteredAt = useRef<number>(Date.now());
+  const prevIdxRef    = useRef<number>(0);
+
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
     const { scrollTop, clientHeight } = containerRef.current;
     const idx = Math.round(scrollTop / clientHeight);
+    if (idx !== prevIdxRef.current) {
+      const leaving = products[prevIdxRef.current];
+      if (leaving) onDwell(leaving.objectID, Date.now() - cardEnteredAt.current);
+      cardEnteredAt.current = Date.now();
+      prevIdxRef.current    = idx;
+    }
     setActiveIdx(idx);
+    onActiveChange(idx);
     if (!nearEndFired.current && hasMore && idx >= products.length - 6) {
       nearEndFired.current = true;
       onNearEnd();
     }
-  }, [products.length, hasMore, onNearEnd]);
+  }, [products, hasMore, onNearEnd, onDwell, onActiveChange]);
 
   useEffect(() => { nearEndFired.current = false; }, [products.length]);
 
