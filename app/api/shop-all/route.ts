@@ -56,6 +56,10 @@ export async function POST(request: Request) {
   const page: number = Math.max(0, parseInt(String(body?.page ?? 0), 10) || 0);
   const bias: BiasPayload = body?.bias ?? {};
   const brandFilter: string = typeof body?.brandFilter === "string" ? body.brandFilter.trim() : "";
+  // Free-text Steer query from the scroll view ("black only", "no prints",
+  // "more linen", etc). When present it's folded into the Algolia search as
+  // optionalWords so it acts as a ranking boost rather than a hard filter.
+  const steerQuery: string = typeof body?.steerQuery === "string" ? body.steerQuery.trim() : "";
 
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
@@ -84,19 +88,26 @@ export async function POST(request: Request) {
     const client = algoliasearch(appId, key);
 
     if (brandFilterQuery) {
-      // Brand mode: show EVERYTHING the brand has. We deliberately do NOT
-      // apply a bias-derived text query here — Algolia treats `query` as a
-      // filter (hits must match query AND filters), so layering a taste
-      // query like "Everlane jacket white" on top of brand:"4028" drops the
-      // brand's 25 products down to whichever 0–3 happen to mention those
-      // words. Within-brand taste re-ranking still happens client-side via
-      // the scoring algorithm on returned products. We also skip the
-      // dislikedCategories post-filter here for the same reason — an entire
-      // brand scope shouldn't be trimmed based on cross-brand dislike counts.
+      // Brand mode: show everything the brand has by default. We still
+      // respect an explicit Steer query ("black only", "no prints", …) —
+      // folded into the Algolia search as optionalWords so terms rank-
+      // boost rather than hard-filter. Bias signals are otherwise ignored
+      // here (see note below) so the whole inventory stays reachable.
+      //
+      // Why no bias query: Algolia treats `query` + `filters` as AND, so
+      // layering a bias text like "Everlane jacket white" on top of
+      // brand:"4028" drops the brand's 25 products down to 0–3. Within-
+      // brand taste re-ranking still happens client-side via the scoring
+      // algorithm. Disliked-category post-filter is also skipped — a
+      // whole brand scope shouldn't get trimmed by cross-brand dislikes.
+      const optionalWords = steerQuery
+        ? steerQuery.split(/\s+/).filter(Boolean)
+        : undefined;
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
         searchParams: {
-          query:       "",
+          query:       steerQuery,
+          ...(optionalWords ? { optionalWords } : {}),
           filters:     brandFilterQuery,
           hitsPerPage: HITS_PER_PAGE,
           page,
@@ -116,19 +127,24 @@ export async function POST(request: Request) {
         hasMore:  (res.hits?.length ?? 0) >= HITS_PER_PAGE,
         mode:     "brand",
         brand:    brandFilter,
+        steer:    steerQuery || undefined,
         total:    res.nbHits ?? null,
       });
     }
 
-    // ── Biased path: use a taste-query, ranges over the full catalog ──────
-    if (hasLikedSignals(bias)) {
-      const q = buildQueryFromBias(bias);
-      // Mark every bias word as optional. Algolia's default AND semantics
-      // would otherwise require every liked term to match simultaneously —
-      // e.g. "Everlane dress white" → 0 hits because almost no product has
-      // all three words. With optionalWords, products matching ANY of the
-      // terms come back, and ones matching more terms rank higher. That's
-      // the "bias" we actually want: a ranking hint, not a filter.
+    // ── Query-driven path: fires whenever the user has signaled anything
+    //     — either an explicit Steer query, or bias from their likes. In
+    //     both cases we run ONE Algolia search over the full catalog and
+    //     treat every term as optionalWords (ranking hint, not filter).
+    if (steerQuery || hasLikedSignals(bias)) {
+      const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
+      // Steer first so it dominates the relevance score; bias words follow.
+      const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
+      // Mark every word as optional. Algolia's default AND semantics would
+      // otherwise require every term to match simultaneously — e.g.
+      // "Everlane dress white" → 0 hits because almost no product has all
+      // three words. With optionalWords, products matching ANY of the
+      // terms come back and ones matching more terms rank higher.
       const optionalWords = q.split(/\s+/).filter(Boolean);
       const res = await client.searchSingleIndex({
         indexName: INDEX_NAME,
@@ -165,7 +181,7 @@ export async function POST(request: Request) {
         products: clean,
         page,
         hasMore: (res.hits?.length ?? 0) >= HITS_PER_PAGE,
-        mode:    "biased",
+        mode:    steerQuery ? (hasLikedSignals(bias) ? "steered+biased" : "steered") : "biased",
         query:   q,
       });
     }

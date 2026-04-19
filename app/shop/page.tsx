@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   rankCards,
@@ -66,6 +65,13 @@ export default function ShopPage() {
   const seenIdsRef            = useRef<Set<string>>(new Set());
   const sentinelRef           = useRef<HTMLDivElement>(null);
   const personalizeTriedRef   = useRef(false);
+
+  // Free-text Steer query from the scroll view. When the user types something
+  // like "black only" in the Steer input, we apply it as an Algolia text query
+  // (with optionalWords so it ranks rather than strictly filters) over the
+  // current scope — brand if we're in brand mode, full catalog otherwise.
+  // Empty string = no steer active.
+  const [steerQuery, setSteerQuery] = useState<string>("");
 
   // ── Session scoring algorithm state ────────────────────────────────────────
   // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
@@ -200,6 +206,8 @@ export default function ShopPage() {
   // Catalog fetch — each page is biased by the session's current signals.
   // No signals = 8-slice flat walk. Signals = taste-query over the full
   // 100K catalog. Pinterest pool still interleaves at 7:3 on top.
+  // If a Steer query is active it's sent along and the server folds it
+  // into the Algolia search as optionalWords.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
@@ -207,7 +215,7 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page, bias: buildBias(), brandFilter: brandFilter ?? "" }),
+        body:    JSON.stringify({ page, bias: buildBias(), brandFilter: brandFilter ?? "", steerQuery }),
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
@@ -226,7 +234,7 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter]);
+  }, [page, loading, hasMore, interleaveWithPool, buildBias, brandFilter, steerQuery]);
 
   // Fetch the user's fashion-board pin URLs → embed → Pinecone similarity →
   // store as a pool. Pool is then drawn from by interleaveWithPool at 30%.
@@ -264,17 +272,20 @@ export default function ShopPage() {
     }
   }, []);
 
-  // Initial load: waits until (a) the session has resolved and (b) we've
-  // read the ?brand=… URL param. In brand mode the Pinterest pool gets
-  // filtered to just that brand on the server side — so it still biases
-  // ordering toward your taste without leaking other brands in.
+  // Initial load AND Steer-driven reload. Waits until (a) the session has
+  // resolved and (b) we've read the ?brand=… URL param. Re-fires whenever
+  // steerQuery changes — the Steer submit handler below wipes products
+  // first, so this then re-populates them against the new query.
+  // In brand mode the Pinterest pool gets filtered to just that brand on
+  // the server side so it still biases toward your taste without leaking
+  // other brands in.
   useEffect(() => {
     if (session === undefined) return;
     if (brandFilter === null) return;
     if (products.length === 0) loadMore();
     if (accessToken) void tryPersonalize(accessToken);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [session, accessToken, brandFilter]);
+  }, [session, accessToken, brandFilter, steerQuery]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
@@ -302,7 +313,7 @@ export default function ShopPage() {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ page: 0, bias, brandFilter }),
+        body:    JSON.stringify({ page: 0, bias, brandFilter, steerQuery }),
       });
       if (!res.ok) return;
       const data  = await res.json();
@@ -329,7 +340,7 @@ export default function ShopPage() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, brandFilter, isBrandMode]);
+  }, [buildBias, brandFilter, steerQuery, isBrandMode]);
 
   const handleLike = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
@@ -398,6 +409,26 @@ export default function ShopPage() {
     // until the next natural pagination trigger.
     if (signal === "negative") void refreshBiasedAhead();
   }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead]);
+
+  // Steer submit from inside the scroll view. Resets products/page/seen so
+  // the initial-load useEffect (which depends on steerQuery) refires and
+  // re-populates the feed against the new query. An empty comment clears
+  // the steer back out. IMPORTANT: never navigate away — the user is in
+  // a specific context (brand or flat) and wants to refine it in place,
+  // not be kicked to /dashboard.
+  const handleSteer = useCallback((comment: string) => {
+    const trimmed = comment.trim();
+    // Reset the feed state; initial-load effect will re-fetch with the
+    // new steerQuery. Keep clickHistory / likedIds / disliked refs so
+    // session-accumulated bias still applies on top of the steer query.
+    setProducts([]);
+    setPage(0);
+    setHasMore(true);
+    setLoading(false);
+    seenIdsRef.current = new Set();
+    personalizedIdxRef.current = 0;
+    setSteerQuery(trimmed);
+  }, []);
 
   // infinite scroll sentinel (grid only — scroll mode has its own logic)
   useEffect(() => {
@@ -538,6 +569,8 @@ export default function ShopPage() {
           onLike={handleLike}
           onDwell={handleDwell}
           onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }}
+          onSteer={handleSteer}
+          steerQuery={steerQuery}
         />
       )}
 
@@ -606,6 +639,7 @@ function GridTile({ product }: { product: Product }) {
 function ProductScrollView({
   products, onNearEnd, loading, hasMore, onClose,
   likedIds, onLike, onDwell, onActiveChange,
+  onSteer, steerQuery,
 }: {
   products:       Product[];
   onNearEnd:      () => void;
@@ -616,8 +650,9 @@ function ProductScrollView({
   onLike:         (productId: string) => void;
   onDwell:        (productId: string, ms: number) => void;
   onActiveChange: (idx: number) => void;
+  onSteer:        (comment: string) => void;
+  steerQuery:     string;
 }) {
-  const router        = useRouter();
   const containerRef  = useRef<HTMLDivElement>(null);
   const isScrolling   = useRef(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -704,16 +739,26 @@ function ProductScrollView({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Steer submit → route to /dashboard with the comment as ?describe=…
+  // Steer submit → hand the comment up to ShopPage which applies it as a
+  // text query over the current scope (brand or flat). Used to navigate
+  // to /dashboard?describe=… which was wrong: the user's in a specific
+  // catalog context and wants to refine it in place, not be kicked out.
   const handleSteerSubmit = useCallback((comment: string) => {
-    router.push(`/dashboard?describe=${encodeURIComponent(comment)}`);
-  }, [router]);
+    onSteer(comment);
+  }, [onSteer]);
 
   // Steer input toggle lives at the view level now so it follows the active
   // card instead of being re-created per scroll snap.
   const [showSayMore, setShowSayMore] = useState(false);
   const [sayMoreText, setSayMoreText] = useState("");
-  useEffect(() => { setShowSayMore(false); setSayMoreText(""); }, [activeIdx]);
+  // Close the Steer input when the user scrolls to a different card.
+  useEffect(() => { setShowSayMore(false); }, [activeIdx]);
+  // Pre-fill the input with the active steerQuery when it opens, so the
+  // user can edit or clear the current filter instead of starting blank.
+  useEffect(() => {
+    if (showSayMore) setSayMoreText(steerQuery);
+    else setSayMoreText("");
+  }, [showSayMore, steerQuery]);
 
   const activeProduct = products[activeIdx];
   const activeLiked   = activeProduct ? likedIds.has(activeProduct.objectID) : false;
@@ -792,8 +837,10 @@ function ProductScrollView({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const t = sayMoreText.trim();
-                if (t) { handleSteerSubmit(t); setShowSayMore(false); setSayMoreText(""); }
+                // Submit even if empty — that clears an active steer.
+                handleSteerSubmit(sayMoreText.trim());
+                setShowSayMore(false);
+                setSayMoreText("");
               }}
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[300px] max-w-[80%]"
             >
