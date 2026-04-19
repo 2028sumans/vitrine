@@ -97,9 +97,15 @@ const POOL_SIZE = 32;
 // from the catalog is the least fragile fix.
 const CATEGORY_IMAGE_OVERRIDE: Record<string, string> = {
   // Khaite Miles Loafer in Black Alligator — shpfy-khaitecom-7899772420159
-  "Shoes":   "https://cdn.shopify.com/s/files/1/1519/7996/files/MILES-LOAFER-35_BLACK-ALLIGATOR_F4060-929-200_A.jpg?v=1768485966",
+  "Shoes":                 "https://cdn.shopify.com/s/files/1/1519/7996/files/MILES-LOAFER-35_BLACK-ALLIGATOR_F4060-929-200_A.jpg?v=1768485966",
   // Cult Gaia Blythe Dress in Off White — shpfy-cultgaiacom-7894424911946
-  "Dresses": "https://cdn.shopify.com/s/files/1/0336/7793/files/260120_DR_CG_SP_HS26_RESHT_04_BLYTHE_DRESS_WHT_0010_WEBBED.jpg?v=1769043190",
+  "Dresses":               "https://cdn.shopify.com/s/files/1/0336/7793/files/260120_DR_CG_SP_HS26_RESHT_04_BLYTHE_DRESS_WHT_0010_WEBBED.jpg?v=1769043190",
+  // Nour Hammour Birthday Coat in Black — html-nourhammourcom-birthdaycoatblackxs
+  "Outerwear":             "https://cdn.shopify.com/s/files/1/0030/2946/7203/files/BirthdaycoatblackRegularPackshotShopify_2_81307e29-29b8-4f33-bed8-491a7fa5b218.jpg?v=1753199307",
+  // Lisa Yang The Alvia Sweater in Black — shpfy-lisayangcom-14964704248183
+  "Knits":                 "https://cdn.shopify.com/s/files/1/0550/4407/9778/files/LISAYANG_AW25_CAPSULE_ALVIA_SWEATER_2025372BL_BLACK_0038.jpg?v=1767079625",
+  // The Row E/W Margaux Bag in Nubuck — page 2 of The Row products
+  "Bags and accessories":  "https://cdn.shopify.com/s/files/1/0552/0313/5593/files/W1629L25NUBSF.jpg?v=1767974133",
 };
 
 export async function GET() {

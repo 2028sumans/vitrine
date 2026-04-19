@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-19T22:14:12.505Z",
-  "totalProducts": 124071,
-  "totalBrands": 261,
+  "generatedAt": "2026-04-19T23:28:51.008Z",
+  "totalProducts": 122670,
+  "totalBrands": 258,
   "brands": [
     {
       "name": "Camilla",
@@ -132,11 +132,6 @@
       "name": "Tiger Mist",
       "count": 1139,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0029/3106/4943/products/TM13799_RYDER_JACKET_BLACK_4.jpg?v=1699842492"
-    },
-    {
-      "name": "American Dreams",
-      "count": 1137,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0612/0361/1895/files/Joa_Long_Light_Pink.png?v=1746797072"
     },
     {
       "name": "Johnstons Of Elgin",
@@ -564,11 +559,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0874/6120/files/TeenAcneBundle_new-beigeedit.webp?v=1775666700"
     },
     {
-      "name": "Needledust",
-      "count": 196,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0467/1573/2136/files/1_3d6789a7-52eb-4fbe-993c-0acab5556e0d.jpg?v=1757413863"
-    },
-    {
       "name": "Olga Joan",
       "count": 191,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0254/2790/2524/files/Olga_Joan_Tie_Front_Tiered_Dress_Corallo_Ghost01.jpg?v=1752039198"
@@ -877,11 +867,6 @@
       "name": "Motional Muse",
       "count": 72,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0622/7610/8476/files/SiennaDressBlack.jpg?v=1756509594"
-    },
-    {
-      "name": "Niharika Vivek",
-      "count": 68,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0725/9399/8003/files/IMG_9825.heic?v=1757056941"
     },
     {
       "name": "Esha Soni",
