@@ -17,6 +17,24 @@ const BRANDS: Brand[] = [...(brandsData.brands as Brand[])].sort((a, b) =>
   a.name.localeCompare(b.name)
 );
 
+/**
+ * Rewrite a Shopify CDN URL to request a ~500px-wide thumbnail instead of
+ * the full-size original. Without this, 249 full-res product shots were
+ * tipping older iPads into an OOM loop ("a problem repeatedly occurred")
+ * because Safari decoded every image to raw pixels as the user scrolled.
+ * Shopify's CDN honours `?width=N` and preserves aspect ratio.
+ */
+function thumbUrl(url: string | null, px: number = 500): string | null {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    u.searchParams.set("width", String(px));
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 export default function BrandsPage() {
 
   return (
@@ -65,19 +83,24 @@ export default function BrandsPage() {
 
 function BrandCard({ brand }: { brand: Brand }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const src = thumbUrl(brand.imageUrl);
   return (
     <Link
       href={`/shop?brand=${encodeURIComponent(brand.name)}`}
       className="group relative aspect-[3/4] overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card hover:shadow-card-hover transition-all duration-300 block"
     >
-      {brand.imageUrl && !imgFailed ? (
-        <Image
-          src={brand.imageUrl}
+      {src && !imgFailed ? (
+        // Plain <img> (not Next/Image) so we can pass decoding="async" and
+        // keep the browser's native lazy-loading heuristics. On iOS Safari
+        // this prevents the full decoded bitmap for every off-screen card
+        // from living in memory simultaneously.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
           alt={brand.name}
-          fill
-          unoptimized
-          className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
           onError={() => setImgFailed(true)}
         />
       ) : null}
