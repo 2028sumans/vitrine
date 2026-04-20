@@ -2,13 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
-import type { StyleDNA, CuratedProduct } from "@/lib/ai";
+import type { StyleDNA } from "@/lib/ai";
 import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
-import { rankCards, reRankUpcoming, interpretDwell, scoreCard, type ScoringSignals, type ClickSignalLike } from "@/lib/scoring";
 import { getShortlistSummary } from "@/lib/saved";
 import { PriceFilterBar, useFilteredByPrice, type PriceTier } from "@/components/price-filter";
 
@@ -22,17 +20,9 @@ function formatPrice(value: number): string {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Board    = { id: string; name: string };
-type Step     = "boards" | "shopping_loading" | "shopping" | "edit_loading" | "results" | "error";
+type Step     = "boards" | "shopping_loading" | "shopping" | "error";
 type ViewMode = "grid" | "scroll";
 type InputMode = "pinterest" | "text" | "images" | "quiz";
-
-interface OutfitCard {
-  id:       string;
-  label:    string;
-  role:     string;
-  products: CuratedProduct[];
-  liked:    boolean;
-}
 
 interface PinData {
   id:          string;
@@ -277,151 +267,6 @@ function ShoppingSection({ category, products, userToken }: {
   );
 }
 
-// ── Product card (edit results — has style notes) ─────────────────────────────
-
-function ProductCard({ product, position, userToken }: {
-  product: CuratedProduct; position: number; userToken: string;
-}) {
-  const price = product.price != null ? formatPrice(product.price) : product.price_range !== "unknown" ? product.price_range : null;
-
-  const handleClick = () => {
-    trackProductClick({ userToken, objectID: product.objectID, queryID: product._queryID ?? "", position });
-    fetch("/api/taste/click", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userToken, product: { objectID: product.objectID, title: product.title, brand: product.brand, color: product.color, category: product.category, retailer: product.retailer, price_range: product.price_range, image_url: product.image_url } }),
-    }).catch(() => {});
-  };
-
-  const brandLabel = (product.brand || product.retailer || "").trim();
-  return (
-    <a href={product.product_url || "#"} target="_blank" rel="noopener noreferrer" onClick={handleClick}
-      className="group block">
-      {/* Image — bordered + shadowed. outfit_role badge stays on the image
-          (it's a per-image annotation). Retailer overlay removed; brand
-          lives outside the frame now, matching /shop GridTile. */}
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
-        {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
-        )}
-        {product.outfit_role && product.outfit_role !== "versatile staple" && (
-          <div className="absolute top-3 right-3">
-            <span className="font-sans text-[8px] tracking-widest uppercase bg-background/80 backdrop-blur-sm text-foreground/70 px-2 py-1">{product.outfit_role}</span>
-          </div>
-        )}
-      </div>
-      {/* Text column — outside the image frame. Keeps style_note + how_to_wear. */}
-      <div className="pt-3">
-        {brandLabel && (
-          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1.5">{brandLabel}</p>
-        )}
-        <p className="font-sans text-sm text-foreground leading-snug line-clamp-2 mb-2.5">{product.title}</p>
-        {product.style_note && (
-          <p className="font-display font-light italic text-base text-muted-strong leading-relaxed line-clamp-2 mb-2">&ldquo;{product.style_note}&rdquo;</p>
-        )}
-        {product.how_to_wear && (
-          <p className="font-sans text-[11px] text-muted leading-relaxed mb-3">
-            <span className="text-accent font-medium">Wear it: </span>{product.how_to_wear}
-          </p>
-        )}
-        <div className="flex items-center justify-between pt-3 border-t border-border">
-          {price ? <span className="font-sans text-xs font-medium text-foreground">{price}</span> : <span />}
-          <span className="font-sans text-[9px] tracking-widest uppercase text-muted group-hover:text-accent transition-colors duration-200">Shop →</span>
-        </div>
-      </div>
-    </a>
-  );
-}
-
-// ── Outfit section ────────────────────────────────────────────────────────────
-
-function OutfitSection({ label, role, products, startPosition, userToken }: {
-  label: string; role?: string; products: CuratedProduct[]; startPosition: number; userToken: string;
-}) {
-  if (!products.length) return null;
-  return (
-    <div className="mb-12">
-      <div className="flex items-baseline gap-4 mb-6 border-t border-border pt-7">
-        <h3 className="font-display font-light text-2xl text-foreground">{label}</h3>
-        {role
-          ? <span className="font-display font-light italic text-base text-muted-strong">{role}</span>
-          : <span className="font-sans text-[9px] tracking-widest uppercase text-muted">{products.length} pieces</span>}
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-        {products.map((p, i) => <ProductCard key={p.objectID} product={p} position={startPosition + i} userToken={userToken} />)}
-      </div>
-    </div>
-  );
-}
-
-// ── Style DNA card ────────────────────────────────────────────────────────────
-
-function StyleDNACard({ dna }: { dna: StyleDNA }) {
-  return (
-    <div className="border border-border bg-white/[0.02]">
-      {(dna.style_references ?? []).length > 0 && (
-        <div className="px-7 py-5 border-b border-border">
-          <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Inspired by</p>
-          <div className="flex flex-col gap-4">
-            {dna.style_references.map((ref) => (
-              <div key={ref.name}>
-                <p className="font-sans text-sm text-foreground">{ref.name}<span className="text-muted ml-2 font-light">— {ref.era}</span></p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="px-7 py-5 border-b border-border grid grid-cols-2 gap-8">
-        <div>
-          <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Reaches for</p>
-          <ul className="flex flex-col gap-2">
-            {(dna.key_pieces ?? []).slice(0, 5).map((p) => (
-              <li key={p} className="font-sans text-sm text-muted-strong flex items-center gap-2.5">
-                <span className="w-3 h-px bg-accent/60 flex-shrink-0" />{p}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Avoids</p>
-          <ul className="flex flex-col gap-2">
-            {(dna.avoids ?? []).slice(0, 4).map((a) => (
-              <li key={a} className="font-sans text-sm text-muted flex items-center gap-2.5">
-                <span className="w-3 h-px bg-muted/30 flex-shrink-0" />{a}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      {dna.occasion_mix && (
-        <div className="px-7 py-5">
-          <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">Where you wear it</p>
-          <div className="flex h-px w-full overflow-hidden gap-px">
-            {dna.occasion_mix.casual    > 0 && <div style={{ width: `${dna.occasion_mix.casual}%`    }} className="bg-foreground" />}
-            {dna.occasion_mix.work      > 0 && <div style={{ width: `${dna.occasion_mix.work}%`      }} className="bg-foreground/50" />}
-            {dna.occasion_mix.weekend   > 0 && <div style={{ width: `${dna.occasion_mix.weekend}%`   }} className="bg-foreground/30" />}
-            {dna.occasion_mix.going_out > 0 && <div style={{ width: `${dna.occasion_mix.going_out}%` }} className="bg-foreground/15" />}
-          </div>
-          <div className="flex gap-7 mt-3 flex-wrap">
-            {[
-              { label: "Casual", pct: dna.occasion_mix.casual },
-              { label: "Work", pct: dna.occasion_mix.work },
-              { label: "Weekend", pct: dna.occasion_mix.weekend },
-              { label: "Going out", pct: dna.occasion_mix.going_out },
-            ].filter(({ pct }) => pct > 0).map(({ label, pct }) => (
-              <p key={label} className="font-sans text-[11px] text-muted">
-                <span className="font-medium text-foreground/80">{pct}%</span>{" "}{label}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Product scroll card ───────────────────────────────────────────────────────
 
 function ProductScrollCard({
@@ -657,277 +502,6 @@ function ProductScrollView({
         {/* Desktop rail — flex sibling of the card. */}
         <div className="hidden sm:flex flex-col items-center gap-6">
           <RailButton label={activeLiked ? "Liked" : "Like"} onClick={handleLike}>
-            <svg viewBox="0 0 24 24" className="w-5 h-5" fill={activeLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-          </RailButton>
-          {onSayMore && (
-            <RailButton label={showSayMore ? "Cancel" : "Steer"} onClick={() => setShowSayMore((v) => !v)}>
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill={showSayMore ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            </RailButton>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Outfit scroll card ────────────────────────────────────────────────────────
-
-function OutfitScrollCard({
-  card, index, userToken,
-}: {
-  card:       OutfitCard;
-  index:      number;
-  userToken:  string;
-}) {
-  const cols = card.products.length === 1 ? 1 : card.products.length === 2 ? 2 : 3;
-
-  const hasNewProduct = card.products.some((p) => {
-    const sa = (p as { scraped_at?: string }).scraped_at;
-    return sa && (Date.now() - new Date(sa).getTime()) < 7 * 24 * 60 * 60 * 1000;
-  });
-
-  return (
-    <div className="relative flex flex-col bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start", scrollSnapStop: "always" }} data-card-index={index}>
-      <div className="flex-1 grid gap-px overflow-hidden" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-        {card.products.map((p) => (
-          <a key={p.objectID} href={p.product_url || "#"} target="_blank" rel="noopener noreferrer"
-            className="relative overflow-hidden bg-white/5 group"
-            onClick={() => trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: 1 })}>
-            {p.image_url ? (
-              <Image src={p.image_url} alt={p.title} fill className="object-cover group-hover:scale-[1.03] transition-transform duration-700" unoptimized sizes="33vw" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-5xl">▢</div>
-            )}
-          </a>
-        ))}
-      </div>
-
-      <div className="absolute top-16 left-5 z-10 pointer-events-none">
-        <div className="flex items-center gap-2 mb-0.5">
-          <p className="font-sans text-[8px] tracking-widest uppercase text-white/40">{card.label}</p>
-          {hasNewProduct && (
-            <span className="font-sans text-[7px] tracking-widest uppercase bg-accent text-background px-1.5 py-0.5">New</span>
-          )}
-        </div>
-        {card.role && <p className="font-display italic text-lg text-white/80 drop-shadow-sm">{card.role}</p>}
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-6 bg-gradient-to-t from-background/90 via-background/50 to-transparent">
-        <div className="flex flex-col gap-2">
-          {card.products.map((p) => (
-            <a key={p.objectID} href={p.product_url || "#"} target="_blank" rel="noopener noreferrer" className="group/item">
-              <p className="font-sans text-xs text-foreground/90 line-clamp-1 group-hover/item:text-accent transition-colors">{p.title}</p>
-              <p className="font-sans text-[10px] text-muted">{p.brand}{p.price != null ? ` · ${formatPrice(p.price)}` : ""}</p>
-            </a>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Outfit scroll view ────────────────────────────────────────────────────────
-
-function OutfitScrollView({
-  cards, onLike, onNearEnd, isGeneratingMore, catalogExhausted, onClose, userToken, onSayMore, onActiveChange, onDwell,
-}: {
-  cards:             OutfitCard[];
-  onLike:            (cardId: string) => void;
-  onNearEnd:         () => void;
-  isGeneratingMore:  boolean;
-  catalogExhausted:  boolean;
-  onClose:           () => void;
-  userToken:         string;
-  onSayMore?:        (comment: string) => void;
-  onActiveChange?:   (idx: number) => void;
-  onDwell?:          (cardId: string, ms: number) => void;
-}) {
-  const containerRef  = useRef<HTMLDivElement>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const nearEndFired  = useRef(false);
-  const isScrolling   = useRef(false);
-  // Dwell tracking
-  const cardEnteredAt = useRef<number>(Date.now());
-  const prevIdxRef    = useRef<number>(0);
-
-  // Steer input state lives at the view level so the rail that controls
-  // it (a sibling of the card) can toggle it without reaching into a
-  // specific card's local state.
-  const [showSayMore, setShowSayMore] = useState(false);
-  const [sayMoreText, setSayMoreText] = useState("");
-
-  const activeCard  = cards[activeIdx];
-  const activeLiked = activeCard?.liked ?? false;
-
-  const handleSteerSubmit = useCallback((comment: string) => {
-    const trimmed = comment.trim();
-    if (!trimmed) return;
-    onSayMore?.(trimmed);
-    setSayMoreText("");
-    setShowSayMore(false);
-  }, [onSayMore]);
-
-  // Close the Steer input when the user scrolls to a different card.
-  useEffect(() => { setShowSayMore(false); setSayMoreText(""); }, [activeIdx]);
-
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
-    const { scrollTop, clientHeight } = containerRef.current;
-    const idx = Math.round(scrollTop / clientHeight);
-
-    // Card changed → report dwell for the card we just left
-    if (idx !== prevIdxRef.current) {
-      const leaving = cards[prevIdxRef.current];
-      if (leaving) onDwell?.(leaving.id, Date.now() - cardEnteredAt.current);
-      cardEnteredAt.current = Date.now();
-      prevIdxRef.current    = idx;
-    }
-
-    setActiveIdx(idx);
-    onActiveChange?.(idx);
-    if (!nearEndFired.current && idx >= cards.length - 4) { nearEndFired.current = true; onNearEnd(); }
-  }, [cards, onNearEnd, onActiveChange, onDwell]);
-
-  // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (isScrolling.current) return;
-      isScrolling.current = true;
-      el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 900);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  // Keyboard navigation: ↑/↓ (or k/j) to move, space / PageDown also advance,
-  // l to like the current card, Esc to exit. Skips when typing in an input.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onKey = (e: KeyboardEvent) => {
-      const active = document.activeElement;
-      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).isContentEditable)) return;
-      const step = (direction: 1 | -1) => {
-        if (isScrolling.current) return;
-        isScrolling.current = true;
-        el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
-        setTimeout(() => { isScrolling.current = false; }, 900);
-      };
-      switch (e.key) {
-        case "ArrowDown": case "j": case " ": case "PageDown":
-          e.preventDefault(); step(1); break;
-        case "ArrowUp": case "k": case "PageUp":
-          e.preventDefault(); step(-1); break;
-        case "l": {
-          const current = cards[activeIdx];
-          if (current) { e.preventDefault(); onLike(current.id); }
-          break;
-        }
-        case "Escape":
-          e.preventDefault(); onClose(); break;
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cards, activeIdx, onLike, onClose]);
-
-  useEffect(() => { nearEndFired.current = false; }, [cards.length]);
-
-  useEffect(() => {
-    cards.slice(activeIdx + 1, activeIdx + 3).forEach((card) => {
-      card.products.forEach((p) => { if (!p.image_url) return; const img = new window.Image(); img.src = p.image_url; });
-    });
-  }, [activeIdx, cards]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      {/* Card + rail wrapper. Desktop: siblings with gap-8 (matches /shop).
-          Mobile: rail collapses to absolute overlay inside the card. */}
-      <div className="relative z-10 flex items-center sm:gap-8" onClick={(e) => e.stopPropagation()}>
-        {/* Card wrapper — positioning context for the Steer input + mobile rail */}
-        <div className="relative">
-          <div className="relative flex flex-col overflow-hidden rounded-sm shadow-2xl"
-            style={{ width: "min(88vw, 400px)", height: "min(88vh, 720px)" }}
-          >
-            <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-background/90 to-transparent pointer-events-none">
-              <button onClick={onClose} className="pointer-events-auto font-sans text-[9px] tracking-widest uppercase text-foreground/60 hover:text-foreground transition-colors">← Grid</button>
-              <span className="font-sans text-[9px] tracking-widest uppercase text-foreground/30">{activeIdx + 1} / {cards.length}</span>
-            </div>
-            <div ref={containerRef} onScroll={handleScroll} className="no-scrollbar w-full h-full overflow-y-scroll" style={{ scrollSnapType: "y mandatory" }}>
-              {cards.map((card, i) => (
-                <OutfitScrollCard key={card.id} card={card} index={i} userToken={userToken} />
-              ))}
-              {isGeneratingMore && (
-                <div className="flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-                  <p className="font-display italic text-xl text-muted">Loading more outfits<span className="inline-flex ml-0.5">
-                    <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
-                    <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
-                    <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
-                  </span></p>
-                </div>
-              )}
-              {!isGeneratingMore && catalogExhausted && cards.length > 0 && (
-                <div className="flex flex-col items-center justify-center bg-background gap-4" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
-                  <p className="font-display italic text-xl text-muted">You've seen everything in this aesthetic.</p>
-                  <p className="font-sans text-[10px] tracking-widest uppercase text-muted/70">Refine via "say more" or start a new search</p>
-                </div>
-              )}
-            </div>
-            {activeIdx === 0 && cards.length > 1 && (
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
-                <span className="font-sans text-[8px] tracking-widest uppercase text-white/20">scroll</span>
-                <span className="text-white/20 text-xs">↓</span>
-              </div>
-            )}
-          </div>
-
-          {/* Steer input — centered over the card. */}
-          {showSayMore && onSayMore && (
-            <form
-              onSubmit={(e) => { e.preventDefault(); handleSteerSubmit(sayMoreText); }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[300px] max-w-[80%]"
-            >
-              <div className="flex gap-1.5">
-                <input
-                  autoFocus
-                  value={sayMoreText}
-                  onChange={(e) => setSayMoreText(e.target.value)}
-                  placeholder="more minimal… show shoes… different vibe…"
-                  className="flex-1 bg-background border border-border-mid px-3 py-2 font-display font-light italic text-base text-foreground placeholder-muted/80 focus:outline-none focus:border-foreground/60"
-                />
-                <button type="submit" className="px-3 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase whitespace-nowrap">→</button>
-              </div>
-            </form>
-          )}
-
-          {/* Mobile rail — overlaid on the card's bottom-right. */}
-          <div className="sm:hidden absolute right-3 bottom-40 z-20 flex flex-col items-center gap-5">
-            <RailButton label={activeLiked ? "Liked" : "Like"} onClick={() => activeCard && onLike(activeCard.id)}>
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill={activeLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
-            </RailButton>
-            {onSayMore && (
-              <RailButton label={showSayMore ? "Cancel" : "Steer"} onClick={() => setShowSayMore((v) => !v)}>
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill={showSayMore ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-              </RailButton>
-            )}
-          </div>
-        </div>
-
-        {/* Desktop rail — flex sibling of the card. */}
-        <div className="hidden sm:flex flex-col items-center gap-6">
-          <RailButton label={activeLiked ? "Liked" : "Like"} onClick={() => activeCard && onLike(activeCard.id)}>
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill={activeLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
@@ -1359,12 +933,6 @@ const SHOPPING_STEPS = [
   { label: "Finding your products",   sub: "Searching across 6 categories" },
 ];
 
-const EDIT_STEPS = [
-  { label: "Picking finalists",       sub: "Narrowing to the strongest fits" },
-  { label: "Seeing the products",     sub: "Claude views each image, builds outfits" },
-  { label: "Writing your shortlist",  sub: "Styling notes & editorial intro" },
-];
-
 const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -1381,20 +949,10 @@ export default function DashboardPage() {
   const [pinsLoading, setPinsLoading]       = useState(false);
   const [aesthetic, setAesthetic]           = useState<StyleDNA | null>(null);
   const [candidates, setCandidates]         = useState<CategoryCandidates | null>(null);
-  const [products, setProducts]             = useState<CuratedProduct[]>([]);
-  const [editorialIntro, setEditorialIntro] = useState("");
-  const [editRationale, setEditRationale]   = useState("");
-  const [outfitArc, setOutfitArc]           = useState("");
-  const [outfitARole, setOutfitARole]       = useState("");
-  const [outfitBRole, setOutfitBRole]       = useState("");
   const [shoppingStep, setShoppingStep]     = useState(0);
-  const [editStep, setEditStep]             = useState(0);
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
-  const [viewMode, setViewMode]             = useState<ViewMode>("scroll");
   const [shopViewMode, setShopViewMode]     = useState<ViewMode>("scroll");
-  const [scrollCards, setScrollCards]       = useState<OutfitCard[]>([]);
-  const [isGeneratingMore, setIsGeneratingMore] = useState(false);
 
   // Multi-context blocks (up to 4, each independently typed)
   interface ContextBlock {
@@ -1440,72 +998,6 @@ export default function DashboardPage() {
     window.history.replaceState({}, "", url.toString());
   }, []);
 
-  // Session feedback loop
-  const [sessionLikedIds, setSessionLikedIds] = useState<string[]>([]);
-  const [sessionId] = useState(() => Math.random().toString(36).slice(2));
-  const activeScrollIdxRef = useRef(0); // tracks current card in TikTok scroll
-
-  // ── "More like this" injection on like ────────────────────────────────────
-  // Single-flight: if a previous fetch is in-flight, ignore further likes
-  // until it returns. Prevents 5 rapid likes from spawning 5 Claude calls.
-  const isFetchingSimilarRef = useRef(false);
-
-  // ── TikTok scoring ────────────────────────────────────────────────────────
-  // dwellTimes: ms spent on each card (card.id → ms); used to compute session
-  // engagement multiplier and re-rank upcoming cards.
-  const [dwellTimes, setDwellTimes] = useState<Record<string, number>>({});
-  // click history loaded from taste memory at shop time (cross-session signal)
-  const clickHistoryRef = useRef<ClickSignalLike[]>([]);
-  // disliked signals — attributes of cards the user scrolled past very fast
-  // (<700ms). Capped at 40 to avoid unbounded growth across a session.
-  const dislikedSignalsRef = useRef<ClickSignalLike[]>([]);
-
-  const buildSignals = useCallback((): ScoringSignals => ({
-    likedProductIds: new Set(sessionLikedIds),
-    clickHistory:    clickHistoryRef.current,
-    dislikedSignals: dislikedSignalsRef.current,
-    dwellTimes,
-    aestheticPrice:  aesthetic?.price_range ?? "mid",
-  }), [sessionLikedIds, dwellTimes, aesthetic]);
-
-  // Called when the user scrolls past a card — ms = time spent on it.
-  // Fast swipe = implicit dislike; long linger = implicit like.
-  // On strong signals, re-rank the upcoming queue.
-  const handleDwell = useCallback((cardId: string, ms: number) => {
-    setDwellTimes((prev) => ({ ...prev, [cardId]: ms }));
-    const signal = interpretDwell(ms);
-    if (signal !== "strong_positive" && signal !== "negative") return;
-
-    // Capture negative signals: if the user scrolled past this card fast AND
-    // didn't explicitly like it, remember its products' attributes so similar
-    // upcoming cards get penalized.
-    setScrollCards((prev) => {
-      if (signal === "negative") {
-        const leaving = prev.find((c) => c.id === cardId);
-        if (leaving && !leaving.liked) {
-          const newDislikes: ClickSignalLike[] = leaving.products.map((p) => ({
-            objectID:    p.objectID,
-            category:    p.category ?? "",
-            brand:       p.brand ?? "",
-            color:       p.color ?? "",
-            price_range: p.price_range ?? "mid",
-            retailer:    p.retailer,
-          }));
-          dislikedSignalsRef.current = [...newDislikes, ...dislikedSignalsRef.current].slice(0, 40);
-        }
-      }
-
-      // Re-rank upcoming cards so the algorithm reflects the fresh signal
-      const signals: ScoringSignals = {
-        likedProductIds: new Set(sessionLikedIds),
-        clickHistory:    clickHistoryRef.current,
-        dislikedSignals: dislikedSignalsRef.current,
-        dwellTimes:      { ...dwellTimes, [cardId]: ms },
-        aestheticPrice:  aesthetic?.price_range ?? "mid",
-      };
-      return reRankUpcoming(prev, activeScrollIdxRef.current, signals);
-    });
-  }, [sessionLikedIds, dwellTimes, aesthetic]);
 
   useEffect(() => {
     if (session?.user?.id) setUserToken(session.user.id);
@@ -1694,16 +1186,6 @@ export default function DashboardPage() {
             setShoppingStep((s) => (s < 1 ? 1 : s));
           } else if (event.phase === "candidates") {
             setCandidates(event.candidates);
-            if (Array.isArray(event.clickSignals)) {
-              clickHistoryRef.current = event.clickSignals.map((s) => ({
-                objectID:    s.object_id ?? s.objectID,
-                category:    s.category,
-                brand:       s.brand,
-                color:       s.color,
-                price_range: s.price_range,
-                retailer:    s.retailer,
-              }));
-            }
           } else if (event.phase === "done") {
             sawDone = true;
           } else if (event.phase === "error") {
@@ -1722,174 +1204,23 @@ export default function DashboardPage() {
   // ── Shop handlers ─────────────────────────────────────────────────────────
 
 
-  // ── Build edit ────────────────────────────────────────────────────────────
-
-  // Helper: call /api/curate once and return outfit cards (or [])
-  const curateBatch = useCallback(async (label: string): Promise<OutfitCard[]> => {
-    const ts = Date.now() + Math.random(); // unique id
-    const res = await fetch("/api/curate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ aesthetic, candidates, boardId: selectedBoard?.id, boardName: selectedBoard?.name, userToken }),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const ps: CuratedProduct[] = data.products ?? [];
-    const cards: OutfitCard[] = [];
-    const a = ps.filter((p) => p.outfit_group === "outfit_a");
-    const b = ps.filter((p) => p.outfit_group === "outfit_b");
-    if (a.length) cards.push({ id: `a-${label}-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a, liked: false });
-    if (b.length) cards.push({ id: `b-${label}-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b, liked: false });
-    return cards;
-  }, [aesthetic, candidates, selectedBoard, userToken]);
-
-  const handleBuildEdit = useCallback(async (isAppend = false) => {
-    if (!aesthetic || !candidates) return;
-    setStep("edit_loading");
-    setEditStep(0);
-    // Fresh shot at the catalog — a new regenerate is allowed to re-fetch
-    // more candidates even if a previous run had exhausted the pool.
-    setCatalogExhausted(false);
-    const t1 = setTimeout(() => setEditStep(1), 8000);
-    const t2 = setTimeout(() => setEditStep(2), 16000);
-    try {
-      // Primary call — also sets editorial/grid data
-      const res = await fetch("/api/curate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aesthetic, candidates, boardId: selectedBoard?.id, boardName: selectedBoard?.name, userToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Curation failed");
-
-      const ps: CuratedProduct[] = data.products ?? [];
-      setProducts(ps);
-      setEditorialIntro(data.editorial_intro ?? "");
-      setEditRationale(data.edit_rationale ?? "");
-      setOutfitArc(data.outfit_arc ?? "");
-      setOutfitARole(data.outfit_a_role ?? "");
-      setOutfitBRole(data.outfit_b_role ?? "");
-
-      // Build first 2 cards from primary response
-      const ts = Date.now();
-      const firstCards: OutfitCard[] = [];
-      const a0 = ps.filter((p) => p.outfit_group === "outfit_a");
-      const b0 = ps.filter((p) => p.outfit_group === "outfit_b");
-      if (a0.length) firstCards.push({ id: `a-0-${ts}`, label: "Outfit A", role: data.outfit_a_role ?? "", products: a0, liked: false });
-      if (b0.length) firstCards.push({ id: `b-0-${ts}`, label: "Outfit B", role: data.outfit_b_role ?? "", products: b0, liked: false });
-
-      // Show results immediately with first 2 cards
-      setScrollCards(isAppend ? (prev) => [...prev, ...firstCards] : firstCards);
-      setStep("results");
-
-      // Fire 2 more batches in background to build up a pool the algorithm can rank
-      const [batch2, batch3] = await Promise.all([curateBatch("1"), curateBatch("2")]);
-      const morePools = [...batch2, ...batch3].filter((c) => c.products.length > 0);
-
-      // Dedup: drop any card whose product set is already in firstCards
-      const seenKeys = new Set(firstCards.map((c) => c.products.map((p) => p.objectID).sort().join(",")));
-      const fresh = morePools.filter((c) => {
-        const key = c.products.map((p) => p.objectID).sort().join(",");
-        if (seenKeys.has(key)) return false;
-        seenKeys.add(key);
-        return true;
-      });
-
-      if (fresh.length > 0) {
-        // Rank the combined upcoming pool and append
-        const signals = buildSignals();
-        const ranked = rankCards(fresh, signals);
-        setScrollCards((prev) => [...prev, ...ranked]);
-      }
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
-      setStep("error");
-    } finally { clearTimeout(t1); clearTimeout(t2); }
-  }, [aesthetic, candidates, selectedBoard, userToken, curateBatch, buildSignals]);
-
-  // Once the catalog has no more fresh products matching this aesthetic, flip
-  // this flag to true so we stop trying. Resets when the user starts a new
-  // search or regenerates. State (not ref) so UI can react.
-  const [catalogExhausted, setCatalogExhausted] = useState(false);
-
-  const handleGenerateMore = useCallback(async () => {
-    if (!aesthetic || !candidates || isGeneratingMore || catalogExhausted) return;
-    setIsGeneratingMore(true);
-    try {
-      // Collect every objectID already in the scroll queue OR the candidates
-      // buffer — server excludes these so we get genuinely new products.
-      const shownFromScroll     = scrollCards.flatMap((c) => c.products.map((p) => p.objectID));
-      const shownFromCandidates = CATEGORIES.flatMap((c) => candidates[c].map((p) => p.objectID));
-      const excludeIds = Array.from(new Set([...shownFromScroll, ...shownFromCandidates]));
-
-      const res = await fetch("/api/more-outfits", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ aesthetic, excludeIds, userToken }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-
-      if (data.exhausted) {
-        console.log("[more-outfits] catalog exhausted for this aesthetic");
-        setCatalogExhausted(true);
-        return;
-      }
-
-      const batches = (data.batches ?? []) as Array<{
-        products:      CuratedProduct[];
-        outfit_a_role: string;
-        outfit_b_role: string;
-      }>;
-      if (batches.length === 0) return;
-
-      // Flatten batches into OutfitCards
-      const ts = Date.now();
-      const newCards: OutfitCard[] = [];
-      batches.forEach((batch, bIdx) => {
-        const a = batch.products.filter((p) => p.outfit_group === "outfit_a");
-        const b = batch.products.filter((p) => p.outfit_group === "outfit_b");
-        if (a.length) newCards.push({ id: `mo-a-${bIdx}-${ts}`, label: "Outfit A", role: batch.outfit_a_role, products: a, liked: false });
-        if (b.length) newCards.push({ id: `mo-b-${bIdx}-${ts}`, label: "Outfit B", role: batch.outfit_b_role, products: b, liked: false });
-      });
-
-      // Dedup against existing scroll cards (by product-set key)
-      setScrollCards((prev) => {
-        const seenKeys = new Set(prev.map((c) => c.products.map((p) => p.objectID).sort().join(",")));
-        const fresh = newCards.filter((c) => {
-          const key = c.products.map((p) => p.objectID).sort().join(",");
-          if (seenKeys.has(key)) return false;
-          seenKeys.add(key);
-          return true;
-        });
-        if (fresh.length === 0) return prev;
-        const ranked = rankCards(fresh, buildSignals());
-        return [...prev, ...ranked];
-      });
-    } finally { setIsGeneratingMore(false); }
-  }, [aesthetic, candidates, isGeneratingMore, catalogExhausted, scrollCards, userToken, buildSignals]);
-
   // ── Session feedback: "say more" ──────────────────────────────────────────
 
+  // Refine the aesthetic via /api/refine and merge the new candidates into
+  // the shopping grid. The server returns an updated StyleDNA + a fresh
+  // per-category candidate pool; we union those in so the grid re-renders
+  // with the refined direction while keeping already-seen items.
   const handleSayMore = useCallback(async (comment: string) => {
     if (!aesthetic || isRefining) return;
     setIsRefining(true);
     try {
-      // Compute the upcoming queue's product IDs so the server can prune
-      // them based on whether they still fit the refined direction.
-      const insertAt = activeScrollIdxRef.current + 1;
-      const upcomingProductIds = scrollCards
-        .slice(insertAt)
-        .flatMap((c) => c.products.map((p) => p.objectID))
-        .slice(0, 16); // limit for vision-call cost
-
       const res = await fetch("/api/refine", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           comment,
-          upcomingProductIds,
-          currentAesthetic: aesthetic,
+          upcomingProductIds: [],
+          currentAesthetic:   aesthetic,
           userToken,
         }),
       });
@@ -1899,18 +1230,12 @@ export default function DashboardPage() {
         return;
       }
       const data = await res.json();
-      console.log(`[refine] intent="${data.intent ?? ""}" keep=${(data.keepIds ?? []).length} newCandidates=${data.candidates ? Object.values(data.candidates).reduce((s: number, arr) => s + (arr as unknown[]).length, 0) : 0}`);
+      console.log(`[refine] intent="${data.intent ?? ""}" newCandidates=${data.candidates ? Object.values(data.candidates).reduce((s: number, arr) => s + (arr as unknown[]).length, 0) : 0}`);
 
-      const newAesthetic = data.aesthetic ?? aesthetic;
       if (data.aesthetic) setAesthetic(data.aesthetic);
-
-      // Server returned the IDs of upcoming items that still fit the new vibe.
-      // Everything else upcoming will be wiped.
-      const keepSet: Set<string> = new Set(data.keepIds ?? []);
 
       const newCandidates = data.candidates;
       if (newCandidates) {
-        // Refresh the global candidates buffer (used for "load more" later)
         setCandidates((prev) => {
           if (!prev) return newCandidates;
           const seenIds = new Set(CATEGORIES.flatMap((c) => prev[c].map((p) => p.objectID)));
@@ -1921,174 +1246,13 @@ export default function DashboardPage() {
           }
           return merged;
         });
-
-        // Curate the refined candidates into outfit cards
-        const curateRes = await fetch("/api/curate", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ aesthetic: newAesthetic, candidates: newCandidates, userToken }),
-        });
-        if (curateRes.ok) {
-          const curateData = await curateRes.json();
-          const ps: CuratedProduct[] = curateData.products ?? [];
-          const ts = Date.now();
-          const a = ps.filter((p) => p.outfit_group === "outfit_a");
-          const b = ps.filter((p) => p.outfit_group === "outfit_b");
-          const newCards: OutfitCard[] = [];
-          if (a.length) newCards.push({ id: `say-a-${ts}`, label: "Refined edit", role: curateData.outfit_a_role ?? "", products: a, liked: false });
-          if (b.length) newCards.push({ id: `say-b-${ts}`, label: "Refined edit", role: curateData.outfit_b_role ?? "", products: b, liked: false });
-
-          // ── DRAMATIC REPLACEMENT ────────────────────────────────────────────
-          // Wipe upcoming queue, keep only items the user has already swiped
-          // through plus the cards Claude said still fit. Then drop the
-          // freshly-refined cards in front. The next swipe lands on the new
-          // direction — comments now feel like they actually did something.
-          const signals = buildSignals();
-          const rankedNew = newCards.length > 0 ? rankCards(newCards, signals) : [];
-
-          setScrollCards((prev) => {
-            const seen = prev.slice(0, insertAt);
-            const upcoming = prev.slice(insertAt);
-
-            // Keep upcoming cards whose products are mostly still in the keep set
-            const keptUpcoming = upcoming.filter((card) => {
-              const total = card.products.length;
-              if (total === 0) return false;
-              const surviving = card.products.filter((p) => keepSet.has(p.objectID)).length;
-              return surviving / total >= 0.5; // keep if at least half its items still fit
-            });
-
-            // New refined cards first (so user sees the change immediately),
-            // then any upcoming cards that survived the pruning, all re-ranked.
-            const next = [...seen, ...rankedNew, ...keptUpcoming];
-            const afterInsert = insertAt + rankedNew.length;
-            return reRankUpcoming(next, Math.max(0, afterInsert - 1), signals);
-          });
-        }
       }
     } catch (err) {
       console.warn("[handleSayMore] failed:", err);
     } finally {
       setIsRefining(false);
     }
-  }, [aesthetic, scrollCards, userToken, isRefining, buildSignals]);
-
-  // ── Like card ─────────────────────────────────────────────────────────────
-
-  /**
-   * Fire the /api/similar-on-like endpoint with the just-liked products,
-   * then inject the returned outfit cards just after the user's current
-   * scroll position. Async — the user keeps swiping while this loads.
-   */
-  const injectSimilarOnLike = useCallback(async (
-    likedProductIds: string[],
-  ) => {
-    if (!aesthetic || likedProductIds.length === 0) return;
-    if (isFetchingSimilarRef.current) return;       // single-flight
-    isFetchingSimilarRef.current = true;
-    try {
-      // Exclude every product currently in the queue so we don't insert dupes
-      const excludeIds = scrollCards.flatMap((c) => c.products.map((p) => p.objectID));
-
-      const res = await fetch("/api/similar-on-like", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ likedProductIds, aesthetic, userToken, excludeIds }),
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        console.warn("[similar-on-like] non-ok:", res.status, body);
-        return;
-      }
-      const data = await res.json();
-      const ps: CuratedProduct[] = data.products ?? [];
-      console.log(`[similar-on-like] got ${ps.length} products, building cards…`);
-      if (ps.length === 0) return;
-
-      // Build outfit cards from returned products (mirrors handleSayMore)
-      const ts = Date.now();
-      const a  = ps.filter((p) => p.outfit_group === "outfit_a");
-      const b  = ps.filter((p) => p.outfit_group === "outfit_b");
-      const newCards: OutfitCard[] = [];
-      if (a.length) newCards.push({ id: `like-a-${ts}`, label: "More like this", role: data.outfit_a_role ?? "", products: a, liked: false });
-      if (b.length) newCards.push({ id: `like-b-${ts}`, label: "More like this", role: data.outfit_b_role ?? "", products: b, liked: false });
-      if (newCards.length === 0) return;
-
-      // Insert just after the user's current scroll position so the next
-      // swipe lands on "more like this" — visceral, immediate.
-      const signals    = buildSignals();
-      const rankedNew  = rankCards(newCards, signals);
-      setScrollCards((prev) => {
-        const insertAt    = activeScrollIdxRef.current + 1;
-        const withInserted = [...prev.slice(0, insertAt), ...rankedNew, ...prev.slice(insertAt)];
-        const afterInsert  = insertAt + rankedNew.length;
-        return reRankUpcoming(withInserted, afterInsert - 1, signals);
-      });
-    } catch (err) {
-      console.warn("[injectSimilarOnLike] failed:", err);
-    } finally {
-      isFetchingSimilarRef.current = false;
-    }
-  }, [aesthetic, scrollCards, userToken, buildSignals]);
-
-  const handleLikeCard = useCallback((cardId: string) => {
-    let likedNow: string[] = [];   // captured for the async similar-fetch
-    setScrollCards((prev) => {
-      const targetCard = prev.find((c) => c.id === cardId);
-      const becomingLiked = targetCard != null && !targetCard.liked;
-      if (becomingLiked) likedNow = targetCard.products.map((p) => p.objectID);
-
-      const updated = prev.map((c) => {
-        if (c.id !== cardId) return c;
-        const nowLiked = !c.liked;
-        if (nowLiked) {
-          const ids = c.products.map((p) => p.objectID);
-          // Update click history ref immediately so scoring picks it up
-          const newSignals = c.products.map((p): ClickSignalLike => ({
-            objectID: p.objectID, category: p.category ?? "", brand: p.brand ?? "",
-            color: p.color ?? "", price_range: p.price_range ?? "mid", retailer: p.retailer,
-          }));
-          clickHistoryRef.current = [...newSignals, ...clickHistoryRef.current].slice(0, 30);
-          setSessionLikedIds((s) => Array.from(new Set([...s, ...ids])));
-          c.products.forEach((p) => {
-            trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: 1 });
-            fetch("/api/taste/click", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ userToken, product: { objectID: p.objectID, title: p.title, brand: p.brand, color: p.color, category: p.category, retailer: p.retailer, price_range: p.price_range, image_url: p.image_url } }),
-            }).catch(() => {});
-          });
-        }
-        return { ...c, liked: nowLiked };
-      });
-      // After a like, re-rank the upcoming queue with updated signals
-      const signals: ScoringSignals = {
-        likedProductIds: new Set(updated.filter((c) => c.liked).flatMap((c) => c.products.map((p) => p.objectID))),
-        clickHistory:    clickHistoryRef.current,
-        dislikedSignals: dislikedSignalsRef.current,
-        dwellTimes,
-        aestheticPrice:  aesthetic?.price_range ?? "mid",
-      };
-      return reRankUpcoming(updated, activeScrollIdxRef.current, signals);
-    });
-
-    // Fire the "more like this" injection async — non-blocking, single-flight.
-    if (likedNow.length > 0) {
-      void injectSimilarOnLike(likedNow);
-    }
-  }, [userToken, dwellTimes, aesthetic, injectSimilarOnLike]);
-
-  // ── Session end: persist style centroid ───────────────────────────────────
-
-  useEffect(() => {
-    if (step === "results" && sessionLikedIds.length > 0 && userToken !== "anon") {
-      fetch("/api/taste/centroid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userToken, likedProductIds: sessionLikedIds }),
-      }).catch(() => {});
-    }
-  }, [step, sessionLikedIds, userToken]);
+  }, [aesthetic, userToken, isRefining]);
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -2098,29 +1262,12 @@ export default function DashboardPage() {
     setPins([]);
     setAesthetic(null);
     setCandidates(null);
-    setProducts([]);
-    setEditorialIntro("");
-    setEditRationale("");
-    setOutfitArc("");
-    setOutfitARole("");
-    setOutfitBRole("");
     setErrorMsg("");
     setShoppingStep(0);
-    setEditStep(0);
-    setViewMode("scroll");
     setShopViewMode("scroll");
-    setScrollCards([]);
-    setIsGeneratingMore(false);
     setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
-    setSessionLikedIds([]);
     setIsRefining(false);
-    // Reset session-only state/refs
-    setCatalogExhausted(false);
-    dislikedSignalsRef.current = [];
   };
-
-  const outfitA = products.filter((p) => p.outfit_group === "outfit_a");
-  const outfitB = products.filter((p) => p.outfit_group === "outfit_b");
 
   // ── Context block type labels ─────────────────────────────────────────────
 
@@ -2133,15 +1280,12 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="px-8 py-5 border-b border-border sticky top-0 bg-background/90 backdrop-blur-md z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">SHORTLIST</Link>
-          <div className="flex items-center gap-8">
-            {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Curating<MusingDots /></span>}
-            {step === "shopping" && (
-              <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← New search</button>
-            )}
-            <button onClick={() => signOut({ callbackUrl: "/login" })} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">Sign out</button>
-          </div>
+        <div className="max-w-5xl mx-auto flex items-center justify-end gap-8">
+          {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Curating<MusingDots /></span>}
+          {step === "shopping" && (
+            <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← New search</button>
+          )}
+          <button onClick={() => signOut({ callbackUrl: "/login" })} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">Sign out</button>
         </div>
       </header>
 
