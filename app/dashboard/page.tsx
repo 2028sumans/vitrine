@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
 import type { StyleDNA } from "@/lib/ai";
 import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
@@ -1280,12 +1281,15 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="px-8 py-5 border-b border-border sticky top-0 bg-background/90 backdrop-blur-md z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-end gap-8">
-          {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Curating<MusingDots /></span>}
-          {step === "shopping" && (
-            <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← New search</button>
-          )}
-          <button onClick={() => signOut({ callbackUrl: "/login" })} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">Sign out</button>
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">MUSE</Link>
+          <div className="flex items-center gap-8">
+            {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Curating<MusingDots /></span>}
+            {step === "shopping" && (
+              <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← New search</button>
+            )}
+            <button onClick={() => signOut({ callbackUrl: "/login" })} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">Sign out</button>
+          </div>
         </div>
       </header>
 
@@ -1503,7 +1507,7 @@ export default function DashboardPage() {
 
                 <div className="border-t border-border pt-7 mt-4">
                   <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
-                    SHORTLIST earns a small affiliate commission if you purchase, at no extra cost to you.
+                    MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
                   </p>
                 </div>
               </div>
