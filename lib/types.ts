@@ -46,6 +46,14 @@ export interface StyleDNA {
   // vibe-blindness by expressing the aesthetic in its native "garment + fabric +
   // color + styling" vocabulary. Used directly as text query vectors.
   retrieval_phrases?: string[];
+  // Which product categories the user's input actually centers on. Claude
+  // emits this when 60%+ of the pins depict the same category (shoes board,
+  // bag board, dress board). Downstream retrieval then allocates heavily to
+  // these categories and keeps the others as a light complementary set —
+  // a shoes board shouldn't come back as 80% dresses just because dresses
+  // are more abundant in the catalog. Undefined / empty = balanced across
+  // all six.
+  focus_categories?: ("dress" | "top" | "bottom" | "jacket" | "shoes" | "bag")[];
   // Runtime-only — not returned by Claude, injected after DB fetch
   _boardName?: string;
 }

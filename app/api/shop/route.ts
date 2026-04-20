@@ -1,6 +1,7 @@
 import { NextResponse }                         from "next/server";
 import {
   analyzeAesthetic,
+  applyFocusSkew,
   fetchCandidateProductsByCategory,
   filterByAvoids,
   filterMensItems,
@@ -319,7 +320,13 @@ export async function POST(request: Request) {
           rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
         }
 
-        const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
+        // Skew to focus categories when Claude flagged the board as
+        // single-category (e.g. a 158-pin shoes board -> focus=['shoes']).
+        // Non-focus buckets get capped so the downstream grid doesn't drown
+        // the user's actual interest in filler from abundant categories
+        // (dresses, mostly). No-op when focus_categories is unset.
+        const afterFocus  = applyFocusSkew(rawCandidates, aesthetic?.focus_categories);
+        const afterAvoids = filterByAvoids(afterFocus, allAvoids);
         const candidates  = filterMensItems(afterAvoids);
 
         // Persist StyleDNA (fire and forget) — only for fresh analyses, not

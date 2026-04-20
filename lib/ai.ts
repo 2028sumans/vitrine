@@ -113,7 +113,8 @@ const JSON_SCHEMA_TEMPLATE = `{
     "shoes": ["3 queries, MAX 3 words each — e.g. 'black heels', 'tan sandals', 'white sneakers'"],
     "bag": ["3 queries, MAX 3 words each — e.g. 'black leather bag', 'tan tote', 'mini shoulder bag'"]
   },
-  "retrieval_phrases": ["5-8 FULL descriptive sentences about ideal outfits that capture the vibe — written in FashionCLIP's native vocabulary: garment + fabric + color + silhouette + styling. Unlike category_queries (which are short retail-catalog terms), these are LONG evocative sentences used for visual similarity search. Examples: 'flowy cream silk slip dress worn layered over a fitted white tee', 'oversized camel wool trench coat belted at the waist with leather', 'strong-shouldered tweed blazer in cream and gold paired with straight-leg denim', 'chunky cream cable-knit turtleneck with pleated midi skirt in dove gray'. Each phrase should describe ONE complete visual concept the wearer would actually want to see."]
+  "retrieval_phrases": ["5-8 FULL descriptive sentences about ideal outfits that capture the vibe — written in FashionCLIP's native vocabulary: garment + fabric + color + silhouette + styling. Unlike category_queries (which are short retail-catalog terms), these are LONG evocative sentences used for visual similarity search. Examples: 'flowy cream silk slip dress worn layered over a fitted white tee', 'oversized camel wool trench coat belted at the waist with leather', 'strong-shouldered tweed blazer in cream and gold paired with straight-leg denim', 'chunky cream cable-knit turtleneck with pleated midi skirt in dove gray'. Each phrase should describe ONE complete visual concept the wearer would actually want to see."],
+  "focus_categories": "ONLY include this field if 60%+ of the pins clearly depict ONE or TWO categories from ['dress','top','bottom','jacket','shoes','bag']. A shoes board with 100+ heels/sandals/boots -> ['shoes']. A handbag board -> ['bag']. A mixed-lookbook board that shows full outfits -> OMIT this field entirely (set to null or skip). This is the guardrail that prevents a shoes board from coming back as dresses just because the catalog has more dresses. Conservative bias: when in doubt, omit."
 }`;
 
 function buildHistoryBlock(previousDNAs: StyleDNA[]): string {
@@ -356,43 +357,96 @@ export async function fetchCandidateProductsByCategory(
   // supplement with simple palette-color searches that reliably match the available inventory.
   // Hello Molly (our best-image retailer) titles look like "Flirt Hour Mini Dress Red" —
   // so "red dress", "black dress", "midi dress" always work; aesthetic keywords don't.
+  //
+  // When focus_categories is set, pad THAT category instead of always dresses —
+  // otherwise a shoes board with thin Algolia matches falls back to dresses,
+  // exactly the bug focus_categories exists to prevent.
   const cats: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
   const total = cats.reduce((s, c) => s + result[c].length, 0);
 
   if (total < 6) {
     const existingIds = new Set(cats.flatMap((c) => result[c].map((p) => p.objectID)));
 
-    // Extract simple base colors from the palette (last word: "red", "black", "ivory")
+    const focus = (dna.focus_categories ?? []).filter(
+      (c): c is ClothingCategory => cats.includes(c as ClothingCategory),
+    );
+    const padCat: ClothingCategory = focus[0] ?? "dress";
+
     const baseColors = (dna.color_palette ?? [])
       .slice(0, 4)
       .map((c) => c.toLowerCase().split(" ").pop() ?? c)
       .filter((c) => c.length > 2);
 
-    // Also add silhouette keywords as fallback queries
     const silhouetteWords = (dna.silhouettes ?? [])
       .slice(0, 2)
       .map((s) => s.toLowerCase().split(" ").pop() ?? s);
 
+    // Per-category generic fallback term. "midi dress" works; "midi shoes"
+    // doesn't — so use the right generic for the focus category.
+    const genericByCat: Record<ClothingCategory, string[]> = {
+      dress:  ["midi dress", "mini dress"],
+      top:    ["white top", "black top"],
+      bottom: ["black pants", "denim jean"],
+      jacket: ["black blazer", "tan coat"],
+      shoes:  ["black heels", "white sneakers", "tan sandals"],
+      bag:    ["black bag", "tan tote"],
+    };
+
     const fallbackQueries = [
-      ...baseColors.map((c) => `${c} dress`),
-      ...silhouetteWords.map((s) => `${s} dress`),
-      "midi dress",
-      "mini dress",
+      ...baseColors.map((c) => `${c} ${padCat}`),
+      ...silhouetteWords.map((s) => `${s} ${padCat}`),
+      ...genericByCat[padCat],
     ];
 
     for (const q of fallbackQueries) {
-      if (result.dress.length >= 8) break;
+      if (result[padCat].length >= 8) break;
       const extras = await searchProducts(q, [], dna.price_range, 6, undefined, userToken).catch(() => [] as AlgoliaProduct[]);
       for (const p of extras) {
         if (!existingIds.has(p.objectID)) {
           existingIds.add(p.objectID);
-          result.dress.push(p);
+          result[padCat].push(p);
         }
       }
     }
   }
 
   return result;
+}
+
+// ── Step 2b-pre: Focus-category skew ─────────────────────────────────────────
+//
+// When Claude flags the input as single-category (e.g. 100+ pins on a
+// dedicated shoes board → focus_categories=['shoes']), trim non-focus
+// buckets down to a small complementary set so the downstream feed
+// doesn't drown the user's actual interest in dresses/tops simply
+// because those categories have more catalog inventory.
+//
+// Applied AFTER retrieval (Algolia or hybrid), BEFORE avoid / mens
+// filtering — the assumption is that retrieval returned ~20 per
+// category and we're deliberately capping the non-focus slots. If
+// focus_categories is empty or undefined, this is a no-op.
+
+const NON_FOCUS_CAP = 3; // complementary pieces per non-focus category
+
+export function applyFocusSkew(
+  candidates: CategoryCandidates,
+  focusCategories: string[] | undefined,
+): CategoryCandidates {
+  if (!focusCategories || focusCategories.length === 0) return candidates;
+  const focus = new Set(focusCategories.map((c) => c.toLowerCase().trim()));
+  const cats: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
+  const out: CategoryCandidates = {
+    dress:  candidates.dress,
+    top:    candidates.top,
+    bottom: candidates.bottom,
+    jacket: candidates.jacket,
+    shoes:  candidates.shoes,
+    bag:    candidates.bag,
+  };
+  for (const cat of cats) {
+    if (!focus.has(cat)) out[cat] = out[cat].slice(0, NON_FOCUS_CAP);
+  }
+  return out;
 }
 
 // ── Step 2b-pre: Hard gender filter — runs before any AI call ────────────────

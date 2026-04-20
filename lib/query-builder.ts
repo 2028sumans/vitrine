@@ -20,7 +20,13 @@ import type { StyleDNA } from "@/lib/types";
 
 // Lower weight = subtle nudge; higher = aggressive steer.
 const NEGATIVE_WEIGHT       = 0.25;  // how hard to push away from `avoids`
-const AESTHETIC_ANCHOR_WT   = 0.50;  // how much StyleDNA text steers image vectors (Pinterest/uploads)
+// How much of the StyleDNA text-encoded anchor we blend into each image
+// vector for Pinterest / upload modes. Kept intentionally low so image
+// vectors dominate — a text phrase like "feminine vintage 2000s" encoded
+// via FashionCLIP-text lands in dress/full-look space, so anchoring too
+// hard on it pulls a shoes-board query into dress-space and the user
+// sees dresses back instead of shoes. 0.10 preserves the image signal.
+const AESTHETIC_ANCHOR_WT   = 0.10;
 const MAX_AVOIDS_TO_ENCODE  = 5;
 const MAX_PHRASES_PER_CAT   = 2;
 
