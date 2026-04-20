@@ -13,6 +13,11 @@ import {
 } from "@/lib/scoring";
 import type { SteerInterpretation } from "@/lib/steer-interpret";
 import { addSaved, removeSaved, readSaved, getShortlistSignals } from "@/lib/saved";
+import {
+  loadSessionSignals,
+  saveSessionSignals,
+  flushSessionSignals,
+} from "@/lib/session-signals";
 import { MobileMenu } from "../_components/MobileMenu";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -37,6 +42,17 @@ function formatPrice(p: number | null): string {
   if (p == null) return "";
   return `$${Math.round(p).toLocaleString("en-US")}`;
 }
+
+// Max-price filter presets for category / brand views. Plain pills — "Any"
+// plus four caps. Kept small on purpose: the goal is "don't show me vintage
+// Chanel at $12K while I'm browsing Bottoms," not a full range-slider UX.
+const PRICE_CAPS: ReadonlyArray<{ label: string; value: number | null }> = [
+  { label: "Any",      value: null  },
+  { label: "Under $100",  value: 100   },
+  { label: "Under $250",  value: 250   },
+  { label: "Under $500",  value: 500   },
+  { label: "Under $1K",   value: 1000  },
+];
 
 // Current grid column count — mirrors Tailwind's `grid-cols-2 sm:grid-cols-3
 // lg:grid-cols-4` breakpoints (sm=640, lg=1024). Used by mixBrands to enforce
@@ -208,6 +224,45 @@ function ShopPageContent() {
   const dislikedSignalsRef            = useRef<ClickSignalLike[]>([]);
   const activeScrollIdxRef            = useRef(0);
 
+  // Hydrate from localStorage on mount so a returning user's feed already
+  // reflects what they responded to last visit. Session-signals persistence
+  // is separate from `saved` (shortlist) persistence — these are implicit
+  // taste signals, not bookmarks.
+  useEffect(() => {
+    const persisted = loadSessionSignals();
+    if (!persisted) return;
+    if (persisted.likedIds.length)        setLikedIds(new Set(persisted.likedIds));
+    if (persisted.clickHistory.length)    clickHistoryRef.current    = persisted.clickHistory;
+    if (persisted.dislikedSignals.length) dislikedSignalsRef.current = persisted.dislikedSignals;
+    if (Object.keys(persisted.dwellTimes).length) setDwellTimes(persisted.dwellTimes);
+  }, []);
+
+  // Centralized persist helper — callers (handleLike, handleDwell,
+  // handleScrollBack) call this after mutating any of the four signal
+  // collections. Internally debounced so rapid updates coalesce into one
+  // localStorage write.
+  const persistSignals = useCallback(() => {
+    saveSessionSignals({
+      likedIds,
+      clickHistory:    clickHistoryRef.current,
+      dislikedSignals: dislikedSignalsRef.current,
+      dwellTimes,
+    });
+  }, [likedIds, dwellTimes]);
+
+  // Flush pending writes on tab-hide / unload so a close doesn't drop the
+  // last debounced write. `visibilitychange` fires reliably on iOS where
+  // `beforeunload` doesn't; we bind both as belt-and-braces.
+  useEffect(() => {
+    const onHide = () => flushSessionSignals();
+    window.addEventListener("visibilitychange", onHide);
+    window.addEventListener("beforeunload", onHide);
+    return () => {
+      window.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("beforeunload", onHide);
+    };
+  }, []);
+
   // Saved products ("Your Edit"). Persisted to localStorage via lib/saved.
   // Only the ID set lives in component state — the full product rows are
   // in localStorage and /edit reads them directly, so we don't need to
@@ -352,9 +407,10 @@ function ShopPageContent() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           page,
-          bias:           buildBias(),
-          brandFilter:    brandFilter    ?? "",
-          categoryFilter: categoryFilter ?? "",
+          bias:            buildBias(),
+          likedProductIds: Array.from(likedIds),
+          brandFilter:     brandFilter    ?? "",
+          categoryFilter:  categoryFilter ?? "",
           steerQuery,
           steerInterp,
         }),
@@ -376,7 +432,7 @@ function ShopPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, steerQuery, steerInterp, isPickerMode]);
+  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, steerQuery, steerInterp, isPickerMode, likedIds]);
 
   // One-shot init guard. The useEffect below has deps that settle in stages
   // on mount (URL read swaps brand/category null → value); without a guard
@@ -415,10 +471,11 @@ function ShopPageContent() {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
-            page:           0,
-            bias:           buildBias(),
-            brandFilter:    brandFilter    ?? "",
-            categoryFilter: categoryFilter ?? "",
+            page:            0,
+            bias:            buildBias(),
+            likedProductIds: Array.from(likedIds),
+            brandFilter:     brandFilter    ?? "",
+            categoryFilter:  categoryFilter ?? "",
             steerQuery,
             steerInterp,
           }),
@@ -465,9 +522,13 @@ function ShopPageContent() {
     // within the brand — it's safe to still run this path, which keeps the
     // feed responsive to session likes/dislikes inside the brand scope.
     const bias = buildBias();
+    // Trigger on any of: coarse attribute bias, liked product IDs (→ CLIP
+    // centroid search on the server). The latter is the stronger signal
+    // and alone suffices — one like is enough to refetch.
     const hasLiked = (bias.likedBrands?.length ?? 0) > 0
       || (bias.likedCategories?.length ?? 0) > 0
-      || (bias.likedColors?.length ?? 0) > 0;
+      || (bias.likedColors?.length ?? 0) > 0
+      || likedIds.size > 0;
     if (!hasLiked) return;
     biasRefetchInFlightRef.current = true;
     try {
@@ -477,6 +538,7 @@ function ShopPageContent() {
         body:    JSON.stringify({
           page: 0,
           bias,
+          likedProductIds: Array.from(likedIds),
           brandFilter,
           categoryFilter,
           steerQuery,
@@ -508,7 +570,7 @@ function ShopPageContent() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, brandFilter, steerQuery, steerInterp, isBrandMode]);
+  }, [buildBias, brandFilter, categoryFilter, steerQuery, steerInterp, isBrandMode, likedIds]);
 
   // Toggle-save handler. On a new save we also fire the toast. Unlike
   // handleLike, save does NOT feed the scoring algorithm — "saving" is a
@@ -556,6 +618,12 @@ function ShopPageContent() {
       });
       return;
     }
+    // Subtle haptic on a new like. Android Chrome supports navigator.vibrate;
+    // iOS Safari silently ignores. Guard so SSR and non-Browser paths don't
+    // explode. 10 ms is the TikTok-ish "tick" — perceptible, not jarring.
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(10); } catch { /* some browsers throw; ignore */ }
+    }
     // New like → record signal + re-rank upcoming
     const signal = productToSignal(product);
     clickHistoryRef.current = [signal, ...clickHistoryRef.current].slice(0, 30);
@@ -578,7 +646,8 @@ function ShopPageContent() {
     // lands on products the catalog itself thinks match this new signal,
     // not just a reshuffle of what's already loaded.
     void refreshBiasedAhead();
-  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead]);
+    persistSignals();
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead, persistSignals]);
 
   const handleDwell = useCallback((productId: string, ms: number) => {
     setDwellTimes((prev) => ({ ...prev, [productId]: ms }));
@@ -608,7 +677,36 @@ function ShopPageContent() {
     // batch too — keeps the feed responsive rather than having to wait
     // until the next natural pagination trigger.
     if (signal === "negative") void refreshBiasedAhead();
-  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead]);
+    persistSignals();
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, refreshBiasedAhead, persistSignals]);
+
+  // Scroll-back: the user flicked up to revisit a card they already passed.
+  // This is a strong positive — "I thought about this one more" — that's
+  // subtler than a like. We add the product's attributes to clickHistory
+  // (same shape as a like-derived signal) so affinities boost for upcoming
+  // cards, but we don't add it to likedIds (nothing hearted) and we don't
+  // trigger a full refetch (cheaper than a like — just a local re-rank).
+  // Guard with a per-id dedupe ref so a user who bounces back-and-forth on
+  // the same card doesn't spam clickHistory.
+  const scrollBackSeenRef = useRef<Set<string>>(new Set());
+  const handleScrollBack = useCallback((productId: string) => {
+    if (scrollBackSeenRef.current.has(productId)) return;
+    scrollBackSeenRef.current.add(productId);
+    const product = products.find((p) => p.objectID === productId);
+    if (!product) return;
+    clickHistoryRef.current = [productToSignal(product), ...clickHistoryRef.current].slice(0, 30);
+    setProducts((prev) => {
+      const signals: ScoringSignals = {
+        likedProductIds: likedIds,
+        clickHistory:    clickHistoryRef.current,
+        dislikedSignals: dislikedSignalsRef.current,
+        dwellTimes,
+        aestheticPrice:  "mid",
+      };
+      return reRankUpcomingProducts(prev, activeScrollIdxRef.current, signals);
+    });
+    persistSignals();
+  }, [products, likedIds, dwellTimes, reRankUpcomingProducts, persistSignals]);
 
   // Steer submit from inside the scroll view.
   //
@@ -665,21 +763,11 @@ function ShopPageContent() {
     setSteerQuery(trimmed);
   }, []);
 
-  // infinite scroll sentinel (grid only — scroll mode has its own logic).
-  // Don't observe until the first batch lands, so the 600px rootMargin can't
-  // fire loadMore while the grid is still empty.
+  // Grid view no longer auto-loads via IntersectionObserver. Pagination is
+  // now driven by an explicit "Load more" button below the grid (see the
+  // render below). The scroll view still has its own near-end auto-load
+  // since there's no obvious place for a button in a TikTok-style feed.
   const hasProducts = products.length > 0;
-  useEffect(() => {
-    if (viewMode !== "grid") return;
-    if (!hasProducts) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) loadMore();
-    }, { rootMargin: "600px" });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [viewMode, loadMore, hasProducts]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -806,13 +894,27 @@ function ShopPageContent() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
                   {displayProducts.map((p) => <GridTile key={p.objectID} product={p} />)}
                 </div>
-                {/* Sentinel only exists once products are on screen so the
-                    IntersectionObserver can't fire loadMore at mount-time. */}
+                {/* Load-more button — sits below the grid on every scoped
+                    lane (brand, category, or query-driven). Auto-pagination
+                    via IntersectionObserver was removed so the user controls
+                    when the page grows. Keep the sentinelRef ref around so
+                    any lingering sub-components don't blow up; we just
+                    stopped pointing anything at it. */}
                 {products.length > 0 && (
-                  <div ref={sentinelRef} className="h-24 flex items-center justify-center mt-10">
-                    {loading && <p className="font-display italic text-lg text-muted">Loading more…</p>}
-                    {!hasMore && (
-                      <p className="font-display italic text-lg text-muted">That&apos;s everything in {scopeLabel}.</p>
+                  <div ref={sentinelRef} className="flex items-center justify-center mt-12">
+                    {hasMore ? (
+                      <button
+                        type="button"
+                        onClick={loadMore}
+                        disabled={loading}
+                        className="px-8 py-3.5 border border-border-mid text-foreground font-sans text-[10px] tracking-widest uppercase hover:border-foreground hover:bg-foreground hover:text-background transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {loading ? "Loading…" : "Load more →"}
+                      </button>
+                    ) : (
+                      <p className="font-display italic text-lg text-muted">
+                        That&apos;s everything in {scopeLabel}.
+                      </p>
                     )}
                   </div>
                 )}
@@ -835,6 +937,7 @@ function ShopPageContent() {
           likedIds={likedIds}
           onLike={handleLike}
           onDwell={handleDwell}
+          onScrollBack={handleScrollBack}
           onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }}
           onSteer={handleSteer}
           steerQuery={steerQuery}
@@ -1029,7 +1132,7 @@ function CategoryCard({
 
 function ProductScrollView({
   products, onNearEnd, loading, hasMore, onClose,
-  likedIds, onLike, onDwell, onActiveChange,
+  likedIds, onLike, onDwell, onScrollBack, onActiveChange,
   onSteer, steerQuery,
   savedIds, onSave,
 }: {
@@ -1041,6 +1144,7 @@ function ProductScrollView({
   likedIds:       Set<string>;
   onLike:         (productId: string) => void;
   onDwell:        (productId: string, ms: number) => void;
+  onScrollBack:   (productId: string) => void;
   onActiveChange: (idx: number) => void;
   onSteer:        (comment: string) => void;
   steerQuery:     string;
@@ -1052,36 +1156,77 @@ function ProductScrollView({
   const [activeIdx, setActiveIdx] = useState(0);
   const nearEndFired  = useRef(false);
 
-  // Dwell tracking: when the active card changes, fire onDwell for the
-  // one we just scrolled past with the time we spent on it.
+  // Dwell tracking: the timestamp the current "dominant" card became
+  // dominant. On transition we fire onDwell with (now - this) — the actual
+  // in-viewport time, not the scroll-snap index-change time.
   const cardEnteredAt = useRef<number>(Date.now());
   const prevIdxRef    = useRef<number>(0);
-
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
-    const { scrollTop, clientHeight } = containerRef.current;
-    const idx = Math.round(scrollTop / clientHeight);
-    if (idx !== prevIdxRef.current) {
-      const leaving = products[prevIdxRef.current];
-      if (leaving) onDwell(leaving.objectID, Date.now() - cardEnteredAt.current);
-      cardEnteredAt.current = Date.now();
-      prevIdxRef.current    = idx;
-    }
-    setActiveIdx(idx);
-    onActiveChange(idx);
-    if (!nearEndFired.current && hasMore && idx >= products.length - 6) {
-      nearEndFired.current = true;
-      onNearEnd();
-    }
-  }, [products, hasMore, onNearEnd, onDwell, onActiveChange]);
+  // High-water mark of cards advanced past. If the user lands on an index
+  // below this, that's a deliberate scroll-back — fire `onScrollBack`.
+  const maxIdxRef = useRef<number>(0);
 
   useEffect(() => { nearEndFired.current = false; }, [products.length]);
 
-  // Wheel → snap by viewport height. Sensitivity bumped ~25% over the
-  // original tuning:
-  //   - delta threshold dropped 180 → 144 px, so a slightly smaller flick
-  //     triggers an advance (still ignores micro-flicks)
-  //   - cooldown dropped 1600 → 1280 ms so consecutive snaps feel quicker
+  // IntersectionObserver-based active-card tracking. Replaces the prior
+  // scroll-index math which (a) ran on every scroll event (60fps-ish) and
+  // (b) conflated "card on screen" with "card most visible". The observer
+  // wakes only when intersection thresholds cross, and picks the card with
+  // the highest intersection ratio as the dominant one — a card at 70%
+  // visible beats a card at 20% even if the rounded scroll index says
+  // otherwise. Dwell times reported here are genuine in-viewport time.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || products.length === 0) return;
+
+    const visRatio = new Map<number, number>();
+    const observer = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const idx = Number((e.target as HTMLElement).dataset.cardIndex);
+        if (Number.isFinite(idx)) visRatio.set(idx, e.intersectionRatio);
+      }
+      // Require >50% visibility to be "dominant". Prevents flash-transitions
+      // mid-scroll when two cards straddle the viewport nearly evenly.
+      let bestIdx = -1, bestRatio = 0.5;
+      for (const [idx, r] of Array.from(visRatio.entries())) {
+        if (r > bestRatio) { bestIdx = idx; bestRatio = r; }
+      }
+      if (bestIdx === -1 || bestIdx === prevIdxRef.current) return;
+
+      // Leave-event for the card we're exiting: real visible time.
+      const leaving = products[prevIdxRef.current];
+      if (leaving) onDwell(leaving.objectID, Date.now() - cardEnteredAt.current);
+
+      // Scroll-back detection: jumping backward to a card already passed.
+      if (bestIdx < prevIdxRef.current && bestIdx < maxIdxRef.current) {
+        const revisited = products[bestIdx];
+        if (revisited) onScrollBack(revisited.objectID);
+      }
+      if (bestIdx > maxIdxRef.current) maxIdxRef.current = bestIdx;
+
+      cardEnteredAt.current = Date.now();
+      prevIdxRef.current    = bestIdx;
+      setActiveIdx(bestIdx);
+      onActiveChange(bestIdx);
+      if (!nearEndFired.current && hasMore && bestIdx >= products.length - 6) {
+        nearEndFired.current = true;
+        onNearEnd();
+      }
+    }, {
+      root:       container,
+      // Multiple thresholds so we get fine-grained ratio updates, not just
+      // a binary in/out event. 25/50/75/100 is plenty for a snap-scroller.
+      threshold: [0, 0.25, 0.5, 0.75, 1],
+    });
+
+    const cards = container.querySelectorAll<HTMLElement>("[data-card-index]");
+    cards.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [products, hasMore, onNearEnd, onDwell, onScrollBack, onActiveChange]);
+
+  // Wheel → snap by viewport height. Tuned for a TikTok-like snappy feel:
+  //   - delta threshold 144 px ignores micro-flicks, fires on small flicks
+  //   - cooldown 700 ms (was 1280) — consecutive snaps feel near-instant
+  //     to a power user without losing the "one flick = one card" invariant
   //   - accumulator resets after 200 ms of no wheel input so stale delta
   //     doesn't trigger a jump on the next session.
   useEffect(() => {
@@ -1100,7 +1245,7 @@ function ProductScrollView({
       const direction = Math.sign(deltaAccum);
       deltaAccum = 0;
       el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 1280);
+      setTimeout(() => { isScrolling.current = false; }, 700);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
@@ -1119,7 +1264,8 @@ function ProductScrollView({
       const step = (dir: 1 | -1) => {
         isScrolling.current = true;
         el.scrollBy({ top: dir * el.clientHeight, behavior: "smooth" });
-        setTimeout(() => { isScrolling.current = false; }, 800);
+        // Matches the wheel cooldown so keyboard and wheel snap at the same pace.
+        setTimeout(() => { isScrolling.current = false; }, 600);
       };
       switch (e.key) {
         case "ArrowDown": case "j": case " ": case "PageDown":
@@ -1158,6 +1304,22 @@ function ProductScrollView({
   const activeProduct = products[activeIdx];
   const activeLiked   = activeProduct ? likedIds.has(activeProduct.objectID) : false;
   const activeSaved   = activeProduct ? savedIds.has(activeProduct.objectID) : false;
+
+  // Double-tap to like: fires the same `onLike` path as the heart button,
+  // plus a transient heart-pulse animation on the tapped card. `pulseProductId`
+  // holds the id for ~600 ms so the CSS `animate-ping` can play, then clears.
+  const [pulseProductId, setPulseProductId] = useState<string | null>(null);
+  const handleDoubleTap = useCallback((productId: string) => {
+    // Don't toggle-off on double-tap — double-tap is an additive "I like this"
+    // gesture. The user can un-like via the heart button if they want.
+    if (!likedIds.has(productId)) onLike(productId);
+    setPulseProductId(productId);
+    window.setTimeout(() => {
+      // Only clear if this id is still the pulsing one (avoid race with a
+      // second double-tap on a different card).
+      setPulseProductId((prev) => (prev === productId ? null : prev));
+    }, 650);
+  }, [likedIds, onLike]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -1202,7 +1364,6 @@ function ProductScrollView({
           {/* Scroll column — full-viewport on mobile, 440px column on desktop */}
           <div
             ref={containerRef}
-            onScroll={handleScroll}
             className="no-scrollbar w-full h-full sm:w-[440px] sm:max-w-[92vw] sm:h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
             style={{ scrollSnapType: "y mandatory" }}
           >
@@ -1212,6 +1373,8 @@ function ProductScrollView({
                 product={p}
                 index={i}
                 activeIdx={activeIdx}
+                onDoubleTap={handleDoubleTap}
+                showLikedPulse={pulseProductId === p.objectID}
               />
             ))}
             {loading && (
@@ -1375,19 +1538,54 @@ function RailButton({
 // ── Scroll card — full-bleed image in the column, buttons on right edge ──────
 
 function ProductScrollCard({
-  product, index, activeIdx,
+  product, index, activeIdx, onDoubleTap, showLikedPulse,
 }: {
   product:   Product;
   index:     number;
   activeIdx: number;
+  onDoubleTap?: (productId: string) => void;
+  showLikedPulse?: boolean;
 }) {
-  const isNear = Math.abs(index - activeIdx) <= 2;
+  // Preload window widened from ±2 → ±4 so fast swipes land on decoded images
+  // instead of briefly empty cards. Bandwidth cost is minimal at 440 px card
+  // width; perceptual-latency win is significant on a TikTok-style flick.
+  const isNear = Math.abs(index - activeIdx) <= 4;
+
+  // Double-tap to like. Classic TikTok gesture: two quick taps on the image
+  // fire `onDoubleTap`, a single tap falls through to the anchor navigation.
+  // We track a tap-count ref and a timer — on the second tap inside 300 ms
+  // we prevent the anchor default and call the handler.
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<number | null>(null);
+  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onDoubleTap) return; // no handler → normal click-through
+    tapCountRef.current += 1;
+    if (tapCountRef.current === 1) {
+      // Start the double-tap window. If a second tap doesn't land, the first
+      // tap stays as a regular navigation — we don't preventDefault here,
+      // so the browser follows the anchor on the original click.
+      tapTimerRef.current = window.setTimeout(() => {
+        tapCountRef.current = 0;
+        tapTimerRef.current = null;
+      }, 300);
+      return;
+    }
+    // Second tap inside the window → this is a like, not a navigation.
+    e.preventDefault();
+    if (tapTimerRef.current != null) {
+      window.clearTimeout(tapTimerRef.current);
+      tapTimerRef.current = null;
+    }
+    tapCountRef.current = 0;
+    onDoubleTap(product.objectID);
+  }, [onDoubleTap, product.objectID]);
 
   return (
     <a
       href={product.product_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleClick}
       className="relative flex flex-col bg-background block"
       style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
       data-card-index={index}
@@ -1408,6 +1606,16 @@ function ProductScrollCard({
           <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
         )}
       </div>
+
+      {/* Double-tap heart pulse — appears briefly on successful double-tap.
+          Purely decorative; the actual state change happens in onLike. */}
+      {showLikedPulse && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <svg viewBox="0 0 24 24" className="w-28 h-28 text-white/90 animate-[ping_0.6s_ease-out]" fill="currentColor" stroke="none">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+      )}
 
       {/* Bottom overlay — brand, title, price, shop */}
       <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-6 bg-gradient-to-t from-background via-background/85 to-transparent">
