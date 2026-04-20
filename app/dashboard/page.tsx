@@ -1474,24 +1474,6 @@ export default function DashboardPage() {
     const signal = interpretDwell(ms);
     if (signal !== "strong_positive" && signal !== "negative") return;
 
-    // Persist per-product dwell into product_impressions.dwell_ms so the
-    // weekly retrain sees it as a graded training signal (fast-swipes
-    // become strong negatives for the taste head). Fire-and-forget; never
-    // blocks the UI-facing re-rank. Uses the outfit card's dwell for every
-    // product on it — if the user skimmed the card, they skimmed each piece.
-    {
-      const card = scrollCards.find((c) => c.id === cardId);
-      if (card && userToken) {
-        for (const p of card.products) {
-          void fetch("/api/track-dwell", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ userToken, sessionId, objectId: p.objectID, dwellMs: ms }),
-          }).catch(() => { /* best-effort */ });
-        }
-      }
-    }
-
     // Capture negative signals: if the user scrolled past this card fast AND
     // didn't explicitly like it, remember its products' attributes so similar
     // upcoming cards get penalized.
@@ -1521,7 +1503,7 @@ export default function DashboardPage() {
       };
       return reRankUpcoming(prev, activeScrollIdxRef.current, signals);
     });
-  }, [sessionLikedIds, dwellTimes, aesthetic, scrollCards, userToken, sessionId]);
+  }, [sessionLikedIds, dwellTimes, aesthetic]);
 
   useEffect(() => {
     if (session?.user?.id) setUserToken(session.user.id);
@@ -2326,26 +2308,14 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="mb-14 flex items-center gap-6">
-                  <button onClick={() => handleBuildEdit()}
-                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200">
-                    Build my feed →
-                  </button>
-                  <p className="font-sans text-[11px] text-muted">Claude will style the best finds into a curated edit.</p>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 mb-14">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 mb-14 mt-6">
                   {sortedProducts.map((product) => <ShopCard key={product.objectID} product={product} userToken={userToken} />)}
                 </div>
 
-                <div className="border-t border-border pt-7 flex items-center justify-between mt-4">
+                <div className="border-t border-border pt-7 mt-4">
                   <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
-                    MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
+                    SHORTLIST earns a small affiliate commission if you purchase, at no extra cost to you.
                   </p>
-                  <button onClick={() => handleBuildEdit()}
-                    className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200">
-                    Build my feed →
-                  </button>
                 </div>
               </div>
             </>

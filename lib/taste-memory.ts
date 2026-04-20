@@ -49,6 +49,42 @@ export async function getPreviousStyleDNAs(
     }));
 }
 
+// ── Board → StyleDNA read cache ───────────────────────────────────────────────
+// Pinterest boards rarely change materially inside a day. When the same user
+// re-analyzes the same board, we skip the Sonnet-vision + Haiku-synthesis
+// phase entirely — typically the largest chunk of the "Finding your picks"
+// loading screen (~2–3 s saved).
+//
+// TTL: 24 hours. Long enough to make repeat visits feel instant, short
+// enough that the user can force a refresh by waiting a day. For now, the
+// only invalidation path is the TTL; future work can wire a manual refresh
+// button.
+const STYLE_DNA_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+export async function getStyleDNAByBoard(
+  userToken: string,
+  boardId:   string
+): Promise<{ dna: StyleDNA; created_at: string } | null> {
+  if (!userToken || !boardId) return null;
+  const sb = getServiceSupabase();
+  const { data, error } = await sb
+    .from("user_style_dnas")
+    .select("style_dna, created_at")
+    .eq("user_token", userToken)
+    .eq("board_id",   boardId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data || !data.style_dna) return null;
+
+  const createdAt = typeof data.created_at === "string" ? data.created_at : "";
+  const ageMs     = createdAt ? Date.now() - new Date(createdAt).getTime() : Infinity;
+  if (!Number.isFinite(ageMs) || ageMs > STYLE_DNA_CACHE_TTL_MS) return null;
+
+  return { dna: data.style_dna as StyleDNA, created_at: createdAt };
+}
+
 // ── Click signals ─────────────────────────────────────────────────────────────
 
 export async function saveClickSignal(
@@ -105,7 +141,6 @@ export async function saveImpressions(
     brand:     string;
     color:     string;
     category?: string;
-    dwellMs?:  number | null;
   }>
 ): Promise<void> {
   if (!products.length) return;
@@ -119,63 +154,8 @@ export async function saveImpressions(
       brand:      p.brand,
       color:      p.color,
       category:   p.category ?? "",
-      dwell_ms:   typeof p.dwellMs === "number" ? Math.max(0, Math.round(p.dwellMs)) : null,
     }))
   );
-}
-
-// Scroll views fire an impression when a card first enters the viewport,
-// then fire a dwell update when the user scrolls past it. Takes the MAX
-// dwell seen — scrolling back to the same card shouldn't reduce the value.
-//
-// Match strategy: (user_token, session_id, object_id) first; fall back to
-// the latest (user_token, object_id) when session_id doesn't match. This
-// tolerates cases where the client's scroll-view session_id differs from
-// the server's curate-time session_id (the impression was inserted by
-// /api/curate under a boardId-timestamp key, not the client's random id).
-export async function updateImpressionDwell(
-  userToken: string,
-  sessionId: string,
-  objectId:  string,
-  dwellMs:   number,
-): Promise<void> {
-  if (!userToken || !objectId) return;
-  if (!Number.isFinite(dwellMs) || dwellMs < 0) return;
-  const sb = getServiceSupabase();
-
-  // Preferred: exact session match.
-  type ImpressionRow = { id: number; dwell_ms: number | null };
-  let row: ImpressionRow | null = null;
-  if (sessionId) {
-    const { data } = await sb
-      .from("product_impressions")
-      .select("id, dwell_ms")
-      .eq("user_token", userToken)
-      .eq("session_id", sessionId)
-      .eq("object_id",  objectId)
-      .order("id", { ascending: false })
-      .limit(1);
-    if (data?.length) row = data[0] as unknown as ImpressionRow;
-  }
-  // Fallback: latest impression row for (user, object) regardless of session.
-  if (!row) {
-    const { data } = await sb
-      .from("product_impressions")
-      .select("id, dwell_ms")
-      .eq("user_token", userToken)
-      .eq("object_id",  objectId)
-      .order("id", { ascending: false })
-      .limit(1);
-    if (data?.length) row = data[0] as unknown as ImpressionRow;
-  }
-  if (!row) return;
-
-  const current = row.dwell_ms ?? 0;
-  if (dwellMs <= current) return;
-  await sb
-    .from("product_impressions")
-    .update({ dwell_ms: Math.round(dwellMs) })
-    .eq("id", row.id);
 }
 
 // ── Soft avoids ───────────────────────────────────────────────────────────────
@@ -320,98 +300,3 @@ export async function loadTasteMemory(userToken: string): Promise<TasteMemory> {
   };
 }
 
-// ── Training-data fetcher ─────────────────────────────────────────────────────
-// Pulls per-user (likes, impressions, dwell) straight from the existing
-// Supabase tables for scripts/train-taste-head.mjs to turn into triplets.
-// Returns the last N most-active users so we're not sweeping cold accounts
-// every training run.
-
-export interface UserSignalBundle {
-  user_token:     string;
-  liked_ids:      string[];
-  impressed_ids:  string[];     // impressed but NOT liked (the skip set)
-  fast_swipe_ids: string[];     // subset of impressed: dwell_ms < threshold → strong negative
-}
-
-/**
- * Active users (recent likes or impressions) with their signal bundles.
- *
- * @param maxUsers             cap users returned
- * @param maxSignalsPerUser    cap liked / impressed / fast_swipe each
- * @param fastSwipeThresholdMs dwell below this = "fast-swiped" (strong negative).
- *                             Defaults to 500ms — tuned on the shop scroll view:
- *                             anything under half a second is a skim, not
- *                             meaningful impression time.
- */
-export async function fetchUserSignalBundles(
-  maxUsers             = 200,
-  maxSignalsPerUser    = 100,
-  fastSwipeThresholdMs = 500,
-): Promise<UserSignalBundle[]> {
-  const sb = getServiceSupabase();
-
-  // 1. Get the most recent likers (proxy for "active users").
-  const { data: recentLikes } = await sb
-    .from("taste_signals")
-    .select("user_token, clicked_at")
-    .order("clicked_at", { ascending: false })
-    .limit(maxUsers * 20); // generous — we'll dedup then cap
-
-  const userTokens: string[] = [];
-  const seen = new Set<string>();
-  for (const row of recentLikes ?? []) {
-    const t = (row as { user_token: string }).user_token;
-    if (!t || seen.has(t)) continue;
-    seen.add(t);
-    userTokens.push(t);
-    if (userTokens.length >= maxUsers) break;
-  }
-  if (userTokens.length === 0) return [];
-
-  // 2. For each user, pull their liked object_ids and impressed rows in
-  //    parallel. We keep the call count bounded — one likes-query and one
-  //    impressions-query per user. With maxUsers=200 that's 400 round
-  //    trips, fine inside a CI job but not worth chunking further.
-  const out: UserSignalBundle[] = [];
-  await Promise.all(userTokens.map(async (user_token) => {
-    const [likedRes, imprRes] = await Promise.all([
-      sb.from("taste_signals")
-        .select("object_id, clicked_at")
-        .eq("user_token", user_token)
-        .order("clicked_at", { ascending: false })
-        .limit(maxSignalsPerUser),
-      sb.from("product_impressions")
-        .select("object_id, dwell_ms, id")
-        .eq("user_token", user_token)
-        .order("id", { ascending: false })
-        .limit(maxSignalsPerUser * 3), // more impressions than likes, typically
-    ]);
-
-    const likedIds = new Set<string>();
-    for (const r of (likedRes.data ?? []) as Array<{ object_id: string }>) {
-      if (r.object_id) likedIds.add(r.object_id);
-    }
-
-    const impressed:  string[] = [];
-    const fastSwipe:  string[] = [];
-    for (const r of (imprRes.data ?? []) as Array<{ object_id: string; dwell_ms: number | null }>) {
-      if (!r.object_id || likedIds.has(r.object_id)) continue;
-      if (impressed.length >= maxSignalsPerUser) break;
-      impressed.push(r.object_id);
-      if (typeof r.dwell_ms === "number" && r.dwell_ms < fastSwipeThresholdMs) {
-        fastSwipe.push(r.object_id);
-      }
-    }
-
-    if (likedIds.size >= 2 && impressed.length >= 1) {
-      out.push({
-        user_token,
-        liked_ids:      Array.from(likedIds),
-        impressed_ids:  impressed,
-        fast_swipe_ids: fastSwipe,
-      });
-    }
-  }));
-
-  return out;
-}

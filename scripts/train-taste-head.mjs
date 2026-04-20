@@ -172,80 +172,13 @@ if (!rows || rows.length === 0) {
 }
 console.log(`  ${rows.length} curation runs from ${sourceLabel}`);
 
-// ── User signal bundles (likes / impressions / fast-swipes) ───────────────────
-// Optional: richer than curation-log data because it's real user behaviour
-// rather than Claude's simulated judgment. Only fetched when Supabase creds
-// are present and user data actually exists. Schema: see
-// lib/taste-memory.ts → fetchUserSignalBundles.
-
-const MAX_USERS_PER_RUN        = Number(flag("max-users", 200));
-const MAX_SIGNALS_PER_USER     = Number(flag("max-signals-per-user", 100));
-const MAX_USER_TRIPLETS        = Number(flag("max-user-triplets-per-user", 40));
-const USER_SIGNAL_WEIGHT       = Number(flag("user-signal-weight", 1.0));
-const CURATION_SIGNAL_WEIGHT   = Number(flag("curation-signal-weight", 0.5));
-
-let userSignals = [];
-if (SUPABASE_URL && SUPABASE_KEY && SOURCE !== "jsonl") {
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
-  const FAST_SWIPE_MS = 500;
-  console.log("\nLoading user signal bundles (likes / impressions / dwells)…");
-
-  // Recent active users (anyone with a like in the last N rows).
-  const { data: recentLikes } = await sb
-    .from("taste_signals")
-    .select("user_token, clicked_at")
-    .order("clicked_at", { ascending: false })
-    .limit(MAX_USERS_PER_RUN * 20);
-  const userTokens = [];
-  const seenUsers  = new Set();
-  for (const r of recentLikes ?? []) {
-    if (!r.user_token || seenUsers.has(r.user_token)) continue;
-    seenUsers.add(r.user_token);
-    userTokens.push(r.user_token);
-    if (userTokens.length >= MAX_USERS_PER_RUN) break;
-  }
-
-  // Per-user likes + impressions pull (parallel).
-  const bundles = await Promise.all(userTokens.map(async (user_token) => {
-    const [likedRes, imprRes] = await Promise.all([
-      sb.from("taste_signals")
-        .select("object_id").eq("user_token", user_token)
-        .order("clicked_at", { ascending: false }).limit(MAX_SIGNALS_PER_USER),
-      sb.from("product_impressions")
-        .select("object_id, dwell_ms").eq("user_token", user_token)
-        .order("id", { ascending: false }).limit(MAX_SIGNALS_PER_USER * 3),
-    ]);
-    const liked = new Set();
-    for (const r of (likedRes.data ?? [])) if (r.object_id) liked.add(r.object_id);
-    const impressed = [];
-    const fastSwipe = [];
-    for (const r of (imprRes.data ?? [])) {
-      if (!r.object_id || liked.has(r.object_id)) continue;
-      if (impressed.length >= MAX_SIGNALS_PER_USER) break;
-      impressed.push(r.object_id);
-      if (typeof r.dwell_ms === "number" && r.dwell_ms < FAST_SWIPE_MS) fastSwipe.push(r.object_id);
-    }
-    return liked.size >= 2 && impressed.length >= 1
-      ? { user_token, liked: Array.from(liked), impressed, fastSwipe }
-      : null;
-  }));
-  userSignals = bundles.filter(Boolean);
-  console.log(`  ${userSignals.length} users with usable signal bundles (likes ≥ 2, impressions ≥ 1)`);
-}
-
-// Collect the unique product IDs we need vectors for — union of curation
-// and user-signal references. Pinecone fetch is per-ID, so a single pass
-// over the union is cheapest.
+// Collect the unique product IDs we need vectors for.
 const allIds = new Set();
 for (const r of rows) {
   for (const id of r.kept_ids     ?? []) allIds.add(id);
   for (const id of r.rejected_ids ?? []) allIds.add(id);
 }
-for (const u of userSignals) {
-  for (const id of u.liked)     allIds.add(id);
-  for (const id of u.impressed) allIds.add(id);
-}
-console.log(`  ${allIds.size} unique product IDs referenced across both sources`);
+console.log(`  ${allIds.size} unique product IDs referenced`);
 
 // ── Fetch Pinecone vectors ────────────────────────────────────────────────────
 
@@ -278,69 +211,27 @@ const DIM = vecById.values().next().value.length;
 console.log(`  vector dim = ${DIM}`);
 
 // ── Build triplets ────────────────────────────────────────────────────────────
-//
-// Two sources:
-//   1. Curation-log KEEP/REJECT (anchor=keep, positive=keep', negative=reject)
-//      — Claude's simulated judgment. Dense, consistent, weighted lower.
-//   2. User-signal LIKE/IMPRESSED (anchor=liked, positive=liked', negative=
-//      impressed-but-never-liked or, when available, fast-swiped). Genuine
-//      revealed preference. Sparser, weighted higher. Fast-swipes are treated
-//      as stronger negatives than plain impressions.
-//
-// Each triplet carries a `weight` that modulates the SGD step size downstream,
-// so Claude and real-user signals contribute in proportion to their
-// reliability rather than by raw count.
 
-const triplets = []; // { a, p, n, weight }
-
-console.log("\nBuilding curation-log triplets (anchor ∈ kept, positive ∈ kept, negative ∈ rejected)…");
-let curationTriplets = 0;
+console.log("\nBuilding triplets (anchor ∈ kept, positive ∈ kept, negative ∈ rejected) per curation run…");
+const triplets = []; // array of { a, p, n } — each is a vector
 for (const r of rows) {
-  const keptVecs   = (r.kept_ids     ?? []).map((id) => vecById.get(id)).filter(Boolean);
-  const rejectVecs = (r.rejected_ids ?? []).map((id) => vecById.get(id)).filter(Boolean);
+  const keptVecs    = (r.kept_ids     ?? []).map((id) => vecById.get(id)).filter(Boolean);
+  const rejectVecs  = (r.rejected_ids ?? []).map((id) => vecById.get(id)).filter(Boolean);
   if (keptVecs.length < 2 || rejectVecs.length < 1) continue;
+  // Sample at most min(keptC2, rejects) triplets per run so a single large
+  // curation doesn't dominate the loss.
   const maxPerRun = Math.min(keptVecs.length * 2, rejectVecs.length * 4, 40);
   for (let i = 0; i < maxPerRun; i++) {
     const ai = Math.floor(Math.random() * keptVecs.length);
     let pi = Math.floor(Math.random() * keptVecs.length);
     if (pi === ai) pi = (pi + 1) % keptVecs.length;
     const ni = Math.floor(Math.random() * rejectVecs.length);
-    triplets.push({ a: keptVecs[ai], p: keptVecs[pi], n: rejectVecs[ni], weight: CURATION_SIGNAL_WEIGHT });
-    curationTriplets++;
+    triplets.push({ a: keptVecs[ai], p: keptVecs[pi], n: rejectVecs[ni] });
   }
 }
-console.log(`  curation: ${curationTriplets} triplets from ${rows.length} runs (weight ${CURATION_SIGNAL_WEIGHT})`);
-
-console.log("\nBuilding user-signal triplets (anchor ∈ liked, positive ∈ liked, negative ∈ skipped/fast-swiped)…");
-let userTriplets = 0;
-let fastSwipeTriplets = 0;
-for (const u of userSignals) {
-  const likedVecs   = u.liked.map((id) => vecById.get(id)).filter(Boolean);
-  const skipVecs    = u.impressed.map((id) => vecById.get(id)).filter(Boolean);
-  const fastVecs    = u.fastSwipe.map((id) => vecById.get(id)).filter(Boolean);
-  if (likedVecs.length < 2 || skipVecs.length < 1) continue;
-  const maxPerUser = Math.min(likedVecs.length * 2, skipVecs.length * 4, MAX_USER_TRIPLETS);
-  for (let i = 0; i < maxPerUser; i++) {
-    const ai = Math.floor(Math.random() * likedVecs.length);
-    let pi = Math.floor(Math.random() * likedVecs.length);
-    if (pi === ai) pi = (pi + 1) % likedVecs.length;
-    // Prefer fast-swipes as negatives when available — they're a stronger
-    // signal than "merely impressed" products the user never engaged with.
-    // Boost the weight proportionally.
-    const useFast = fastVecs.length > 0 && Math.random() < 0.5;
-    const pool    = useFast ? fastVecs : skipVecs;
-    const ni      = Math.floor(Math.random() * pool.length);
-    const weight  = USER_SIGNAL_WEIGHT * (useFast ? 1.5 : 1.0);
-    triplets.push({ a: likedVecs[ai], p: likedVecs[pi], n: pool[ni], weight });
-    userTriplets++;
-    if (useFast) fastSwipeTriplets++;
-  }
-}
-console.log(`  user:     ${userTriplets} triplets from ${userSignals.length} users (${fastSwipeTriplets} fast-swipe negatives, weight ${USER_SIGNAL_WEIGHT}–${(USER_SIGNAL_WEIGHT * 1.5).toFixed(2)})`);
-console.log(`  total:    ${triplets.length} triplets`);
-
+console.log(`  built ${triplets.length} triplets from ${rows.length} runs`);
 if (triplets.length === 0) {
-  console.error("No triplets could be formed. Need ≥2 keeps+1 reject per curation run OR ≥2 likes+1 impression per user.");
+  console.error("No triplets could be formed (most runs need ≥2 kept and ≥1 rejected with vectors present).");
   process.exit(1);
 }
 const capped = MAX_SAMPLES < triplets.length
@@ -382,9 +273,7 @@ for (let epoch = 0; epoch < EPOCHS; epoch++) {
 
   let totalLoss = 0;
   let active    = 0;
-  for (const t of trainingTriplets) {
-    const { a, p, n } = t;
-    const w           = typeof t.weight === "number" ? t.weight : 1;
+  for (const { a, p, n } of trainingTriplets) {
     const Wa = matVec(W, a, DIM);
     const Wp = matVec(W, p, DIM);
     const Wn = matVec(W, n, DIM);
@@ -393,26 +282,26 @@ for (let epoch = 0; epoch < EPOCHS; epoch++) {
     const loss = MARGIN - sap + san;
     if (loss <= 0) continue; // inactive margin
     active++;
-    totalLoss += loss * w;
+    totalLoss += loss;
 
     // dL/dW via outer products:
     //   sap = (Wa)·(Wp) = a^T W^T W p  →  dSap/dW = W(a p^T + p a^T)
     //   san = (Wa)·(Wn)                →  dSan/dW = W(a n^T + n a^T)
     //   dL/dW = -dSap + dSan
     // We apply directly as an SGD step so we never materialize the full
-    // D×D gradient — each rank-1 update is O(D^2). Scale the step by the
-    // triplet's weight so user-signal triplets move the model more than
-    // Claude-KEEP/REJECT triplets do.
+    // D×D gradient — each rank-1 update is O(D^2) and batches to O(D^2).
+    // Net update: W -= lr * W * (-(a p^T + p a^T) + (a n^T + n a^T))
+    //           = W += lr * W * (a (p - n)^T + (p - n) a^T)
+    // Split into two rank-1 terms: outer(a, p - n) and outer(p - n, a).
     const pn = new Array(DIM);
     for (let i = 0; i < DIM; i++) pn[i] = p[i] - n[i];
 
     const tmp1 = matVec(W, a, DIM);
     const tmp2 = matVec(W, pn, DIM);
-    const lrw  = LR * w;
 
     for (let i = 0; i < DIM; i++) {
-      const u1 = lrw * tmp1[i];
-      const u2 = lrw * tmp2[i];
+      const u1 = LR * tmp1[i];
+      const u2 = LR * tmp2[i];
       const base = i * DIM;
       for (let j = 0; j < DIM; j++) {
         W[base + j] += u1 * pn[j] + u2 * a[j];
