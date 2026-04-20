@@ -857,7 +857,7 @@ function ShopPageContent() {
         {/* View toggle + product grid — only in brand/category mode */}
         {!isPickerMode && (
           <>
-            <div className="flex items-center justify-between mb-10 border-y border-border-mid py-5">
+            <div className="flex flex-wrap items-center justify-between gap-y-5 gap-x-8 mb-10 border-y border-border-mid py-5">
               <div className="flex">
                 <button
                   onClick={() => setViewMode("grid")}
@@ -884,6 +884,43 @@ function ShopPageContent() {
                   Scroll
                 </button>
               </div>
+
+              {/* Price cap pills — reset pagination via the init effect when
+                  priceMax changes. Shares the Grid/Scroll button aesthetic
+                  (border-collapsed row, olive-on-cream active state) so the
+                  whole controls row reads as one idiom. */}
+              <div
+                role="radiogroup"
+                aria-label="Maximum price"
+                className="flex items-center"
+              >
+                <span className="font-sans text-[9px] tracking-widest uppercase text-muted-dim mr-4">
+                  Price
+                </span>
+                <div className="flex">
+                  {PRICE_CAPS.map((cap, i) => {
+                    const active = priceMax === cap.value;
+                    return (
+                      <button
+                        key={cap.label}
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => setPriceMax(cap.value)}
+                        className={`px-4 py-2.5 font-sans text-[10px] tracking-widest uppercase border ${
+                          i === 0 ? "" : "border-l-0"
+                        } transition-colors ${
+                          active
+                            ? "bg-foreground text-background border-foreground"
+                            : "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
+                        }`}
+                      >
+                        {cap.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <span className="font-sans text-[10px] tracking-widest uppercase text-muted">
                 {products.length.toLocaleString()} loaded
               </span>

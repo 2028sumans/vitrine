@@ -312,6 +312,44 @@ function buildSteerQuery(s: SteerInterp | null): string {
   return terms.filter(Boolean).join(" ").trim();
 }
 
+// Fold a max-price cap into an existing Algolia `filters` expression.
+// Returns the expression joined by AND, or just the scope filter / just the
+// price filter if the other is empty. Used by both the scoped lane (brand /
+// category) and the query-driven lane. Algolia accepts numeric comparisons
+// like `price <= 250` inside the same `filters` string as facet filters, so
+// a single AND-joined expression is all we need.
+function composeFilters(scopeFilter: string, priceMax: number | null): string {
+  const parts: string[] = [];
+  if (scopeFilter) parts.push(scopeFilter);
+  if (priceMax != null && priceMax > 0) parts.push(`price <= ${priceMax}`);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  // Parenthesize each piece so complex scope expressions (e.g. the `NOT
+  // category:"x" AND NOT category:"y"` used by the "Other" lane) don't
+  // get mis-associated when combined with the numeric clause.
+  return parts.map((p) => `(${p})`).join(" AND ");
+}
+
+// Lenient price-cap post-filter. Algolia's numeric filter already enforces
+// the cap on the server, but (a) rows with a missing / null `price` fall
+// through Algolia's filter (undefined-facet behavior), so we defensively
+// re-check here, and (b) keeping the double-check makes the intent obvious
+// when reading the filter chain. Rows without a price survive — we'd rather
+// show a price-missing piece than a pair of empty shelves.
+function applyPriceMaxPostFilter(
+  products: Array<Record<string, unknown>>,
+  priceMax: number | null,
+): Array<Record<string, unknown>> {
+  if (priceMax == null || priceMax <= 0) return products;
+  return products.filter((p) => {
+    const raw = p.price;
+    if (raw == null) return true;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (!Number.isFinite(n)) return true;
+    return n <= priceMax;
+  });
+}
+
 // Apply the semantic pieces of a SteerInterp (price_range, categories,
 // colors, avoid_terms) as a lenient post-filter. Lenient means: only drops
 // a product if it HAS the field and the field disagrees — products missing
@@ -354,6 +392,14 @@ export async function POST(request: Request) {
   const bias: BiasPayload = body?.bias ?? {};
   const brandFilter:    string = typeof body?.brandFilter    === "string" ? body.brandFilter.trim()    : "";
   const categoryFilter: string = typeof body?.categoryFilter === "string" ? body.categoryFilter.trim() : "";
+  // Max-price cap (USD). null / missing = no cap. Validated to a positive
+  // finite number; anything else collapses to null. Applied as an Algolia
+  // numeric filter AND a lenient post-filter (keeps rows missing a price).
+  const priceMaxRaw = body?.priceMax;
+  const priceMax: number | null =
+    typeof priceMaxRaw === "number" && Number.isFinite(priceMaxRaw) && priceMaxRaw > 0
+      ? priceMaxRaw
+      : null;
   const steerInterp: SteerInterp | null = body?.steerInterp ?? null;
   const steerQueryRaw: string = typeof body?.steerQuery === "string" ? body.steerQuery.trim() : "";
   const steerQuery = hasSteerSignals(steerInterp)
@@ -407,13 +453,112 @@ export async function POST(request: Request) {
       const scopedKeywords = categoryScope?.keywords?.join(" ") ?? "";
       const q = [steerQuery, biasQuery, scopedKeywords].filter(Boolean).join(" ");
       const optionalWords = q ? q.split(/\s+/).filter(Boolean) : undefined;
-      const filters = brandFilterQuery || categoryScope?.filters || "";
+      // Combine scope filter with the price cap. Algolia accepts numeric
+      // comparisons inside `filters` (e.g. `price <= 250`). Missing-price
+      // rows survive the Algolia pass and are handled by the post-filter.
+      const filters = composeFilters(
+        brandFilterQuery || categoryScope?.filters || "",
+        priceMax,
+      );
 
       // Run Algolia + CLIP similarity in parallel — CLIP typically adds
       // 50–150ms which overlaps with Algolia's ~200ms, keeping total
       // latency near Algolia-alone.
-      const [res, clipIds] = await Promise.all([
-        client.searchSingleIndex({
+      //
+      // When a price cap is set we DROP the "custom" tier from the ranking
+      // chain. The index's customRanking is `desc(price)`, so by default
+      // a query like "Bottoms under $250" returns only items priced
+      // $240–$250 (the top of the band under the cap), which defeats the
+      // point of the filter — the user wants a diverse look at what's
+      // affordable, not the single most-expensive item fitting each cap.
+      // Removing "custom" falls back to the default ranking chain
+      // (typo/geo/words/filters/proximity/attribute/exact), and our own
+      // aesthetic×brand interleaver spreads the result.
+      // The index's `customRanking: ["desc(price)"]` sorts every result set
+      // by price descending. When the user caps at e.g. $500, the first page
+      // ends up being 384 products all priced $475–$500 — the top of the band
+      // under the cap. Unhelpful: the user wanted range, not just the most
+      // expensive item they can afford.
+      //
+      // Algolia v5 doesn't accept a per-query `customRanking` / `ranking`
+      // override through this SDK (the parameter is silently dropped). And
+      // deep-offset walking is gated by Algolia's 1000-hit paginationLimitedTo.
+      //
+      // Instead we split the [0, priceMax] range into N logarithmic-ish bands
+      // and fire one query per band. Each band's result is small and clusters
+      // at the TOP of its own band (because of desc(price)), but the
+      // interleaved whole covers the full affordability spectrum — from a
+      // handful of items near the cap down to budget picks. Exactly what a
+      // user who set a price cap wants to see.
+      //
+      // Pagination walks within each band: display page N pulls band's page N
+      // via Algolia pagination. When a band runs dry its slot stays empty
+      // and the mix drifts toward the cheaper bands — acceptable for now.
+      let products: Array<Record<string, unknown>>;
+      let nbHits = 0;
+
+      if (priceMax != null) {
+        // 5 logarithmic-ish price bands from the cap down. The last band
+        // stretches to $0 so no product slips through the cracks. Ratios
+        // chosen so each band has roughly comparable inventory — the
+        // catalog is heavier at the top, so lower bands get wider.
+        const bandBreakpoints = [
+          priceMax,
+          priceMax * 0.7,
+          priceMax * 0.4,
+          priceMax * 0.2,
+          priceMax * 0.08,
+          0,
+        ];
+        const bands: Array<{ lo: number; hi: number }> = [];
+        for (let i = 0; i < bandBreakpoints.length - 1; i++) {
+          bands.push({ hi: bandBreakpoints[i], lo: bandBreakpoints[i + 1] });
+        }
+        const PER_BAND = Math.ceil(SCOPED_FETCH / bands.length);
+
+        const results = await Promise.all(
+          bands.map(async (band) => {
+            const scopePart = brandFilterQuery || categoryScope?.filters || "";
+            const pricePart = band.lo > 0
+              ? `price > ${band.lo} AND price <= ${band.hi}`
+              : `price <= ${band.hi}`;
+            const bandFilters = scopePart
+              ? `(${scopePart}) AND (${pricePart})`
+              : pricePart;
+            try {
+              const r = await client.searchSingleIndex({
+                indexName: INDEX_NAME,
+                searchParams: {
+                  query:       q,
+                  ...(optionalWords ? { optionalWords } : {}),
+                  filters:     bandFilters,
+                  hitsPerPage: PER_BAND,
+                  page,
+                  attributesToRetrieve,
+                },
+              });
+              return { hits: (r.hits ?? []) as Array<Record<string, unknown>>, nbHits: r.nbHits ?? 0 };
+            } catch (e) {
+              console.warn("[shop-all] price-band slice failed:", e instanceof Error ? e.message : e);
+              return { hits: [] as Array<Record<string, unknown>>, nbHits: 0 };
+            }
+          }),
+        );
+
+        nbHits = results.reduce((s, r) => s + r.nbHits, 0);
+
+        // Round-robin interleave across bands so each page spans the full
+        // price range — one item from the top band, then the next band
+        // down, and so on.
+        products = [];
+        for (let i = 0; i < PER_BAND; i++) {
+          for (let j = 0; j < results.length; j++) {
+            const hit = results[j]?.hits?.[i];
+            if (hit) products.push(hit);
+          }
+        }
+      } else {
+        const res = await client.searchSingleIndex({
           indexName: INDEX_NAME,
           searchParams: {
             query:       q,
@@ -423,13 +568,23 @@ export async function POST(request: Request) {
             page,
             attributesToRetrieve,
           },
-        }),
-        clipSimilarityRanking(likedProductIds),
-      ]);
-      let products = (res.hits ?? []) as Array<Record<string, unknown>>;
+        });
+        products = (res.hits ?? []) as Array<Record<string, unknown>>;
+        nbHits   = res.nbHits ?? 0;
+      }
+
+      // CLIP similarity runs independently — same flow regardless of whether
+      // we used the single-fetch or multi-slice path above.
+      const clipIds = await clipSimilarityRanking(likedProductIds);
 
       // Structured Steer post-filter (price tier / category / color / avoid).
       products = applySteerPostFilter(products, steerInterp);
+
+      // Lenient price-cap post-filter. Only drops rows that HAVE a price
+      // above the cap — rows with a null / missing price survive so the
+      // Algolia filter (which already dropped priced-too-high rows) stays
+      // the source of truth.
+      products = applyPriceMaxPostFilter(products, priceMax);
 
       // Strict category-scope enforcement — defensive against mis-tagged rows
       // in the Algolia index (e.g. hoodies slipping into Shoes).
@@ -456,12 +611,12 @@ export async function POST(request: Request) {
       return NextResponse.json({
         products: clean,
         page,
-        hasMore:  (res.hits?.length ?? 0) >= SCOPED_FETCH,
+        hasMore:  products.length >= SCOPED_FETCH / 2, // pages of ≥50% fill keep paginating
         mode:     brandFilterQuery ? "brand" : "category",
         brand:    brandFilter    || undefined,
         category: categoryFilter || undefined,
         steer:    steerQuery     || undefined,
-        total:    res.nbHits ?? null,
+        total:    nbHits || null,
       });
     }
 
@@ -470,12 +625,14 @@ export async function POST(request: Request) {
       const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
       const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
       const optionalWords = q.split(/\s+/).filter(Boolean);
+      const filters = composeFilters("", priceMax);
       const [res, clipIds] = await Promise.all([
         client.searchSingleIndex({
           indexName: INDEX_NAME,
           searchParams: {
             query:       q,
             optionalWords,
+            ...(filters ? { filters } : {}),
             hitsPerPage: HITS_PER_PAGE,
             page,
             attributesToRetrieve,
@@ -498,6 +655,7 @@ export async function POST(request: Request) {
       }
 
       products = applySteerPostFilter(products, steerInterp);
+      products = applyPriceMaxPostFilter(products, priceMax);
 
       let clean = products.filter((p) => {
         const u = p.image_url;
