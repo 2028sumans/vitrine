@@ -416,17 +416,18 @@ export async function fetchCandidateProductsByCategory(
 // ── Step 2b-pre: Focus-category skew ─────────────────────────────────────────
 //
 // When Claude flags the input as single-category (e.g. 100+ pins on a
-// dedicated shoes board → focus_categories=['shoes']), trim non-focus
-// buckets down to a small complementary set so the downstream feed
-// doesn't drown the user's actual interest in dresses/tops simply
-// because those categories have more catalog inventory.
+// dedicated shoes board → focus_categories=['shoes']), drop every
+// non-focus bucket entirely. The earlier attempt kept 3 complementary
+// pieces per non-focus category for "outfit context," but in practice
+// it let a stray pink floral dress land in a 100% shoes board feed —
+// exactly the kind of mismatch the signal was meant to eliminate. If
+// the user wanted dresses they'd have pinned dresses. Zero tolerance.
 //
 // Applied AFTER retrieval (Algolia or hybrid), BEFORE avoid / mens
-// filtering — the assumption is that retrieval returned ~20 per
-// category and we're deliberately capping the non-focus slots. If
-// focus_categories is empty or undefined, this is a no-op.
+// filtering. No-op when focus_categories is empty or undefined (the
+// common mixed-lookbook case — balanced across all six categories).
 
-const NON_FOCUS_CAP = 3; // complementary pieces per non-focus category
+const NON_FOCUS_CAP = 0; // no complementary pieces — strict focus
 
 export function applyFocusSkew(
   candidates: CategoryCandidates,
