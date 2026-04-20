@@ -12,7 +12,7 @@ import {
   type ScoringCard,
 } from "@/lib/scoring";
 import type { SteerInterpretation } from "@/lib/steer-interpret";
-import { addSaved, removeSaved, readSaved } from "@/lib/saved";
+import { addSaved, removeSaved, readSaved, getShortlistSignals } from "@/lib/saved";
 import { MobileMenu } from "../_components/MobileMenu";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -304,7 +304,13 @@ function ShopPageContent() {
         .slice(0, max)
         .map(([v]) => v) as T[];
     };
-    const liked    = clickHistoryRef.current;
+    // Merge in shortlist saves as additional "liked" signals. Saves are a
+    // stronger, more deliberate preference than in-session likes — and they
+    // persist across visits, so a returning user's feed is immediately
+    // biased toward what they've collected before. Same byKey aggregation
+    // applies on top, so a brand that appears in BOTH session-likes and
+    // shortlist-saves ranks above either source alone.
+    const liked    = [...clickHistoryRef.current, ...(getShortlistSignals() as ClickSignalLike[])];
     const disliked = dislikedSignalsRef.current;
     return {
       likedBrands:        byKey<string>(liked, "brand", 5),

@@ -1,0 +1,162 @@
+name: Retrain taste head
+
+# Automated retraining loop for lib/taste-head.json. Reads curation_logs from
+# Supabase, trains a new W with an 80/20 held-out split, and only promotes
+# (commits + applies to Pinecone) when the new W's test accuracy beats the
+# previously-shipped W by the promotion margin.
+#
+# Triggers:
+#   - Weekly: every Sunday 03:00 UTC
+#   - Manual: workflow_dispatch with optional threshold override
+#
+# Required GitHub secrets (repo → Settings → Secrets and variables → Actions):
+#   PINECONE_API_KEY
+#   PINECONE_INDEX              (optional, defaults to "muse")
+#   NEXT_PUBLIC_SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+#
+# What the new W's bytes look like is committed back to main on promote, which
+# triggers Vercel's auto-deploy; the job then projects all Pinecone vectors
+# into the `taste` namespace with the fresh W so production queries see the
+# updated head on next request.
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"    # Sundays at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      row_threshold:
+        description: "Minimum new curation_logs rows since last train to proceed"
+        required: false
+        default: "50"
+
+concurrency:
+  group: retrain-taste-head
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: write       # so the job can push the updated taste-head.json
+
+    env:
+      PINECONE_API_KEY:          ${{ secrets.PINECONE_API_KEY }}
+      PINECONE_INDEX:            ${{ secrets.PINECONE_INDEX || 'muse' }}
+      NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ROW_THRESHOLD:             ${{ github.event.inputs.row_threshold || '50' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Check row delta
+        id: delta
+        run: |
+          # Count curation_logs rows currently in Supabase.
+          SUPABASE_COUNT=$(node -e '
+            import("@supabase/supabase-js").then(async ({ createClient }) => {
+              const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+              const { count, error } = await sb.from("curation_logs").select("*", { count: "exact", head: true });
+              if (error) { console.error(error.message); process.exit(1); }
+              process.stdout.write(String(count ?? 0));
+            });
+          ')
+          # Count rows the previously-shipped W was trained on.
+          PREV_COUNT=$(node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("lib/taste-head.json")) { process.stdout.write("0"); process.exit(0); }
+            const j = JSON.parse(fs.readFileSync("lib/taste-head.json", "utf8"));
+            process.stdout.write(String(j.curationRows ?? 0));
+          ')
+          DELTA=$((SUPABASE_COUNT - PREV_COUNT))
+          echo "supabase_count=$SUPABASE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "prev_count=$PREV_COUNT" >> "$GITHUB_OUTPUT"
+          echo "delta=$DELTA" >> "$GITHUB_OUTPUT"
+          echo "threshold=$ROW_THRESHOLD" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "curation_logs rows: $SUPABASE_COUNT"
+          echo "previously trained on: $PREV_COUNT"
+          echo "delta: $DELTA  (threshold: $ROW_THRESHOLD)"
+          if [ "$DELTA" -lt "$ROW_THRESHOLD" ]; then
+            echo ""
+            echo "Not enough new data — skipping retrain."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Train + eval (held-out 80/20)
+        id: train
+        if: steps.delta.outputs.proceed == 'true'
+        # Exit codes from the trainer:
+        #   0 = promoted, new weights written
+        #   2 = skipped, test accuracy didn't beat previous by the margin
+        #   1 = hard error
+        # We capture 2 as "no-op, don't fail the workflow"; anything else flows.
+        run: |
+          set +e
+          node scripts/train-taste-head.mjs --source supabase
+          CODE=$?
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" -eq 0 ]; then
+            echo "promoted=true" >> "$GITHUB_OUTPUT"
+          elif [ "$CODE" -eq 2 ]; then
+            echo "promoted=false" >> "$GITHUB_OUTPUT"
+            echo ""
+            echo "New W did not beat previous — keeping existing weights."
+          else
+            echo "Trainer errored with exit $CODE"
+            exit $CODE
+          fi
+
+      - name: Commit new weights
+        if: steps.train.outputs.promoted == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/taste-head.json
+          # Pull the headline numbers out of the fresh JSON for the commit body.
+          SUMMARY=$(node -e '
+            const j = require("./lib/taste-head.json");
+            console.log(JSON.stringify({
+              test: (j.testAccuracy * 100).toFixed(1),
+              prev: j.previousTestAccuracy != null ? (j.previousTestAccuracy * 100).toFixed(1) : "none",
+              rows: j.curationRows,
+              samples: j.samples,
+            }));
+          ')
+          git commit -m "chore(taste-head): auto-retrain, test=${SUMMARY}"
+          git push
+
+      - name: Project vectors into `taste` namespace
+        if: steps.train.outputs.promoted == 'true'
+        # Refreshes the `taste` Pinecone namespace so production queries see
+        # the new projection immediately. Takes ~15–25 min for ~85K vectors.
+        run: node scripts/apply-taste-head.mjs
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Taste-head retrain" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- supabase rows: ${{ steps.delta.outputs.supabase_count }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- previously trained on: ${{ steps.delta.outputs.prev_count }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- delta: ${{ steps.delta.outputs.delta }} (threshold ${{ steps.delta.outputs.threshold }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- proceed: ${{ steps.delta.outputs.proceed }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- promoted: ${{ steps.train.outputs.promoted }}" >> "$GITHUB_STEP_SUMMARY"

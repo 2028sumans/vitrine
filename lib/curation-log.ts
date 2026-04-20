@@ -2,24 +2,23 @@
  * Curation decision logger — persists KEEP / REJECT labels from curateProducts
  * so we can train a taste-aware projection head on top of FashionCLIP later.
  *
- * Each curate call produces one JSONL row capturing:
- *   - a stable hash of the StyleDNA (so different boards sharing the same
- *     aesthetic vocabulary can be grouped during training),
- *   - which product objectIDs were candidates and which survived,
- *   - a short textual summary of the aesthetic for human inspection.
+ * Storage: Supabase `curation_logs` table is the source of truth (durable
+ * across Vercel serverless invocations; JSONL on local disk would be a no-op
+ * in prod). We also write to data/curation-log.jsonl when running locally so
+ * development and ad-hoc analysis don't need DB access. Both writes are
+ * fire-and-forget so logging failures never surface to the user.
  *
- * No PII is logged. All data is append-only; training reads the file fresh.
+ * Schema: see supabase/migrations/20260420_curation_logs.sql — columns mirror
+ * CurationLogEntry below. Training reads fresh from Supabase on each run.
  *
- * Storage: JSONL at data/curation-log.jsonl. Kept out of Algolia/Pinecone on
- * purpose — this is training data, not query-path state, and plaintext JSONL
- * is what the training script consumes directly. When the file gets large
- * (> a few hundred MB) we can rotate or migrate to Supabase.
+ * No PII is logged.
  */
 
 import { appendFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import type { StyleDNA } from "@/lib/types";
+import { getServiceSupabase } from "@/lib/supabase";
 
 const LOG_DIR  = path.resolve(process.cwd(), "data");
 const LOG_FILE = path.join(LOG_DIR, "curation-log.jsonl");
@@ -76,13 +75,38 @@ export function logCuration(args: {
     board_image_urls: boardImageUrls.slice(0, 8),
   };
 
+  // Supabase write — source of truth in prod. Ignore failures silently; the
+  // training pipeline is resilient to missing rows.
+  void (async () => {
+    try {
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+      const sb = getServiceSupabase();
+      const { error } = await sb.from("curation_logs").insert({
+        dna_hash:            entry.dna_hash,
+        dna_summary:         entry.dna_summary,
+        primary_aesthetic:   entry.primary,
+        secondary_aesthetic: entry.secondary,
+        price_range:         entry.price_range,
+        candidate_ids:       entry.candidate_ids,
+        kept_ids:            entry.kept_ids,
+        rejected_ids:        entry.rejected_ids,
+        board_image_urls:    entry.board_image_urls,
+      });
+      if (error) console.warn("[curation-log] supabase insert failed:", error.message);
+    } catch (err) {
+      console.warn("[curation-log] supabase write threw:", err instanceof Error ? err.message : err);
+    }
+  })();
+
+  // Local-dev JSONL mirror — useful when iterating on the training script
+  // without going through Supabase. Silently skipped in serverless prod
+  // where the working directory is read-only.
   void (async () => {
     try {
       await mkdir(LOG_DIR, { recursive: true });
       await appendFile(LOG_FILE, JSON.stringify(entry) + "\n", "utf8");
-    } catch (err) {
-      // Never throw — logging failures must not break the curation response.
-      console.warn("[curation-log] append failed:", err instanceof Error ? err.message : err);
+    } catch {
+      /* read-only FS in prod — ignore */
     }
   })();
 }

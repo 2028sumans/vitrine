@@ -9,6 +9,7 @@ import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
 import { rankCards, reRankUpcoming, interpretDwell, scoreCard, type ScoringSignals, type ClickSignalLike } from "@/lib/scoring";
+import { getShortlistSummary } from "@/lib/saved";
 import { PriceFilterBar, useFilteredByPrice, type PriceTier } from "@/components/price-filter";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1473,6 +1474,24 @@ export default function DashboardPage() {
     const signal = interpretDwell(ms);
     if (signal !== "strong_positive" && signal !== "negative") return;
 
+    // Persist per-product dwell into product_impressions.dwell_ms so the
+    // weekly retrain sees it as a graded training signal (fast-swipes
+    // become strong negatives for the taste head). Fire-and-forget; never
+    // blocks the UI-facing re-rank. Uses the outfit card's dwell for every
+    // product on it — if the user skimmed the card, they skimmed each piece.
+    {
+      const card = scrollCards.find((c) => c.id === cardId);
+      if (card && userToken) {
+        for (const p of card.products) {
+          void fetch("/api/track-dwell", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ userToken, sessionId, objectId: p.objectID, dwellMs: ms }),
+          }).catch(() => { /* best-effort */ });
+        }
+      }
+    }
+
     // Capture negative signals: if the user scrolled past this card fast AND
     // didn't explicitly like it, remember its products' attributes so similar
     // upcoming cards get penalized.
@@ -1502,7 +1521,7 @@ export default function DashboardPage() {
       };
       return reRankUpcoming(prev, activeScrollIdxRef.current, signals);
     });
-  }, [sessionLikedIds, dwellTimes, aesthetic]);
+  }, [sessionLikedIds, dwellTimes, aesthetic, scrollCards, userToken, sessionId]);
 
   useEffect(() => {
     if (session?.user?.id) setUserToken(session.user.id);
@@ -1628,6 +1647,17 @@ export default function DashboardPage() {
             });
           }
         } catch {}
+      }
+
+      // Inject shortlist history as a *marginal* preference hint. Only fires
+      // if the user has previously saved things — on a fresh account this is
+      // a no-op. The getShortlistSummary helper frames it as a gentle signal
+      // ("previously saved…") rather than a filter, so Claude weighs it
+      // below the current input (pinterest / text / images) rather than
+      // overriding it.
+      const shortlistHint = getShortlistSummary();
+      if (shortlistHint) {
+        contexts.push({ mode: "text" as const, textQuery: shortlistHint });
       }
 
       if (contexts.length === 0) { setStep("boards"); return; }
