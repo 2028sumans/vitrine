@@ -8,6 +8,7 @@ import {
   type ClothingCategory,
 } from "@/lib/algolia";
 import type { StyleDNA, ClickSignal, VisionImage, QuestionnaireAnswers } from "@/lib/types";
+import { logCuration } from "@/lib/curation-log";
 
 // Re-export so consumers can import from either place
 export type {
@@ -18,6 +19,26 @@ export type {
   VisionImage,
   QuestionnaireAnswers,
 } from "@/lib/types";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Anthropic's vision endpoint rejects many-image requests where any single
+// image exceeds 2000px in either dimension. Shopify's raw CDN URLs commonly
+// serve originals at 2400–3000px, so we rewrite them to a safe 1600px on the
+// way to Claude. Non-Shopify URLs are passed through — most other catalogs
+// already serve under 2000px and we don't have a universal resize idiom.
+//
+// Works for: https://cdn.shopify.com/... and brand-domain Shopify mirrors.
+// The `width` param is Shopify's documented image transform; the CDN returns
+// 200 with the resized file whether or not an existing query string is set.
+function sizeImageUrl(url: string, maxDim = 1600): string {
+  if (typeof url !== "string" || !url.startsWith("http")) return url;
+  if (!/cdn\.shopify\.com/i.test(url)) return url;
+  // Don't double-size if someone already set width/height.
+  if (/[?&](width|height)=/i.test(url)) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}width=${maxDim}&height=${maxDim}`;
+}
 
 // ── Types local to ai.ts ──────────────────────────────────────────────────────
 
@@ -455,7 +476,7 @@ async function _unused_shortlistCandidates(
     candidates[cat].forEach((p, idx) => {
       const hasImg = p.image_url?.startsWith("http");
       if (hasImg && productImgBlocks.length < 48) {
-        productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: p.image_url } });
+        productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: sizeImageUrl(p.image_url) } });
         entries.push({ cat, idx, product: p, imgSlot: productImgBlocks.length }); // 1-based
       } else {
         entries.push({ cat, idx, product: p, imgSlot: null });
@@ -595,7 +616,7 @@ export async function curateProducts(
       const hasImg = product.image_url?.startsWith("http") && productImgBlocks.length < 60;
       const label  = `${cat.toUpperCase()}-${idx}`;
       if (hasImg) {
-        productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: product.image_url } });
+        productImgBlocks.push({ type: "image" as const, source: { type: "url" as const, url: sizeImageUrl(product.image_url) } });
         labelMap.push({ label, product, imgSlot: productImgBlocks.length }); // 1-based
       } else {
         labelMap.push({ label, product, imgSlot: null });
@@ -819,7 +840,7 @@ Return ONLY valid JSON:
         style_note:   `A considered pick for your ${dna.primary_aesthetic} aesthetic.`,
         outfit_role:  "versatile staple",
         outfit_group: (ci % 2 === 0 ? "outfit_a" : "outfit_b") as OutfitGroup,
-        how_to_wear:  "Style with the other pieces from your edit.",
+        how_to_wear:  "Style with the other pieces from your shortlist.",
       }))
     );
     return { products: fallback, editorial_intro: "", edit_rationale: "", outfit_arc: "", outfit_a_role: "", outfit_b_role: "" };
@@ -855,10 +876,20 @@ Return ONLY valid JSON:
         if (usedIds.has(extra.objectID)) continue;
         usedIds.add(extra.objectID);
         const group: OutfitGroup = products.filter((p) => p.outfit_group === "outfit_a").length <= outfitACount ? "outfit_a" : "outfit_b";
-        products.push({ ...extra, style_note: `A key piece for your ${dna.primary_aesthetic} aesthetic.`, outfit_role: "versatile staple", outfit_group: group, how_to_wear: "Style this with the other pieces from your edit." });
+        products.push({ ...extra, style_note: `A key piece for your ${dna.primary_aesthetic} aesthetic.`, outfit_role: "versatile staple", outfit_group: group, how_to_wear: "Style this with the other pieces from your shortlist." });
       }
     }
   }
+
+  // Persist the keep/reject split as training data for the taste projection
+  // head. Fire-and-forget — does not await, never throws. See
+  // lib/curation-log.ts and scripts/train-taste-head.mjs.
+  const candidateIds = labelMap.map((e) => e.product.objectID);
+  const keptIds      = products.map((p) => p.objectID);
+  const boardUrls    = boardImages
+    .map((img) => (img as VisionImage & { url?: string })?.url)
+    .filter((u): u is string => typeof u === "string" && u.startsWith("http"));
+  logCuration({ dna, candidateIds, keptIds, boardImageUrls: boardUrls });
 
   return {
     products,
@@ -1064,7 +1095,7 @@ export async function refineSessionWithComment(
   // Vision blocks for upcoming items (mirrors curateProducts pattern)
   const imgBlocks: Array<{ type: "image"; source: { type: "url"; url: string } }> = usable.map((p) => ({
     type:   "image" as const,
-    source: { type: "url" as const, url: p.image_url! },
+    source: { type: "url" as const, url: sizeImageUrl(p.image_url!) },
   }));
 
   const userContent: Anthropic.MessageParam["content"] = [
@@ -1181,7 +1212,7 @@ async function rerankCategory(
   for (const c of usable) {
     imgBlocks.push({
       type:   "image" as const,
-      source: { type: "url" as const, url: c.image_url! },
+      source: { type: "url" as const, url: sizeImageUrl(c.image_url!) },
     });
   }
   const userContent: Anthropic.MessageParam["content"] = [

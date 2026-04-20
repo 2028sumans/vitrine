@@ -9,6 +9,7 @@ import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
 import { rankCards, reRankUpcoming, interpretDwell, scoreCard, type ScoringSignals, type ClickSignalLike } from "@/lib/scoring";
+import { PriceFilterBar, useFilteredByPrice, type PriceTier } from "@/components/price-filter";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1401,8 +1402,17 @@ export default function DashboardPage() {
     answers?:      QuestionnaireAnswers;
   }
   const [contextBlocks, setContextBlocks]   = useState<ContextBlock[]>([
-    { id: "b1", type: "text", textQuery: "", uploadedFiles: [] },
+    // Pinterest is the primary funnel — boards carry the richest aesthetic
+    // signal Claude can read, so that's the landing tab. The `?describe=…`
+    // param below flips this to "text" when the user arrived from /shop's
+    // Steer flow with a pre-filled prompt.
+    { id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] },
   ]);
+  // Price tier chosen in the intake form, before Build my feed. Sent to the
+  // server so it's the FIRST constraint applied — candidate retrieval and
+  // Claude's aesthetic analysis happen within this price universe, not on
+  // top of it. "all" means no constraint.
+  const [intakePriceTier, setIntakePriceTier] = useState<PriceTier>("all");
   const [isRefining, setIsRefining]         = useState(false);
 
   // If the user arrived from /shop via the Steer button, their comment
@@ -1625,7 +1635,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/shop", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ contexts, userToken }),
+        body:    JSON.stringify({ contexts, userToken, priceTier: intakePriceTier }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
@@ -1647,7 +1657,7 @@ export default function DashboardPage() {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
       setStep("error");
     } finally { clearTimeout(t1); }
-  }, [contextBlocks, selectedBoard, pins, userToken]);
+  }, [contextBlocks, selectedBoard, pins, userToken, intakePriceTier]);
 
   // ── Shop handlers ─────────────────────────────────────────────────────────
 
@@ -2041,7 +2051,7 @@ export default function DashboardPage() {
     setShopViewMode("scroll");
     setScrollCards([]);
     setIsGeneratingMore(false);
-    setContextBlocks([{ id: "b1", type: "text", textQuery: "", uploadedFiles: [] }]);
+    setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
     setSessionLikedIds([]);
     setIsRefining(false);
     // Reset session-only state/refs
@@ -2055,8 +2065,8 @@ export default function DashboardPage() {
   // ── Context block type labels ─────────────────────────────────────────────
 
   const BLOCK_TYPES: { mode: InputMode; label: string }[] = [
-    { mode: "text",      label: "Describe"  },
     { mode: "pinterest", label: "Pinterest" },
+    { mode: "text",      label: "Describe"  },
     { mode: "images",    label: "Upload"    },
   ];
 
@@ -2210,6 +2220,17 @@ export default function DashboardPage() {
                 + Add more context
               </button>
             )}
+
+            {/* Price constraint — applied before Claude's aesthetic analysis
+                so every downstream step (candidate fetch, curation) works
+                within the user's chosen price range. Optional — default "All"
+                lets Claude infer tier from the board. */}
+            <div className="mb-8">
+              <label className="block font-sans text-[10px] tracking-widest uppercase text-muted-strong mb-3">
+                Price range
+              </label>
+              <PriceFilterBar tier={intakePriceTier} onChange={setIntakePriceTier} />
+            </div>
 
             {/* Submit */}
             <div>

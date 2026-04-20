@@ -6,6 +6,12 @@
       "runtimeExecutable": "/usr/local/bin/node",
       "runtimeArgs": ["/usr/local/bin/npm", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "vitrine-prod",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["/usr/local/bin/npm", "run", "start"],
+      "port": 3000
     }
   ]
 }

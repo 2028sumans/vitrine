@@ -26,6 +26,19 @@ import { Pinecone }          from "@pinecone-database/pinecone";
 import { algoliasearch }     from "algoliasearch";
 import { writeFileSync, readFileSync, existsSync } from "fs";
 
+// ── Auto-load .env.local (command-line env vars win) ──────────────────────────
+
+if (existsSync(".env.local")) {
+  for (const line of readFileSync(".env.local", "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (!m) continue;
+    const [, k, raw] = m;
+    const v = raw.replace(/^["']|["']$/g, "");
+    if (/[=\s]/.test(v)) continue;
+    if (!process.env[k]) process.env[k] = v;
+  }
+}
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const ALGOLIA_APP_ID    = process.env.ALGOLIA_APP_ID    ?? "BSDU5QFOT3";
@@ -38,6 +51,8 @@ const CHECKPOINT_FILE   = "scripts/embed-checkpoint.json";
 const EMBED_BATCH       = 8;    // images embedded in parallel
 const UPSERT_BATCH      = 100;  // vectors upserted to Pinecone per request
 const DRY_RUN           = process.argv.includes("--dry-run");
+const BRANDS_ONLY       = process.argv.includes("--brands-only");
+const BRANDS_CHECKPOINT = "scripts/brands-checkpoint.json";
 
 if (!ALGOLIA_ADMIN_KEY) { console.error("Missing ALGOLIA_ADMIN_KEY"); process.exit(1); }
 if (!PINECONE_API_KEY)  { console.error("Missing PINECONE_API_KEY");  process.exit(1); }
@@ -153,6 +168,20 @@ async function main() {
 
   // Load products
   let products = await loadAllProducts(algolia);
+
+  // --brands-only: restrict to the IDs from the latest brand scrape
+  if (BRANDS_ONLY) {
+    if (!existsSync(BRANDS_CHECKPOINT)) {
+      console.error(`--brands-only: ${BRANDS_CHECKPOINT} not found. Run scrape-brands.mjs first.`);
+      process.exit(1);
+    }
+    const brands = JSON.parse(readFileSync(BRANDS_CHECKPOINT, "utf8"));
+    const targetIds = new Set((brands.products ?? []).map((p) => p.objectID));
+    const before = products.length;
+    products = products.filter((p) => targetIds.has(p.objectID));
+    console.log(`--brands-only: filtered ${before.toLocaleString()} → ${products.length.toLocaleString()} products (target set: ${targetIds.size.toLocaleString()})`);
+  }
+
   if (DRY_RUN) { products = products.slice(0, 50); console.log("DRY RUN: capped at 50 products."); }
 
   // Filter already-done

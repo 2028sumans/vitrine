@@ -49,7 +49,6 @@ const CATEGORIES: CategoryRequest[] = [
   { label: "Bags and accessories", filters: 'category:"bag"',    query: "" },
   { label: "Shoes",                filters: null,                query: "heel boot sandal sneaker loafer pump mule espadrille oxford slide" },
   { label: "Outerwear",            filters: 'category:"jacket"', query: "" },
-  { label: "Other",                filters: CORE_CATS.map((c) => `NOT category:"${c}"`).join(" AND "), query: "" },
 ];
 
 // Per-category required title vocabulary. A hit is only picked as the hero

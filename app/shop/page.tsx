@@ -48,26 +48,30 @@ function getGridCols(): number {
   return 2;
 }
 
-// Brand mixer — "rearrange-string" greedy with ONE hard rule and one soft
-// preference. Applies to every scoped shop page (brand mode, every
-// category page: Tops, Dresses, Bottoms, Knits, Bags, Shoes, Outerwear,
-// Other) because it's run on the flat `products` list before render.
+// Brand mixer — "rearrange-string" greedy. Applies to every scoped shop
+// page (brand mode, every category page: Tops, Dresses, Bottoms, Knits,
+// Bags, Shoes, Outerwear, Other) because it's run on the flat `products`
+// list before render.
 //
-//   HARD: No two items from the same brand on the same grid row. If the
-//         current pool can't fill the next slot without violating this,
-//         we stop emitting — leftover items stay in `products` state and
-//         get another chance on the next mix, once pagination brings
-//         fresher brand diversity.
-//   SOFT: Avoid same-brand adjacency across a row boundary. Tolerable to
-//         violate when every non-prev brand is already on the current
-//         row; a visible seam-run is acceptable, but the same brand
-//         twice in one row is not.
+// Rules, in preference order:
+//   PRIMARY:  No two items from the same brand across any pair of
+//             consecutive rows (current row + previous row — a sliding
+//             2-row window).
+//   FALLBACK: When the primary rule can't be satisfied for the next
+//             slot, drop back to the original per-row rule: no same
+//             brand twice in the current row. This is the "unless
+//             necessary" relaxation — we'd rather let a brand repeat
+//             across a row boundary than stall and drop items.
+//   STOP:     If even the per-row rule can't be satisfied, stop
+//             emitting. Leftover items stay in `products` state and
+//             re-enter the mix on the next render, once pagination
+//             brings fresher brand diversity.
 //
 // At each step we pick the brand with the MOST remaining items that's
-// eligible under the hard rule, preferring non-adjacent. Frequency-first
-// prevents a dominant brand from being held back until the end and dumped
-// in an unmixable run. Within a brand, server order is preserved so the
-// ranking signal survives.
+// eligible under the tightest rule currently satisfiable. Frequency-
+// first prevents a dominant brand from being held back until the end
+// and dumped in an unmixable run. Within a brand, server order is
+// preserved so the ranking signal survives.
 // Array.from(...) instead of `for (const x of map)` because the repo's
 // tsconfig has no `target` set, which lands on a default that tsc rejects
 // Map iterators under without --downlevelIteration. Same workaround as
@@ -86,36 +90,39 @@ function mixBrands(list: Product[], cols: number): Product[] {
   const out: Product[] = [];
 
   while (buckets.size > 0) {
-    const idx      = out.length;
-    const rowStart = idx - (idx % cols);
-    const prev     = (out[idx - 1]?.brand ?? "").toLowerCase();
-    const rowBrands = new Set<string>();
-    for (let i = rowStart; i < idx; i++) {
+    const idx         = out.length;
+    const rowStart    = idx - (idx % cols);
+    // The 2-row window is the previous row plus everything placed so
+    // far in the current row. On row 0 it collapses to just the
+    // current row.
+    const windowStart = Math.max(0, rowStart - cols);
+    const windowBrands = new Set<string>();
+    const rowBrands    = new Set<string>();
+    for (let i = windowStart; i < idx; i++) {
       const b = (out[i].brand ?? "").toLowerCase();
-      if (b) rowBrands.add(b);
+      if (!b) continue;
+      windowBrands.add(b);
+      if (i >= rowStart) rowBrands.add(b);
     }
 
-    // Track two candidates: the best brand that's not in the row and not
-    // equal to the previous brand (preferred), and the best brand that's
-    // not in the row but IS equal to prev (adjacency fallback). Empty
-    // brand strings bypass both rules.
-    let bestNonAdj: string | null = null; let bestNonAdjN = -1;
-    let bestAdj:    string | null = null; let bestAdjN    = -1;
-    for (const [brand, items] of Array.from(buckets.entries())) {
-      if (items.length === 0) continue;
-      if (brand && rowBrands.has(brand)) continue; // HARD row rule
-      if (brand && brand === prev) {
-        if (items.length > bestAdjN) { bestAdj = brand; bestAdjN = items.length; }
-      } else {
-        if (items.length > bestNonAdjN) { bestNonAdj = brand; bestNonAdjN = items.length; }
+    // Tiered pick: try the 2-row rule first; if nothing fits, drop back
+    // to the per-row rule. Empty-brand items bypass both.
+    const pickBest = (forbid: Set<string>): string | null => {
+      let best: string | null = null;
+      let bestN = -1;
+      for (const [brand, items] of Array.from(buckets.entries())) {
+        if (items.length === 0) continue;
+        if (brand && forbid.has(brand)) continue;
+        if (items.length > bestN) { best = brand; bestN = items.length; }
       }
-    }
-    const picked = bestNonAdj ?? bestAdj;
+      return best;
+    };
 
-    // No brand left that isn't already on this row. Stop — the leftover
-    // items stay in `products` state and re-enter the mix on the next
-    // render. This is the whole point of the hard rule: we'd rather
-    // temporarily hide items than show a same-brand row.
+    const picked = pickBest(windowBrands) ?? pickBest(rowBrands);
+
+    // Nothing satisfies even the per-row rule — stop and defer the
+    // leftovers to the next render. We'd rather temporarily hide items
+    // than pack two of the same brand into one row.
     if (!picked) break;
 
     const arr = buckets.get(picked)!;
@@ -676,18 +683,18 @@ function ShopPageContent() {
           MUSE
         </Link>
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
+          <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
           <Link href="/shop"   className="text-foreground hover:text-accent transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
           <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
-          <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
         <MobileMenu
           variant="cream"
           links={[
+            { href: "/dashboard", label: "Tailor to my taste →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
             { href: "/edit",      label: "Your shortlist" },
-            { href: "/dashboard", label: "Tailor to my taste →" },
           ]}
         />
       </header>

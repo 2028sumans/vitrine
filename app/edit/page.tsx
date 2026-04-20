@@ -40,18 +40,18 @@ export default function EditPage() {
           MUSE
         </Link>
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
+          <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
           <Link href="/shop"     className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands"   className="text-muted hover:text-foreground transition-colors">Brands</Link>
           <Link href="/edit"     className="text-foreground hover:text-accent transition-colors">Your shortlist</Link>
-          <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
         </div>
         <MobileMenu
           variant="cream"
           links={[
+            { href: "/dashboard", label: "Tailor to my taste →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
             { href: "/edit",      label: "Your shortlist" },
-            { href: "/dashboard", label: "Tailor to my taste →" },
           ]}
         />
       </header>

@@ -15,6 +15,7 @@ import {
   embedImageUrls,
   embedBase64Images,
   embedTextQuery,
+  warmupEmbeddingModels,
 }                                               from "@/lib/embeddings";
 import { hybridSearch }                         from "@/lib/hybrid-search";
 import {
@@ -73,8 +74,38 @@ interface ContextPayload {
 }
 
 export async function POST(request: Request) {
+  // Kick off the FashionCLIP model download immediately — it runs in the
+  // background while Claude Haiku extracts the aesthetic. On a cold Lambda
+  // the model fetch is 10–30 s and would otherwise serialise with the
+  // downstream embed calls; overlapping with Claude cuts that out.
+  warmupEmbeddingModels();
+
   const body = await request.json();
   const userToken: string = body.userToken ?? "";
+  // Opt-in switch for the learned taste projection head. Accept truthy forms
+  // so it's easy to pass from either server code (`taste: true`) or a raw
+  // client URL param rewrite (`taste: "1"`).
+  const useTasteHead: boolean = body.taste === true || body.taste === 1 || body.taste === "1";
+
+  // User-selected price tier from the intake form. When present and not
+  // "all", we override aesthetic.price_range after Claude returns — this
+  // way every downstream step (Pinecone filter, Algolia priceFilter,
+  // curation) respects the user's choice as a hard constraint rather than
+  // a soft inference from the board.
+  //
+  // The intake offers 4 buckets ("under100" | "100to300" | "300to1000" |
+  // "over1000"); our internal pipeline only knows budget/mid/luxury, so
+  // sub-$100 → budget, $100–300 → mid, everything above → luxury.
+  // The mapping collapses a bit of precision but keeps the retrieval
+  // pipeline unchanged and ensures Claude's aesthetic synthesis runs
+  // inside the chosen envelope.
+  const rawTier = typeof body.priceTier === "string" ? body.priceTier : "all";
+  const priceOverride: "budget" | "mid" | "luxury" | null =
+    rawTier === "under100"   ? "budget" :
+    rawTier === "100to300"   ? "mid"    :
+    rawTier === "300to1000"  ? "luxury" :
+    rawTier === "over1000"   ? "luxury" :
+    null;
 
   // Support both new multi-context format { contexts: [...] } and legacy single-mode format
   const contexts: ContextPayload[] = Array.isArray(body.contexts)
@@ -191,6 +222,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // User-selected price tier is a HARD override on Claude's inferred
+    // price_range. It precedes candidate fetch, so every downstream filter
+    // (Pinecone numeric price_range filter, Algolia priceFilter, curation
+    // scoring) sees the user's chosen envelope. "all" (priceOverride === null)
+    // leaves Claude's inference intact.
+    if (priceOverride) {
+      console.log(`[shop] priceTier override: ${aesthetic.price_range} → ${priceOverride}`);
+      aesthetic = { ...aesthetic, price_range: priceOverride };
+    }
+
     const allAvoids = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
 
     // ── Product retrieval ─────────────────────────────────────────────────────
@@ -201,7 +242,7 @@ export async function POST(request: Request) {
       console.log("[shop] Hybrid search: uploaded images (with aesthetic anchor)");
       const rawEmb = await embedBase64Images(uploadedImages.slice(0, 10));
       const anchored = await anchorImageVectorsWithAesthetic(rawEmb, aesthetic, tasteMemory.softAvoids);
-      rawCandidates  = await hybridSearch(anchored, aesthetic, token);
+      rawCandidates  = await hybridSearch(anchored, aesthetic, token, 20, { useTasteHead });
 
     } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
       // Pinterest → FashionCLIP embed → cross-session centroid + 10% aesthetic
@@ -227,7 +268,7 @@ export async function POST(request: Request) {
         tasteMemory.softAvoids,
       );
 
-      rawCandidates = await hybridSearch(embeddings, aesthetic, token);
+      rawCandidates = await hybridSearch(embeddings, aesthetic, token, 20, { useTasteHead });
 
     } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
       // Text/quiz → multi-vector ensemble query (per-category phrasing) +
@@ -235,7 +276,7 @@ export async function POST(request: Request) {
       console.log("[shop] Hybrid search: multi-vector text ensemble via FashionCLIP");
       const queryVectors = await buildTextQueryVectors(aesthetic, tasteMemory.softAvoids);
       console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
-      rawCandidates      = await hybridSearch(queryVectors, aesthetic, token);
+      rawCandidates      = await hybridSearch(queryVectors, aesthetic, token, 20, { useTasteHead });
 
     } else {
       // No Pinecone → pure Algolia text search

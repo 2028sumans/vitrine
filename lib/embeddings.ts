@@ -16,6 +16,7 @@
  */
 
 import type { ProductMetadata, StyleAxes, VisionImage } from "@/lib/types";
+import { applyTasteHeadBatch, tasteHeadAvailable } from "@/lib/taste-head";
 
 // ── Model ID ──────────────────────────────────────────────────────────────────
 // Must match the model used in scripts/embed-with-qc.mjs exactly.
@@ -23,7 +24,12 @@ const MODEL_ID = "ff13/fashion-clip";
 
 // Pinecone namespace holding the parallel "vibe vector" — FashionCLIP-text-
 // encoded Claude caption, one per product. Written by scripts/enrich-product.mjs.
-const VIBE_NAMESPACE = "vibe";
+const VIBE_NAMESPACE  = "vibe";
+
+// Pinecone namespace holding product vectors projected through the trained
+// taste head. Populated by scripts/apply-taste-head.mjs once the projection
+// head has been trained on curation-log.jsonl data.
+const TASTE_NAMESPACE = "taste";
 
 // ── Axis filter → Pinecone filter ─────────────────────────────────────────────
 // A partial constraint set on the five style axes. Numbers are interpreted as
@@ -211,6 +217,32 @@ async function getTextModel(): Promise<{ tokenizer: unknown; model: unknown } | 
   }
 }
 
+// ── Warmup ────────────────────────────────────────────────────────────────────
+/**
+ * Kick off the FashionCLIP vision + text model downloads without waiting. Idempotent
+ * — subsequent calls are cheap no-ops because `getVisionModel` / `getTextModel`
+ * cache their initialisation promises at module scope.
+ *
+ * Use case: on a cold Lambda, model download + ONNX init is ~10–30 s. The
+ * /api/shop handler's first action is a Claude Haiku call that doesn't need
+ * the models; calling `warmupEmbeddingModels()` at the top of the handler
+ * overlaps the model fetch with Claude's round trip so the `embed…` calls
+ * further down the pipeline find the models already loaded.
+ *
+ * Errors are swallowed — the normal `getVisionModel`/`getTextModel` paths
+ * will retry when an embedding is actually requested.
+ */
+export function warmupEmbeddingModels(): void {
+  void getVisionModel().catch(() => {});
+  void getTextModel().catch(()   => {});
+}
+
+// Fire once at module load so the cold-start download happens during Next.js
+// module initialisation rather than blocking the first request that actually
+// needs an embedding. No-op on warm Lambdas because the singletons are
+// already hydrated.
+warmupEmbeddingModels();
+
 // ── Embed image URLs ──────────────────────────────────────────────────────────
 
 export async function embedImageUrls(urls: string[]): Promise<number[][]> {
@@ -382,6 +414,23 @@ export async function searchByVibeText(
   const valid   = vectors.filter((v) => v.length > 0);
   if (valid.length === 0) return [];
   return searchByVibeEmbeddings(valid, totalK, options);
+}
+
+// ── Taste-namespace search ────────────────────────────────────────────────────
+// Applies the trained taste projection W to the query vector(s) and searches
+// the `taste` Pinecone namespace, which holds product vectors pre-projected
+// through the same W. Returns [] when no taste head is trained so callers can
+// gracefully skip this ranker in the hybrid fusion.
+
+export async function searchByTasteEmbeddings(
+  embeddings: number[][],
+  totalK      = 120,
+  options:    Omit<SearchOptions, "namespace"> = {},
+): Promise<string[]> {
+  if (!(await tasteHeadAvailable())) return [];
+  const projected = await applyTasteHeadBatch(embeddings.filter((e) => e.length > 0));
+  if (projected.length === 0) return [];
+  return searchByEmbeddings(projected, totalK, { ...options, namespace: TASTE_NAMESPACE });
 }
 
 // ── Fetch pre-computed product metadata (attrs + axes + caption) ──────────────

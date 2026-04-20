@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-19T23:28:51.008Z",
-  "totalProducts": 122670,
-  "totalBrands": 258,
+  "generatedAt": "2026-04-19T23:29:38.616Z",
+  "totalProducts": 121776,
+  "totalBrands": 241,
   "brands": [
     {
       "name": "Camilla",
@@ -539,11 +539,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0726/8915/6437/files/EmptyName31_d68bdd64-e80c-4487-9485-4e686e9a6968.jpg?v=1772195621"
     },
     {
-      "name": "Batul The Collection",
-      "count": 215,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0575/7154/1183/files/83468F7D-1823-448E-8005-E7A23B2E96C8.jpg?v=1771710045"
-    },
-    {
       "name": "Camilactg",
       "count": 213,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0602/5258/6237/files/KaftanProvenza.jpg?v=1772579029"
@@ -719,11 +714,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/2397/3099/files/13675_THEAMATERNITY_RAVELLO_002.jpg?v=1708028384"
     },
     {
-      "name": "Hanifa",
-      "count": 111,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0014/1849/4015/files/image1bold.png?v=1760029798"
-    },
-    {
       "name": "Ohne Project",
       "count": 111,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0725/9632/4690/files/NOMASBLACKSMALL.jpg?v=1763989289"
@@ -774,11 +764,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0004/8863/6475/files/5.7-FLORENCE-RED-23.jpg?v=1762236001"
     },
     {
-      "name": "Glow Recipe",
-      "count": 90,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0543/8301/files/PDP_IMAGES_Strawberry-Satin-Knot-Bag-3.jpg?v=1762198159"
-    },
-    {
       "name": "Peachy Den",
       "count": 89,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0570/3503/0699/files/PeachyDen_SS26_Shot_21_042.jpg?v=1770373993"
@@ -787,11 +772,6 @@
       "name": "Morton Mac",
       "count": 87,
       "imageUrl": "https://cdn.shopify.com/s/files/1/1852/0035/files/Delphina-5481.jpg?v=1775746989"
-    },
-    {
-      "name": "Mia Vesper",
-      "count": 86,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0054/3395/0296/files/Baguette_Waist_PR_IMG_2031.jpg?v=1775639406"
     },
     {
       "name": "Little Yarn",
@@ -822,11 +802,6 @@
       "name": "Blondita",
       "count": 82,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0783/9134/5445/files/Screenshot2026-03-13at3.34.12PM.png?v=1773441260"
-    },
-    {
-      "name": "Cyklar",
-      "count": 81,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0830/2195/5375/files/1-CYKL_PDP_CreamRefill_VV-1.jpg?v=1761098502"
     },
     {
       "name": "Heaven Mayhem",
@@ -867,16 +842,6 @@
       "name": "Motional Muse",
       "count": 72,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0622/7610/8476/files/SiennaDressBlack.jpg?v=1756509594"
-    },
-    {
-      "name": "Esha Soni",
-      "count": 68,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0641/0010/6496/files/IMG_9018.jpg?v=1764005485"
-    },
-    {
-      "name": "Hadiyatt",
-      "count": 68,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0658/7783/5995/products/DSC01366_1a24db0b-8e23-4152-ad0c-ed845edae5f4.jpg?v=1671039484"
     },
     {
       "name": "Into Gaia",
@@ -989,11 +954,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/1828/9055/files/2_f704fa6f-7e0a-4317-88a5-f0aae9b712bc.png?v=1732761274"
     },
     {
-      "name": "Dream Dress Delivered",
-      "count": 41,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0825/1762/3097/files/IMG_8784.heic?v=1771994244"
-    },
-    {
       "name": "Bayabydesign",
       "count": 39,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0715/3808/2045/files/IMG_9083.jpg?v=1762172640"
@@ -1054,11 +1014,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0667/6126/1122/files/IMG-7820.jpg?v=1771697377"
     },
     {
-      "name": "Meji Meji",
-      "count": 29,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0594/8784/6487/files/7110DF98-AAFD-4E94-9F35-562EF5A78329.png?v=1775994842"
-    },
-    {
       "name": "Polite Society",
       "count": 28,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0767/3793/7694/files/beige-sweatshirt.webp?v=1737764683"
@@ -1069,11 +1024,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0579/8061/6867/files/handmade-palestine-bags-4_A.jpg?v=1767829778"
     },
     {
-      "name": "Baraqah.",
-      "count": 28,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0821/7696/6996/files/IMG-7222.jpg?v=1767132499"
-    },
-    {
       "name": "Lamarie",
       "count": 27,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0895/3344/8490/files/AEC26AC5-3AB1-42FA-BC3F-2D314E2A1E7C.jpg?v=1771214424"
@@ -1082,11 +1032,6 @@
       "name": "Nadi By Dani",
       "count": 26,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0423/7275/9709/files/yellow-toni-dress.png?v=1769898424"
-    },
-    {
-      "name": "Farsali",
-      "count": 26,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/1623/3645/files/TheTopcoat01-ppage.png?v=1774580159"
     },
     {
       "name": "Kinadese",
@@ -1159,11 +1104,6 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0551/2452/5251/files/IMG_7307_1.jpg?v=1770609803"
     },
     {
-      "name": "La Fam",
-      "count": 17,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0839/7760/1366/files/lafam_shooting01_nana_daybed_diag_3975.jpg?v=1759543111"
-    },
-    {
       "name": "Jo Elle",
       "count": 17,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0618/6080/6861/files/JOELLEAW2BAGS16497copy.jpg?v=1775410231"
@@ -1187,11 +1127,6 @@
       "name": "Bristowe",
       "count": 15,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0662/8209/4729/files/IMG_3519.jpg?v=1762478048"
-    },
-    {
-      "name": "Ceerinity",
-      "count": 14,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0816/9789/8840/files/1B0F591D-6C6C-4B40-A0D1-000BCA6BD5C2.jpg?v=1776191698"
     },
     {
       "name": "Felaçi",
@@ -1259,19 +1194,9 @@
       "imageUrl": "https://cdn.shopify.com/s/files/1/0700/1420/6202/files/NOA_BRown_dark.png?v=1765423140"
     },
     {
-      "name": "Belnu",
-      "count": 7,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0613/2681/9464/files/Frame_2_18b626b2-8f93-4ffa-bcc2-a6d9ba325307.jpg?v=1771540882"
-    },
-    {
       "name": "Charlotteamelia",
       "count": 6,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0910/7354/4513/files/19.jpg?v=1772738028"
-    },
-    {
-      "name": "By Salema",
-      "count": 6,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0794/0295/9073/files/IMG_7325.jpg?v=1775972329"
     },
     {
       "name": "Modleta",
@@ -1282,16 +1207,6 @@
       "name": "Dlct Contemporary",
       "count": 5,
       "imageUrl": "https://cdn.shopify.com/s/files/1/0618/3711/5633/files/kiki1282_2.jpg?v=1735078065"
-    },
-    {
-      "name": "Nayrstudio",
-      "count": 4,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0479/2143/0691/files/2_92679e53-d3eb-40b9-b17b-4350d2d424aa.png?v=1760097958"
-    },
-    {
-      "name": "By Zoya",
-      "count": 3,
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0621/1010/5773/files/ByZoya_Toolbelt.jpg?v=1704289366"
     }
   ]
 }

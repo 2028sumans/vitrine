@@ -70,9 +70,23 @@ export default function HomePage() {
         {/* Desktop links — hidden on mobile, replaced by the hamburger below. */}
         <div className="hidden sm:flex items-center gap-8">
           <Link
-            href="/brands"
+            href="/dashboard"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` /* ~70% alpha */ }}
+          >
+            Get started →
+          </Link>
+          <Link
+            href="/shop"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` }}
+          >
+            Shop
+          </Link>
+          <Link
+            href="/brands"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` }}
           >
             Brands
           </Link>
@@ -83,13 +97,6 @@ export default function HomePage() {
           >
             Your shortlist
           </Link>
-          <Link
-            href="/dashboard"
-            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
-            style={{ color: `${HERO_TEXT}b3` }}
-          >
-            Get started →
-          </Link>
         </div>
 
         {/* Mobile hamburger — olive-bar version so it reads against the
@@ -97,10 +104,10 @@ export default function HomePage() {
         <MobileMenu
           variant="olive"
           links={[
+            { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
             { href: "/edit",      label: "Your shortlist" },
-            { href: "/dashboard", label: "Get started →" },
           ]}
         />
       </header>
@@ -160,6 +167,13 @@ export default function HomePage() {
                 style={{ borderColor: HERO_TEXT, color: HERO_TEXT }}
               >
                 Shop all →
+              </Link>
+              <Link
+                href="/brands"
+                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase border hover:bg-[rgba(237,229,208,0.1)] transition-colors duration-200 min-w-[220px] text-center"
+                style={{ borderColor: HERO_TEXT, color: HERO_TEXT }}
+              >
+                Brands →
               </Link>
             </div>
           </div>

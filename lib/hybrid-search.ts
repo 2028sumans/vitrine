@@ -13,7 +13,7 @@
 
 import type { AlgoliaProduct, CategoryCandidates, ClothingCategory } from "@/lib/algolia";
 import { getProductsByIds, groupByCategory, searchByCategory } from "@/lib/algolia";
-import { searchByEmbeddings, searchByVibeText } from "@/lib/embeddings";
+import { searchByEmbeddings, searchByVibeText, searchByTasteEmbeddings } from "@/lib/embeddings";
 import type { StyleDNA } from "@/lib/types";
 
 const CATEGORIES: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
@@ -61,10 +61,18 @@ function vibePhrases(dna: StyleDNA): string[] {
  * Run Pinecone visual search + Algolia text search + Pinecone vibe-vector
  * search in parallel, merge results per category with RRF.
  *
- * Three rankers now vote instead of two:
+ * Three rankers vote by default:
  *   - visual  : FashionCLIP image-text vector similarity (default namespace)
  *   - vibe    : Claude-caption vector similarity         (`vibe` namespace)
  *   - algolia : category-aware keyword search
+ *
+ * When `useTasteHead` is true, a fourth ranker joins:
+ *   - taste   : learned projection of FashionCLIP vectors trained on the
+ *               curation log (`taste` namespace). Off by default because the
+ *               W is currently trained on limited data and its generalization
+ *               hasn't been A/B'd — activate by passing ?taste=1 via the route
+ *               layer (see app/api/shop/route.ts) so it's easy to feel-test
+ *               without risking the main feed.
  *
  * Falls back to whatever subset is non-empty.
  */
@@ -73,17 +81,28 @@ export async function hybridSearch(
   aesthetic:      StyleDNA,
   userToken:      string,
   maxPerCategory  = 20,
+  opts:           { useTasteHead?: boolean } = {},
 ): Promise<CategoryCandidates> {
+  const useTasteHead = opts.useTasteHead === true;
   const valid   = embeddings.filter((e) => e.length > 0);
   const phrases = vibePhrases(aesthetic);
 
-  const [pineconeIds, vibeIds, algoliaCandidates] = await Promise.all([
+  const [pineconeIds, vibeIds, tasteIds, algoliaCandidates] = await Promise.all([
     valid.length > 0
       ? searchByEmbeddings(valid, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     phrases.length > 0
       ? searchByVibeText(phrases, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
+      : Promise.resolve([] as string[]),
+
+    // Taste head: learned projection on top of FashionCLIP. Only fires when
+    // the caller explicitly opts in via useTasteHead — this keeps the main
+    // feed on three well-understood rankers while we A/B the trained W.
+    // (Also drops out silently when no head is trained or no vectors in the
+    // `taste` namespace.)
+    useTasteHead && valid.length > 0
+      ? searchByTasteEmbeddings(valid, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     searchByCategory(
@@ -95,13 +114,13 @@ export async function hybridSearch(
     ).catch(() => emptyBuckets()),
   ]);
 
-  const allPineconeIds = Array.from(new Set([...pineconeIds, ...vibeIds]));
+  const allPineconeIds = Array.from(new Set([...pineconeIds, ...vibeIds, ...tasteIds]));
   if (allPineconeIds.length === 0) {
-    console.log("[hybrid] Pinecone empty (visual + vibe) — using Algolia only");
+    console.log("[hybrid] Pinecone empty (visual + vibe + taste) — using Algolia only");
     return algoliaCandidates;
   }
 
-  // Hydrate the union of IDs returned by either Pinecone namespace once.
+  // Hydrate the union of IDs returned by any Pinecone namespace once.
   const pineconeProducts = await getProductsByIds(allPineconeIds);
   const visualBuckets    = groupByCategory(
     pineconeProducts.filter((p) => pineconeIds.includes(p.objectID)),
@@ -111,22 +130,29 @@ export async function hybridSearch(
     pineconeProducts.filter((p) => vibeIds.includes(p.objectID)),
     maxPerCategory * 2,
   );
+  const tasteBuckets     = groupByCategory(
+    pineconeProducts.filter((p) => tasteIds.includes(p.objectID)),
+    maxPerCategory * 2,
+  );
 
+  const tasteLabel = useTasteHead ? String(tasteIds.length) : "off";
   console.log(
-    `[hybrid] visual=${pineconeIds.length} vibe=${vibeIds.length} algolia=${Object.values(algoliaCandidates).flat().length}`
+    `[hybrid] visual=${pineconeIds.length} vibe=${vibeIds.length} taste=${tasteLabel} ` +
+    `algolia=${Object.values(algoliaCandidates).flat().length}`
   );
 
   const merged = emptyBuckets();
 
   for (const cat of CATEGORIES) {
-    const visIds = visualBuckets[cat].map((p) => p.objectID);
-    const vibIds = vibeBuckets[cat].map((p) => p.objectID);
-    const algIds = algoliaCandidates[cat].map((p) => p.objectID);
+    const visIds  = visualBuckets[cat].map((p) => p.objectID);
+    const vibIds  = vibeBuckets[cat].map((p) => p.objectID);
+    const tstIds  = tasteBuckets[cat].map((p) => p.objectID);
+    const algIds  = algoliaCandidates[cat].map((p) => p.objectID);
 
-    const mergedIds = rrfMerge([visIds, vibIds, algIds], maxPerCategory);
+    const mergedIds = rrfMerge([visIds, vibIds, tstIds, algIds], maxPerCategory);
 
     const lookup = new Map<string, AlgoliaProduct>();
-    [...visualBuckets[cat], ...vibeBuckets[cat], ...algoliaCandidates[cat]].forEach((p) => {
+    [...visualBuckets[cat], ...vibeBuckets[cat], ...tasteBuckets[cat], ...algoliaCandidates[cat]].forEach((p) => {
       if (!lookup.has(p.objectID)) lookup.set(p.objectID, p);
     });
 
