@@ -177,6 +177,9 @@ function ShopPageContent() {
   const scopeLabel     = brandFilter || categoryFilter || "";
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  // Max price cap (USD). null = no cap. Applied as an Algolia numeric filter
+  // server-side and as a lenient post-filter for rows missing a price.
+  const [priceMax, setPriceMax] = useState<number | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(false);
@@ -411,6 +414,7 @@ function ShopPageContent() {
           likedProductIds: Array.from(likedIds),
           brandFilter:     brandFilter    ?? "",
           categoryFilter:  categoryFilter ?? "",
+          priceMax,
           steerQuery,
           steerInterp,
         }),
@@ -432,7 +436,7 @@ function ShopPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, steerQuery, steerInterp, isPickerMode, likedIds]);
+  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds]);
 
   // One-shot init guard. The useEffect below has deps that settle in stages
   // on mount (URL read swaps brand/category null → value); without a guard
@@ -449,7 +453,9 @@ function ShopPageContent() {
     // over `hasMore`/`loading` would still see stale (pre-reset) values if
     // we setHasMore(true) + invoke loadMore() in the same tick. Inlining
     // sidesteps that timing hazard cleanly.
-    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}`;
+    // Price cap joins the scope key so changing the cap forces a fresh fetch
+    // (same as flipping category / brand / steer).
+    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}|${priceMax ?? ""}`;
     if (lastScopeRef.current === scope && initStartedRef.current) return;
     lastScopeRef.current   = scope;
     initStartedRef.current = true;
@@ -476,6 +482,7 @@ function ShopPageContent() {
             likedProductIds: Array.from(likedIds),
             brandFilter:     brandFilter    ?? "",
             categoryFilter:  categoryFilter ?? "",
+            priceMax,
             steerQuery,
             steerInterp,
           }),
@@ -503,7 +510,7 @@ function ShopPageContent() {
       }
     })();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [brandFilter, categoryFilter, steerQuery, isPickerMode]);
+  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
@@ -541,6 +548,7 @@ function ShopPageContent() {
           likedProductIds: Array.from(likedIds),
           brandFilter,
           categoryFilter,
+          priceMax,
           steerQuery,
           steerInterp,
         }),
@@ -570,7 +578,7 @@ function ShopPageContent() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, brandFilter, categoryFilter, steerQuery, steerInterp, isBrandMode, likedIds]);
+  }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds]);
 
   // Toggle-save handler. On a new save we also fire the toast. Unlike
   // handleLike, save does NOT feed the scoring algorithm — "saving" is a

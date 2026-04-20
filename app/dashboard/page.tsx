@@ -221,27 +221,27 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
     }).catch(() => {});
   };
 
+  const brandLabel = (product.brand || product.retailer || "").trim();
   return (
     <a
       href={product.product_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300"
+      className="group block"
     >
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)]">
+      {/* Image — the only element with the border + shadow. Brand moved out
+          of the image to the text row below, matching /shop GridTile. */}
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
         {product.image_url ? (
           <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-background/80 to-transparent">
-          <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer}</p>
-        </div>
       </div>
-      <div className="p-3 border-t border-border">
-        {product.brand && product.brand.toLowerCase() !== product.retailer.toLowerCase() && (
-          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>
+      <div className="pt-3">
+        {brandLabel && (
+          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{brandLabel}</p>
         )}
         <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{product.title}</p>
         <div className="flex items-center justify-between">
@@ -293,10 +293,14 @@ function ProductCard({ product, position, userToken }: {
     }).catch(() => {});
   };
 
+  const brandLabel = (product.brand || product.retailer || "").trim();
   return (
     <a href={product.product_url || "#"} target="_blank" rel="noopener noreferrer" onClick={handleClick}
-      className="group block border border-border hover:border-border-mid bg-background shadow-card hover:shadow-card-hover transition-all duration-300">
-      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)]">
+      className="group block">
+      {/* Image — bordered + shadowed. outfit_role badge stays on the image
+          (it's a per-image annotation). Retailer overlay removed; brand
+          lives outside the frame now, matching /shop GridTile. */}
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
         {product.image_url ? (
           <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
@@ -307,13 +311,11 @@ function ProductCard({ product, position, userToken }: {
             <span className="font-sans text-[8px] tracking-widest uppercase bg-background/80 backdrop-blur-sm text-foreground/70 px-2 py-1">{product.outfit_role}</span>
           </div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-background/60 to-transparent">
-          <p className="font-sans text-[9px] tracking-widest uppercase text-foreground/60">{product.retailer}</p>
-        </div>
       </div>
-      <div className="p-4 border-t border-border">
-        {product.brand && product.brand.toLowerCase() !== product.retailer.toLowerCase() && (
-          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1.5">{product.brand}</p>
+      {/* Text column — outside the image frame. Keeps style_note + how_to_wear. */}
+      <div className="pt-3">
+        {brandLabel && (
+          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1.5">{brandLabel}</p>
         )}
         <p className="font-sans text-sm text-foreground leading-snug line-clamp-2 mb-2.5">{product.title}</p>
         {product.style_note && (
@@ -1540,12 +1542,6 @@ export default function DashboardPage() {
     }
   }, [step, candidates, userToken]);
 
-  useEffect(() => {
-    if (step === "results" && products.length > 0) {
-      trackProductsViewed({ userToken, objectIDs: products.map((p) => p.objectID) });
-    }
-  }, [step, products, userToken]);
-
   // ── Block management ──────────────────────────────────────────────────────
 
   const addBlock = useCallback(() => {
@@ -1569,7 +1565,10 @@ export default function DashboardPage() {
     setStep("shopping_loading");
     setErrorMsg("");
     setShoppingStep(0);
-    const t1 = setTimeout(() => setShoppingStep(1), 15000);
+    // Safety net: if the stream's "aesthetic" event hasn't landed in 20 s
+    // (catastrophically slow cold start), advance the dot anyway so the user
+    // sees movement. Normal path clears this as soon as the event arrives.
+    const t1 = setTimeout(() => setShoppingStep((s) => (s < 1 ? 1 : s)), 20000);
     try {
       const fileToVision = (file: File): Promise<VisionImage> =>
         new Promise((resolve) => {
@@ -1649,21 +1648,70 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ contexts, userToken, priceTier: intakePriceTier }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Shop failed");
-      setAesthetic(data.aesthetic);
-      setCandidates(data.candidates);
-      // Seed scoring engine with cross-session click history
-      if (Array.isArray(data.clickSignals)) {
-        clickHistoryRef.current = data.clickSignals.map((s: { object_id?: string; objectID?: string; category: string; brand: string; color: string; price_range: string; retailer?: string }) => ({
-          objectID: s.object_id ?? s.objectID,
-          category: s.category,
-          brand:    s.brand,
-          color:    s.color,
-          price_range: s.price_range,
-          retailer: s.retailer,
-        }));
+      if (!res.ok || !res.body) {
+        // Non-2xx responses are returned as normal JSON (e.g. 400 on empty
+        // contexts), not NDJSON — parse them accordingly for the error
+        // message.
+        let detail = "Shop failed";
+        try {
+          const maybe = await res.json();
+          detail = maybe?.detail ?? maybe?.error ?? detail;
+        } catch { /* ignore */ }
+        throw new Error(detail);
       }
+
+      // Stream parser. Server emits NDJSON: one JSON object per line,
+      // separated by "\n". We buffer partial chunks (the TCP packet may
+      // split a line) and dispatch each complete line as a progress event.
+      //   phase=aesthetic  → dot advances, StyleDNA populated
+      //   phase=candidates → candidates populated, clickHistory seeded
+      //   phase=done       → transition to the shopping step
+      //   phase=error      → surface the detail as an error
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer    = "";
+      let sawDone   = false;
+      type StreamEvent =
+        | { phase: "aesthetic";  aesthetic: StyleDNA; cached?: boolean }
+        | { phase: "candidates"; candidates: CategoryCandidates; clickSignals?: Array<{ object_id?: string; objectID?: string; category: string; brand: string; color: string; price_range: string; retailer?: string }> }
+        | { phase: "done" }
+        | { phase: "error"; detail: string };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? ""; // last element is the partial tail
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          let event: StreamEvent;
+          try { event = JSON.parse(trimmed) as StreamEvent; }
+          catch { continue; } // skip malformed lines rather than abort
+          if (event.phase === "aesthetic") {
+            setAesthetic(event.aesthetic);
+            setShoppingStep((s) => (s < 1 ? 1 : s));
+          } else if (event.phase === "candidates") {
+            setCandidates(event.candidates);
+            if (Array.isArray(event.clickSignals)) {
+              clickHistoryRef.current = event.clickSignals.map((s) => ({
+                objectID:    s.object_id ?? s.objectID,
+                category:    s.category,
+                brand:       s.brand,
+                color:       s.color,
+                price_range: s.price_range,
+                retailer:    s.retailer,
+              }));
+            }
+          } else if (event.phase === "done") {
+            sawDone = true;
+          } else if (event.phase === "error") {
+            throw new Error(event.detail);
+          }
+        }
+      }
+      if (!sawDone) throw new Error("Stream ended unexpectedly");
       setStep("shopping");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
@@ -2086,13 +2134,10 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="px-8 py-5 border-b border-border sticky top-0 bg-background/90 backdrop-blur-md z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">MUSE</Link>
+          <Link href="/" className="font-display font-light tracking-[0.20em] text-base text-foreground hover:text-accent transition-colors duration-200">SHORTLIST</Link>
           <div className="flex items-center gap-8">
             {isRefining && <span className="font-sans text-[10px] tracking-widest uppercase text-muted">Curating<MusingDots /></span>}
-            {step === "results" && (
-              <button onClick={() => setStep("shopping")} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← My picks</button>
-            )}
-            {(step === "shopping" || step === "results") && (
+            {step === "shopping" && (
               <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← New search</button>
             )}
             <button onClick={() => signOut({ callbackUrl: "/login" })} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">Sign out</button>
@@ -2322,9 +2367,6 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* ── Edit loading ── */}
-        {step === "edit_loading" && <LoadingScreen title="Building your shortlist." steps={EDIT_STEPS} currentStep={editStep} />}
-
         {/* ── Error ── */}
         {step === "error" && (
           <div className="fade-in flex flex-col items-center justify-center py-40 text-center">
@@ -2334,89 +2376,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Edit results ── */}
-        {step === "results" && aesthetic && (
-          <>
-            {viewMode === "scroll" && (
-              <OutfitScrollView cards={scrollCards} onLike={handleLikeCard} onNearEnd={handleGenerateMore} isGeneratingMore={isGeneratingMore} catalogExhausted={catalogExhausted} onClose={() => setViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }} onDwell={handleDwell} />
-            )}
-
-            <div className="fade-in-up">
-              <div className="flex items-start justify-between mb-12 gap-6">
-                <div>
-                  <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-5">Personal edit</p>
-                  <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">
-                    {selectedBoard?.name ?? "Your shortlist"}
-                  </h1>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0 mt-1">
-                  <div className="flex border border-border overflow-hidden">
-                    <button onClick={() => setViewMode("grid")}
-                      className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 ${viewMode === "grid" ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
-                      Grid
-                    </button>
-                    <button onClick={() => setViewMode("scroll")}
-                      className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 border-l border-border ${viewMode === "scroll" ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
-                      Scroll
-                    </button>
-                  </div>
-                  <button onClick={() => handleBuildEdit()}
-                    className="px-6 py-2.5 border border-border hover:border-foreground/60 text-foreground font-sans text-[10px] tracking-widest uppercase transition-colors duration-200">
-                    Regenerate
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-14"><StyleDNACard dna={aesthetic} /></div>
-
-              <OutfitSection label="Outfit A" role={outfitARole} products={outfitA} startPosition={1} userToken={userToken} />
-              <OutfitSection label="Outfit B" role={outfitBRole} products={outfitB} startPosition={outfitA.length + 1} userToken={userToken} />
-
-              {/* Load more outfits — pulls fresh catalog products, curates
-                  new outfit pairs, switches to Scroll view so the newly-added
-                  cards become visible. Also fires automatically when user
-                  nears the end of the scroll view. */}
-              {!catalogExhausted && (
-                <div className="flex justify-center mb-14">
-                  <button
-                    onClick={() => { setViewMode("scroll"); handleGenerateMore(); }}
-                    disabled={isGeneratingMore}
-                    className="px-8 py-3 border border-border hover:border-foreground/60 text-foreground font-sans text-[10px] tracking-widest uppercase transition-colors duration-200 disabled:opacity-50 disabled:cursor-wait"
-                  >
-                    {isGeneratingMore ? "Loading…" : "Load more outfits →"}
-                  </button>
-                </div>
-              )}
-              {catalogExhausted && (
-                <p className="text-center font-sans text-[10px] tracking-widest uppercase text-muted mb-14">
-                  You've seen everything in this aesthetic
-                </p>
-              )}
-
-              {outfitA.length === 0 && outfitB.length === 0 && products.length > 0 && (
-                <div>
-                  <div className="flex items-baseline justify-between mb-6 border-t border-border pt-7">
-                    <h2 className="font-display font-light text-2xl text-foreground">Your curated edit</h2>
-                    <p className="font-sans text-[9px] tracking-widest uppercase text-muted">{products.length} pieces</p>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 mb-14">
-                    {products.map((p, i) => <ProductCard key={p.objectID} product={p} position={i + 1} userToken={userToken} />)}
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t border-border pt-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                <p className="font-sans text-[11px] text-muted/50 max-w-sm leading-relaxed">
-                  MUSE earns a small affiliate commission if you purchase, at no extra cost to you.
-                </p>
-                <div className="flex items-center gap-6">
-                  <button onClick={() => setStep("shopping")} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors whitespace-nowrap">← My picks</button>
-                  <button onClick={reset} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors whitespace-nowrap">← New search</button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </main>
     </div>
   );

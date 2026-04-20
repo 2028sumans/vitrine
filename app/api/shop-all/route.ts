@@ -20,6 +20,7 @@
 
 import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
+import { searchByLikedProductIds } from "@/lib/embeddings";
 
 export const revalidate = 60;
 
@@ -222,6 +223,55 @@ interface BiasPayload {
   dislikedCategories?:  string[];
 }
 
+// ── FashionCLIP similarity boost ──────────────────────────────────────────────
+// Given the objectIDs of products the user has liked, we query Pinecone for
+// the top-K most visually-similar products (averaging the liked vectors as a
+// centroid). Those hits bubble to the front of whatever Algolia returns.
+// This is the single biggest lever for making the feed feel "smart" — the
+// difference between "shows me more from brands I liked" (metadata-bias) and
+// "shows me things that LOOK like what I liked" (content similarity).
+//
+// Fire-and-forget safe: if Pinecone fails, we fall through to Algolia-only.
+async function clipSimilarityRanking(likedProductIds: string[]): Promise<string[]> {
+  if (likedProductIds.length === 0) return [];
+  try {
+    // Exclude the liked products themselves from results — the user's already
+    // seen them. `totalK = 300` is generous so the boost has plenty of
+    // candidates even if Algolia's filtered result set is large.
+    return await searchByLikedProductIds(likedProductIds, 300, {}, likedProductIds);
+  } catch (e) {
+    console.warn("[shop-all] CLIP similarity skipped:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+// Boost products whose objectID appears in `clipIds` to the front of the
+// list, ordered by CLIP rank. Cap at `topN` so the tail keeps Algolia's
+// interleaved diversity — we're ordering the lead of the feed, not replacing
+// it. Skip the boost entirely when the user has fewer than 2 liked items
+// (not enough signal to trust centroid search).
+function boostByClipSimilarity<T extends Record<string, unknown>>(
+  products:     T[],
+  clipIds:      string[],
+  likedCount:   number,
+  topN = 12,
+): T[] {
+  if (clipIds.length === 0 || likedCount < 2) return products;
+  const rank = new Map<string, number>();
+  clipIds.forEach((id, i) => rank.set(id, i));
+  const boosted: T[] = [];
+  const rest:    T[] = [];
+  for (const p of products) {
+    const id = typeof p.objectID === "string" ? p.objectID : null;
+    if (id && rank.has(id)) boosted.push(p);
+    else rest.push(p);
+  }
+  boosted.sort((a, b) => rank.get(a.objectID as string)! - rank.get(b.objectID as string)!);
+  const head = boosted.slice(0, topN);
+  const tail = boosted.slice(topN);
+  return [...head, ...tail, ...rest];
+}
+
 interface SteerInterp {
   search_terms?: string[];
   avoid_terms?:  string[];
@@ -310,6 +360,18 @@ export async function POST(request: Request) {
     ? buildSteerQuery(steerInterp)
     : steerQueryRaw;
 
+  // Object IDs the user has liked this session (+ carried over from
+  // localStorage across sessions). Drives the FashionCLIP similarity boost
+  // — the centroid of these vectors becomes the similarity query against
+  // Pinecone, and matches re-rank the Algolia output. Capped to the 20
+  // most-recent so a long-running session doesn't inflate the Pinecone
+  // fetch payload.
+  const likedProductIds: string[] = Array.isArray(body?.likedProductIds)
+    ? (body.likedProductIds as unknown[])
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .slice(0, 20)
+    : [];
+
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
     ?? process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY
@@ -347,17 +409,23 @@ export async function POST(request: Request) {
       const optionalWords = q ? q.split(/\s+/).filter(Boolean) : undefined;
       const filters = brandFilterQuery || categoryScope?.filters || "";
 
-      const res = await client.searchSingleIndex({
-        indexName: INDEX_NAME,
-        searchParams: {
-          query:       q,
-          ...(optionalWords ? { optionalWords } : {}),
-          ...(filters ? { filters } : {}),
-          hitsPerPage: SCOPED_FETCH,
-          page,
-          attributesToRetrieve,
-        },
-      });
+      // Run Algolia + CLIP similarity in parallel — CLIP typically adds
+      // 50–150ms which overlaps with Algolia's ~200ms, keeping total
+      // latency near Algolia-alone.
+      const [res, clipIds] = await Promise.all([
+        client.searchSingleIndex({
+          indexName: INDEX_NAME,
+          searchParams: {
+            query:       q,
+            ...(optionalWords ? { optionalWords } : {}),
+            ...(filters ? { filters } : {}),
+            hitsPerPage: SCOPED_FETCH,
+            page,
+            attributesToRetrieve,
+          },
+        }),
+        clipSimilarityRanking(likedProductIds),
+      ]);
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
       // Structured Steer post-filter (price tier / category / color / avoid).
@@ -380,6 +448,11 @@ export async function POST(request: Request) {
       // axes at once instead of reinforcing a single clump.
       clean = interleaveByAestheticAndBrand(clean);
 
+      // CLIP-similarity boost — after interleaving, pull the top-N visually
+      // most-similar items (to the user's liked centroid) to the lead of
+      // the feed. The tail keeps the aesthetic×brand diversification.
+      clean = boostByClipSimilarity(clean, clipIds, likedProductIds.length);
+
       return NextResponse.json({
         products: clean,
         page,
@@ -393,20 +466,23 @@ export async function POST(request: Request) {
     }
 
     // ── Query-driven path: session signals without a hard scope ──────────
-    if (steerQuery || hasLikedSignals(bias)) {
+    if (steerQuery || hasLikedSignals(bias) || likedProductIds.length > 0) {
       const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
       const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
       const optionalWords = q.split(/\s+/).filter(Boolean);
-      const res = await client.searchSingleIndex({
-        indexName: INDEX_NAME,
-        searchParams: {
-          query:       q,
-          optionalWords,
-          hitsPerPage: HITS_PER_PAGE,
-          page,
-          attributesToRetrieve,
-        },
-      });
+      const [res, clipIds] = await Promise.all([
+        client.searchSingleIndex({
+          indexName: INDEX_NAME,
+          searchParams: {
+            query:       q,
+            optionalWords,
+            hitsPerPage: HITS_PER_PAGE,
+            page,
+            attributesToRetrieve,
+          },
+        }),
+        clipSimilarityRanking(likedProductIds),
+      ]);
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
       const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
@@ -429,6 +505,7 @@ export async function POST(request: Request) {
       });
 
       clean = interleaveByBrand(clean);
+      clean = boostByClipSimilarity(clean, clipIds, likedProductIds.length);
 
       return NextResponse.json({
         products: clean,

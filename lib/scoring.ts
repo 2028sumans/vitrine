@@ -72,7 +72,12 @@ const W_LIKE    = 0.45;  // strongest — did they save/heart this?
 const W_COMMENT = 0.25;  // novelty-driven — does it make them react?
 const W_CLICK   = 0.30;  // intent signal — will they tap through to buy?
 
-const WILDCARD_INTERVAL = 5; // inject a high-novelty card every N cards
+// Default wildcard cadence. Used as the baseline for adaptive tuning in
+// `rankCards`: a hot-streak session exploits more (sparser wildcards) and a
+// cold / skipping session explores more (denser wildcards).
+const WILDCARD_INTERVAL_BASE = 5;
+const WILDCARD_INTERVAL_MIN  = 3;   // high-exploration floor
+const WILDCARD_INTERVAL_MAX  = 9;   // high-exploitation ceiling
 
 // ── Affinity helpers ──────────────────────────────────────────────────────────
 
@@ -135,17 +140,16 @@ function avg(scores: number[]): number {
 }
 
 // ── Dwell time → session engagement multiplier ─────────────────────────────────
-// Fast-swiping (< 700 ms average) = bored session → deflate predicted scores.
-// Lingering (> 3 000 ms average) = engaged session → inflate scores.
+// Continuous version. Averages `dwellScore(ms)` across the session and maps
+// the mean to a multiplier in [0.70, 1.35]. Low engagement (fast swipes all
+// session) pulls predicted scores down; high engagement pulls them up.
 
 function dwellMultiplier(dwellTimes: Record<string, number>): number {
   const times = Object.values(dwellTimes);
   if (!times.length) return 1.0;
-  const average = times.reduce((a, b) => a + b, 0) / times.length;
-  if (average > 6000) return 1.35;
-  if (average > 3000) return 1.15;
-  if (average < 700)  return 0.70;
-  return 1.0;
+  const meanScore = times.reduce((a, ms) => a + dwellScore(ms), 0) / times.length;
+  // meanScore ∈ [0, 1]; map to [0.70, 1.35] linearly.
+  return 0.70 + meanScore * 0.65;
 }
 
 // ── Per-card score ────────────────────────────────────────────────────────────
@@ -231,6 +235,40 @@ export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore
 // 2. Every WILDCARD_INTERVAL positions, swap in the highest-novelty card from
 //    the rest of the queue.  This creates the slot-machine effect: mostly great
 //    content, but occasional surprises keep users scrolling for the next hit.
+// 3. The interval is ADAPTIVE — strong recent signal (high dwell, lots of
+//    likes) narrows exploration; a cold/skipping session widens it.
+//    A user who's liking everything doesn't need random injections to find
+//    their taste; a user skipping everything needs more variety to discover it.
+
+/** Exploration ratio ∈ [0, 1] derived from session signals. 0 = pure exploit
+ *  (sparse wildcards), 1 = pure explore (dense wildcards). Heuristic rather
+ *  than learned — tunable and transparent. */
+function exploreRatio(signals: ScoringSignals): number {
+  const { likedProductIds, dislikedSignals, dwellTimes } = signals;
+  const likes   = likedProductIds.size;
+  const dislikes = dislikedSignals.length;
+  const total   = Object.keys(dwellTimes).length;
+
+  // Cold start: nothing to go on yet → lean toward exploration.
+  if (total < 3) return 0.75;
+
+  // Mean dwell score across the session.
+  const meanDwell = Object.values(dwellTimes)
+    .reduce((a, ms) => a + dwellScore(ms), 0) / Math.max(1, total);
+
+  // Three signals, each pushes toward explore when weak:
+  //   low like-rate, high dislike-rate, low mean dwell.
+  const likeRate    = likes / total;                    // 0..1
+  const dislikeRate = dislikes / Math.max(1, total);    // 0..1 (capped)
+
+  // Blend: weights chosen to make dwell the dominant signal (it captures
+  // boredom better than sparse likes), with like/dislike rate as correctives.
+  const engagement = 0.60 * meanDwell + 0.25 * likeRate - 0.35 * Math.min(1, dislikeRate);
+
+  // High engagement → low explore. Clamp to [0.15, 0.75] so we never go all
+  // the way to either extreme — some variety always, some relevance always.
+  return Math.min(0.75, Math.max(0.15, 0.75 - engagement));
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function rankCards(cards: any[], signals: ScoringSignals): any[] {
@@ -239,8 +277,17 @@ export function rankCards(cards: any[], signals: ScoringSignals): any[] {
   const scored = cards.map((card) => ({ ...scoreCard(card, signals), card }));
   scored.sort((a, b) => b.score - a.score);
 
-  // Wildcard injection
-  for (let pos = WILDCARD_INTERVAL - 1; pos < scored.length; pos += WILDCARD_INTERVAL) {
+  // Translate explore ratio to wildcard spacing. ratio=0 → MAX (9 apart, very
+  // sparse), ratio=1 → MIN (3 apart, very dense). Linear interpolation.
+  const ratio    = exploreRatio(signals);
+  const interval = Math.round(
+    WILDCARD_INTERVAL_MAX - ratio * (WILDCARD_INTERVAL_MAX - WILDCARD_INTERVAL_MIN)
+  );
+  const stride = Math.max(WILDCARD_INTERVAL_MIN, Math.min(WILDCARD_INTERVAL_MAX, interval));
+
+  // Wildcard injection at the adapted cadence.
+  void WILDCARD_INTERVAL_BASE; // documented baseline; stride is derived.
+  for (let pos = stride - 1; pos < scored.length; pos += stride) {
     const searchFrom = pos + 1;
     if (searchFrom >= scored.length) break;
     let wildcardIdx = searchFrom;
@@ -256,16 +303,33 @@ export function rankCards(cards: any[], signals: ScoringSignals): any[] {
   return scored.map((s) => s.card);
 }
 
-// ── Dwell signal classification ───────────────────────────────────────────────
-// Used by the page to decide whether a re-ranking pass is worth triggering.
+// ── Dwell signal — continuous score + bucket view ────────────────────────────
+// Previously we collapsed dwell into 4 discrete buckets. A 3-second dwell and
+// a 6.9-second dwell were both "positive" — lots of information lost. Now the
+// primary interface is `dwellScore(ms) ∈ [0, 1]`, a log-scaled continuous
+// signal: 500 ms → 0, 8 s → 1, smoothly in between. The bucket classifier is
+// kept for callers that still want a hard label (e.g. "fire a negative-signal
+// refetch on fast swipes") but new code should consume the continuous score.
 
 export type DwellSignal = "strong_positive" | "positive" | "neutral" | "negative";
 
+/** Continuous [0, 1] score for how engaged a dwell reads as.
+ *  500 ms → 0 (fast swipe), 8 s → 1 (locked in), log-scaled in between. */
+export function dwellScore(ms: number): number {
+  if (ms <= 500)  return 0;
+  if (ms >= 8000) return 1;
+  // log-scale so the interesting range (1–5s) gets most of the resolution
+  // rather than being crushed by the tail.
+  return Math.log(ms / 500) / Math.log(8000 / 500);
+}
+
+/** Legacy bucket view. Keep for code paths that branch on labels; new code
+ *  should prefer `dwellScore`. Thresholds align roughly with the old ones. */
 export function interpretDwell(ms: number): DwellSignal {
-  if (ms > 7000) return "strong_positive"; // lingered > 7s — very interested
-  if (ms > 2500) return "positive";        // normal engaged viewing
-  if (ms > 700)  return "neutral";         // scrolled past normally
-  return "negative";                       // fast swipe — not interested
+  if (ms > 7000) return "strong_positive";
+  if (ms > 2500) return "positive";
+  if (ms > 700)  return "neutral";
+  return "negative";
 }
 
 // ── Re-rank the upcoming portion of the queue ────────────────────────────────

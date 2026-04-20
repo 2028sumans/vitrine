@@ -22,7 +22,7 @@ import {
   buildTextQueryVectors,
   anchorImageVectorsWithAesthetic,
 }                                               from "@/lib/query-builder";
-import { loadTasteMemory, saveStyleDNA }        from "@/lib/taste-memory";
+import { loadTasteMemory, saveStyleDNA, getStyleDNAByBoard } from "@/lib/taste-memory";
 import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
 
 // Use visual search if Pinecone is configured; fall back to Algolia text search
@@ -170,138 +170,190 @@ export async function POST(request: Request) {
 
   const token: string = userToken || "anon";
 
-  try {
-    const tasteMemory = await loadTasteMemory(token);
+  // ── Streaming response ────────────────────────────────────────────────────
+  // The pipeline is "aesthetic analysis (2–4 s)" then "candidate fetch
+  // (1–3 s)". Historically we awaited both before returning one JSON blob,
+  // so the user stared at "Musing…" for the full 5–7 s with no progress.
+  // Now we stream NDJSON events as each phase completes, letting the client
+  // advance its progress dots in real time and start rendering the aesthetic
+  // before candidates finish.
+  //
+  // Event shape (one JSON object per line):
+  //   { phase: "aesthetic",  aesthetic, cached }            — first event
+  //   { phase: "candidates", candidates, clickSignals }     — second event
+  //   { phase: "done" }                                     — terminal
+  //   { phase: "error",     detail }                        — on failure
+  //
+  // Only /app/dashboard consumes this endpoint; callers parse line-by-line.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const emit = (event: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      };
+      try {
+        const tasteMemory = await loadTasteMemory(token);
 
-    // ── Aesthetic analysis ────────────────────────────────────────────────────
-    let aesthetic: import("@/lib/types").StyleDNA;
+        // ── Aesthetic analysis (with board-cache short-circuit) ─────────────
+        let aesthetic: import("@/lib/types").StyleDNA;
+        let aestheticCached = false;
 
-    if (mode === "pinterest" || allPinImageUrls.length > 0 || allPinDescriptions.length > 0) {
-      const pinDescriptions: string[] = allPinDescriptions.filter((d) => d.trim().length > 0);
+        // Fast path: same user re-analyzing the same Pinterest board within
+        // the 24h TTL. Skips Sonnet vision + Haiku synthesis entirely,
+        // collapsing 2–4 s of critical-path latency into a ~50 ms Supabase
+        // read.
+        if (mode === "pinterest" && token !== "anon" && boardId) {
+          try {
+            const cached = await getStyleDNAByBoard(token, boardId);
+            if (cached) {
+              aesthetic = cached.dna;
+              aestheticCached = true;
+              console.log(`[shop] StyleDNA cache HIT (board=${boardId})`);
+            }
+          } catch (e) {
+            console.warn("[shop] StyleDNA cache lookup failed (non-fatal):", e instanceof Error ? e.message : e);
+          }
+        }
 
-      const pinImages: VisionImage[] = pinImageUrls.length
-        ? await fetchPinImages(pinImageUrls)
-        : [];
+        if (!aestheticCached) {
+          if (mode === "pinterest" || allPinImageUrls.length > 0 || allPinDescriptions.length > 0) {
+            const pinDescriptions: string[] = allPinDescriptions.filter((d) => d.trim().length > 0);
 
-      if (pinDescriptions.length === 0 && pinImages.length === 0) {
-        pinDescriptions.push(
-          `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
-        );
+            const pinImages: VisionImage[] = pinImageUrls.length
+              ? await fetchPinImages(pinImageUrls)
+              : [];
+
+            if (pinDescriptions.length === 0 && pinImages.length === 0) {
+              pinDescriptions.push(
+                `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
+              );
+            }
+
+            // Top 5 unique source domains — huge signal for price tier and style tribe
+            const uniqueDomains = Array.from(new Set(allDomains)).slice(0, 5);
+            aesthetic = await analyzeAesthetic(
+              boardName!,
+              pinDescriptions,
+              pinImages,
+              tasteMemory.previousDNAs,
+              extraTextContext,
+              allPinMeta.slice(0, 12),
+              { sourceDomains: uniqueDomains },
+            );
+          } else if (mode === "text") {
+            aesthetic = await textQueryToAesthetic(
+              (extraTextContext ?? contexts[0].textQuery ?? "").trim(),
+              tasteMemory.previousDNAs
+            );
+          } else if (mode === "images") {
+            aesthetic = await analyzeAesthetic(
+              "uploaded images",
+              [],
+              uploadedImages.slice(0, 10),
+              tasteMemory.previousDNAs,
+              extraTextContext
+            );
+          } else {
+            aesthetic = await textQueryToAesthetic(
+              extraTextContext ?? "classic casual style",
+              tasteMemory.previousDNAs
+            );
+          }
+        }
+        // At this point `aesthetic` is guaranteed to be assigned — either
+        // by the cache short-circuit above or by one of the branches in the
+        // `!aestheticCached` block. TS-flow can't see through the mutually-
+        // exclusive paths, so we narrow with a runtime-impossible throw.
+        if (!aesthetic!) throw new Error("aesthetic analysis produced no result");
+
+        // Price-tier hard override (same logic as before the split).
+        if (priceOverride) {
+          console.log(`[shop] priceTier override: ${aesthetic.price_range} → ${priceOverride}`);
+          aesthetic = { ...aesthetic, price_range: priceOverride };
+        }
+
+        // ── EMIT: aesthetic phase ────────────────────────────────────────────
+        // Client can now advance the loading dots and start animating the
+        // aesthetic preview, even as the candidate fetch below runs.
+        emit({ phase: "aesthetic", aesthetic, cached: aestheticCached });
+
+        const allAvoids = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
+
+        // ── Product retrieval ────────────────────────────────────────────────
+        let rawCandidates: import("@/lib/algolia").CategoryCandidates;
+
+        if (USE_VISUAL_SEARCH && mode === "images" && uploadedImages?.length) {
+          console.log("[shop] Hybrid search: uploaded images (with aesthetic anchor)");
+          const rawEmb = await embedBase64Images(uploadedImages.slice(0, 10));
+          const anchored = await anchorImageVectorsWithAesthetic(rawEmb, aesthetic!, tasteMemory.softAvoids);
+          rawCandidates  = await hybridSearch(anchored, aesthetic!, token, 20, { useTasteHead });
+
+        } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
+          console.log("[shop] Hybrid search: Pinterest board images (with aesthetic anchor)");
+          let embeddings = await embedImageUrls(pinImageUrls.slice(0, 20));
+          const validEmbeddings = embeddings.filter((e) => e.length > 0);
+
+          if (tasteMemory.styleCentroid && validEmbeddings.length > 0) {
+            console.log("[shop] Blending cross-session style centroid");
+            embeddings = validEmbeddings.map((emb) =>
+              blendCentroids(emb, [tasteMemory.styleCentroid!], 0.15)
+            );
+          }
+
+          embeddings = await anchorImageVectorsWithAesthetic(
+            embeddings,
+            aesthetic!,
+            tasteMemory.softAvoids,
+          );
+
+          rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 20, { useTasteHead });
+
+        } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
+          console.log("[shop] Hybrid search: multi-vector text ensemble via FashionCLIP");
+          const queryVectors = await buildTextQueryVectors(aesthetic!, tasteMemory.softAvoids);
+          console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
+          rawCandidates = await hybridSearch(queryVectors, aesthetic!, token, 20, { useTasteHead });
+
+        } else {
+          console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
+          rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
+        }
+
+        const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
+        const candidates  = filterMensItems(afterAvoids);
+
+        // Persist StyleDNA (fire and forget) — only for fresh analyses, not
+        // cache hits (the row we just read from is the same one we'd write).
+        if (!aestheticCached && mode === "pinterest" && boardId && boardName) {
+          void saveStyleDNA(token, boardId, boardName, aesthetic!)
+            .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));
+        }
+
+        // ── EMIT: candidates phase ──────────────────────────────────────────
+        emit({ phase: "candidates", candidates, clickSignals: tasteMemory.clickSignals });
+
+        // ── EMIT: done ──────────────────────────────────────────────────────
+        emit({ phase: "done" });
+        controller.close();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[shop] Failed:", message);
+        try {
+          emit({ phase: "error", detail: message });
+        } catch { /* controller already closed */ }
+        controller.close();
       }
+    },
+  });
 
-      // Top 5 unique source domains — huge signal for price tier and style tribe
-      const uniqueDomains = Array.from(new Set(allDomains)).slice(0, 5);
-      aesthetic = await analyzeAesthetic(
-        boardName!,
-        pinDescriptions,
-        pinImages,
-        tasteMemory.previousDNAs,
-        extraTextContext,
-        allPinMeta.slice(0, 12),          // per-pin metadata (aligned with pinImages order)
-        { sourceDomains: uniqueDomains }, // board-level signal
-      );
-    } else if (mode === "text") {
-      aesthetic = await textQueryToAesthetic(
-        (extraTextContext ?? contexts[0].textQuery ?? "").trim(),
-        tasteMemory.previousDNAs
-      );
-    } else if (mode === "images") {
-      // Use Claude vision on uploaded images to extract aesthetic
-      aesthetic = await analyzeAesthetic(
-        "uploaded images",
-        [],
-        uploadedImages.slice(0, 10),
-        tasteMemory.previousDNAs,
-        extraTextContext
-      );
-    } else {
-      // quiz — extraTextContext already contains the quiz brief
-      aesthetic = await textQueryToAesthetic(
-        extraTextContext ?? "classic casual style",
-        tasteMemory.previousDNAs
-      );
-    }
-
-    // User-selected price tier is a HARD override on Claude's inferred
-    // price_range. It precedes candidate fetch, so every downstream filter
-    // (Pinecone numeric price_range filter, Algolia priceFilter, curation
-    // scoring) sees the user's chosen envelope. "all" (priceOverride === null)
-    // leaves Claude's inference intact.
-    if (priceOverride) {
-      console.log(`[shop] priceTier override: ${aesthetic.price_range} → ${priceOverride}`);
-      aesthetic = { ...aesthetic, price_range: priceOverride };
-    }
-
-    const allAvoids = [...(aesthetic.avoids ?? []), ...tasteMemory.softAvoids];
-
-    // ── Product retrieval ─────────────────────────────────────────────────────
-    let rawCandidates: import("@/lib/algolia").CategoryCandidates;
-
-    if (USE_VISUAL_SEARCH && mode === "images" && uploadedImages?.length) {
-      // Image upload → FashionCLIP embed → aesthetic-anchor blend → hybrid search.
-      console.log("[shop] Hybrid search: uploaded images (with aesthetic anchor)");
-      const rawEmb = await embedBase64Images(uploadedImages.slice(0, 10));
-      const anchored = await anchorImageVectorsWithAesthetic(rawEmb, aesthetic, tasteMemory.softAvoids);
-      rawCandidates  = await hybridSearch(anchored, aesthetic, token, 20, { useTasteHead });
-
-    } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
-      // Pinterest → FashionCLIP embed → cross-session centroid + 10% aesthetic
-      // anchor + negative subtraction → hybrid Pinecone + Algolia
-      console.log("[shop] Hybrid search: Pinterest board images (with aesthetic anchor)");
-
-      let embeddings = await embedImageUrls(pinImageUrls.slice(0, 20));
-      const validEmbeddings = embeddings.filter((e) => e.length > 0);
-
-      // Existing nudge toward cross-session style centroid (kept as-is)
-      if (tasteMemory.styleCentroid && validEmbeddings.length > 0) {
-        console.log("[shop] Blending cross-session style centroid");
-        embeddings = validEmbeddings.map((emb) =>
-          blendCentroids(emb, [tasteMemory.styleCentroid!], 0.15)
-        );
-      }
-
-      // NEW: blend the inferred aesthetic in at 10% weight + subtract avoids.
-      // Anchors visually-noisy boards to their semantic intent.
-      embeddings = await anchorImageVectorsWithAesthetic(
-        embeddings,
-        aesthetic,
-        tasteMemory.softAvoids,
-      );
-
-      rawCandidates = await hybridSearch(embeddings, aesthetic, token, 20, { useTasteHead });
-
-    } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
-      // Text/quiz → multi-vector ensemble query (per-category phrasing) +
-      // negative subtraction of avoids → hybrid Pinecone + Algolia.
-      console.log("[shop] Hybrid search: multi-vector text ensemble via FashionCLIP");
-      const queryVectors = await buildTextQueryVectors(aesthetic, tasteMemory.softAvoids);
-      console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
-      rawCandidates      = await hybridSearch(queryVectors, aesthetic, token, 20, { useTasteHead });
-
-    } else {
-      // No Pinecone → pure Algolia text search
-      console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
-      rawCandidates = await fetchCandidateProductsByCategory(aesthetic, token);
-    }
-
-    // ── Filters ───────────────────────────────────────────────────────────────
-    // Vision re-rank was previously invoked here but it added 3-8s of latency
-    // on initial load for limited perceived quality lift (the subsequent
-    // /api/curate Claude call already evaluates images and composes outfits).
-    // Removed for speed. Function remains in lib/ai.ts for future use.
-    const afterAvoids = filterByAvoids(rawCandidates, allAvoids);
-    const candidates  = filterMensItems(afterAvoids);
-
-    // ── Persist StyleDNA (fire and forget, Pinterest boards only) ─────────────
-    if (mode === "pinterest" && boardId && boardName) {
-      void saveStyleDNA(token, boardId, boardName, aesthetic)
-        .catch((err) => console.warn("saveStyleDNA failed (non-fatal):", err));
-    }
-
-    return NextResponse.json({ aesthetic, candidates, clickSignals: tasteMemory.clickSignals });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[shop] Failed:", message);
-    return NextResponse.json({ error: "Shop analysis failed", detail: message }, { status: 500 });
-  }
+  return new Response(stream, {
+    headers: {
+      "Content-Type":    "application/x-ndjson; charset=utf-8",
+      // Prevent intermediaries (nginx, Vercel edge, some CDNs) from buffering
+      // the stream — without this, the NDJSON events pile up and arrive in
+      // one chunk at the end, defeating the whole progressive-reveal point.
+      "Cache-Control":   "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
