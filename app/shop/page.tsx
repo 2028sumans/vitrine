@@ -54,100 +54,12 @@ const PRICE_CAPS: ReadonlyArray<{ label: string; value: number | null }> = [
   { label: "Under $1K",   value: 1000  },
 ];
 
-// Current grid column count — mirrors Tailwind's `grid-cols-2 sm:grid-cols-3
-// lg:grid-cols-4` breakpoints (sm=640, lg=1024). Used by mixBrands to enforce
-// the "no brand repeats in a row" rule based on what the user is actually seeing.
-function getGridCols(): number {
-  if (typeof window === "undefined") return 4;
-  if (window.matchMedia("(min-width: 1024px)").matches) return 4;
-  if (window.matchMedia("(min-width: 640px)").matches)  return 3;
-  return 2;
-}
-
-// Brand mixer — "rearrange-string" greedy. Applies to every scoped shop
-// page (brand mode, every category page: Tops, Dresses, Bottoms, Knits,
-// Bags, Shoes, Outerwear, Other) because it's run on the flat `products`
-// list before render.
-//
-// Rules, in preference order:
-//   PRIMARY:  No two items from the same brand across any pair of
-//             consecutive rows (current row + previous row — a sliding
-//             2-row window).
-//   FALLBACK: When the primary rule can't be satisfied for the next
-//             slot, drop back to the original per-row rule: no same
-//             brand twice in the current row. This is the "unless
-//             necessary" relaxation — we'd rather let a brand repeat
-//             across a row boundary than stall and drop items.
-//   STOP:     If even the per-row rule can't be satisfied, stop
-//             emitting. Leftover items stay in `products` state and
-//             re-enter the mix on the next render, once pagination
-//             brings fresher brand diversity.
-//
-// At each step we pick the brand with the MOST remaining items that's
-// eligible under the tightest rule currently satisfiable. Frequency-
-// first prevents a dominant brand from being held back until the end
-// and dumped in an unmixable run. Within a brand, server order is
-// preserved so the ranking signal survives.
-// Array.from(...) instead of `for (const x of map)` because the repo's
-// tsconfig has no `target` set, which lands on a default that tsc rejects
-// Map iterators under without --downlevelIteration. Same workaround as
-// commit 21c5ac7.
-function mixBrands(list: Product[], cols: number): Product[] {
-  if (list.length <= 1 || cols <= 0) return list;
-
-  const buckets = new Map<string, Product[]>();
-  for (const p of list) {
-    const key = (p.brand ?? "").toLowerCase();
-    const arr = buckets.get(key);
-    if (arr) arr.push(p);
-    else buckets.set(key, [p]);
-  }
-
-  const out: Product[] = [];
-
-  while (buckets.size > 0) {
-    const idx         = out.length;
-    const rowStart    = idx - (idx % cols);
-    // The 2-row window is the previous row plus everything placed so
-    // far in the current row. On row 0 it collapses to just the
-    // current row.
-    const windowStart = Math.max(0, rowStart - cols);
-    const windowBrands = new Set<string>();
-    const rowBrands    = new Set<string>();
-    for (let i = windowStart; i < idx; i++) {
-      const b = (out[i].brand ?? "").toLowerCase();
-      if (!b) continue;
-      windowBrands.add(b);
-      if (i >= rowStart) rowBrands.add(b);
-    }
-
-    // Tiered pick: try the 2-row rule first; if nothing fits, drop back
-    // to the per-row rule. Empty-brand items bypass both.
-    const pickBest = (forbid: Set<string>): string | null => {
-      let best: string | null = null;
-      let bestN = -1;
-      for (const [brand, items] of Array.from(buckets.entries())) {
-        if (items.length === 0) continue;
-        if (brand && forbid.has(brand)) continue;
-        if (items.length > bestN) { best = brand; bestN = items.length; }
-      }
-      return best;
-    };
-
-    const picked = pickBest(windowBrands) ?? pickBest(rowBrands);
-
-    // Nothing satisfies even the per-row rule — stop and defer the
-    // leftovers to the next render. We'd rather temporarily hide items
-    // than pack two of the same brand into one row.
-    if (!picked) break;
-
-    const arr = buckets.get(picked)!;
-    out.push(arr.shift()!);
-    if (arr.length === 0) buckets.delete(picked);
-  }
-
-  return out;
-}
+// Note: the brand-mixer that used to live here (enforcing "no same brand
+// twice in a row") was removed. It was silently truncating the grid to a
+// handful of cards whenever the fetched pool was dominated by one or two
+// brands — e.g. category views right after a reclassification pass, or any
+// brand-mode page by definition. Products now render in server order; let
+// the ranking signal stand on its own.
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -187,23 +99,9 @@ function ShopPageContent() {
   const seenIdsRef              = useRef<Set<string>>(new Set());
   const sentinelRef             = useRef<HTMLDivElement>(null);
 
-  // Viewport column count — drives the brand-mixer's "max 2 per line" rule.
-  // Updates on resize so a window-drag past a Tailwind breakpoint re-mixes.
-  const [gridCols, setGridCols] = useState<number>(4);
-  useEffect(() => {
-    const update = () => setGridCols(getGridCols());
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
-  // Display order = server-ranked products run through the brand mixer.
-  // Derived (not state), so re-ranking on likes/dislikes composes cleanly:
-  // setProducts writes the re-ranked list, mixBrands re-runs on top.
-  const displayProducts = useMemo(
-    () => mixBrands(products, gridCols),
-    [products, gridCols],
-  );
+  // Display order = server order. The brand-mixer that used to wrap this
+  // was truncating the grid when a single brand dominated the pool.
+  const displayProducts = products;
 
   // Free-text Steer input from the scroll view. `steerQuery` holds the raw
   // text the user typed (used for scope hashing + pre-filling the input when

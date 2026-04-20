@@ -1391,7 +1391,7 @@ export default function DashboardPage() {
       const byKey = (key: "brand" | "category" | "color", max: number): string[] => {
         const counts = new Map<string, number>();
         for (const p of likedProducts) {
-          const v = String((p as Record<string, unknown>)[key] ?? "").trim();
+          const v = String((p as unknown as Record<string, unknown>)[key] ?? "").trim();
           if (!v) continue;
           counts.set(v, (counts.get(v) ?? 0) + 1);
         }
