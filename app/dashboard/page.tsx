@@ -328,37 +328,60 @@ function ProductScrollCard({
 // ── Product scroll view ───────────────────────────────────────────────────────
 
 function ProductScrollView({
-  products, onClose, userToken, onSayMore,
+  products, onClose, userToken, onSayMore, onNearEnd, hasMore, loadingMore, likedIds, onLike,
 }: {
-  products:   AlgoliaProduct[];
-  onClose:    () => void;
-  userToken:  string;
-  onSayMore?: (comment: string) => void;
+  products:    AlgoliaProduct[];
+  onClose:     () => void;
+  userToken:   string;
+  onSayMore?:  (comment: string) => void;
+  // Infinite scroll — fires when the active card is within NEAR_END_THRESHOLD
+  // of the end of the products array. Parent is responsible for debouncing
+  // / single-flight guarding; onNearEnd may fire multiple times as the user
+  // scrolls through the last few cards.
+  onNearEnd?:  () => void;
+  hasMore?:    boolean;
+  loadingMore?: boolean;
+  // Like state lifted to the parent so /api/shop-all pagination can bias
+  // subsequent pages on session likes. When these are undefined the view
+  // falls back to a local set (useful outside the shopping step).
+  likedIds?:   Set<string>;
+  onLike?:     (objectID: string) => void;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const isScrolling   = useRef(false);
 
+  // Near-end fire guard. React's state batching means onNearEnd might get
+  // called twice for the same threshold crossing; the ref tracks the lowest
+  // index we've already fired for so we don't double-fire the same page.
+  const lastFiredNearEndRef = useRef(-1);
+  const NEAR_END_THRESHOLD  = 3; // fire when active is within 3 of the end
+
   // Rail state — lifted out of the card so the rail can sit OFF to the
   // side of the card (matches the /shop french-aesthetic pattern) rather
   // than being overlaid on each scroll snap.
-  const [likedIds,    setLikedIds]    = useState<Set<string>>(new Set());
+  const [localLikedIds, setLocalLikedIds] = useState<Set<string>>(new Set());
+  const effectiveLikedIds = likedIds ?? localLikedIds;
   const [showSayMore, setShowSayMore] = useState(false);
   const [sayMoreText, setSayMoreText] = useState("");
 
   const activeProduct = products[activeIdx];
-  const activeLiked   = activeProduct ? likedIds.has(activeProduct.objectID) : false;
+  const activeLiked   = activeProduct ? effectiveLikedIds.has(activeProduct.objectID) : false;
 
   const handleLike = useCallback(() => {
     const p = activeProduct;
     if (!p) return;
-    const already = likedIds.has(p.objectID);
-    setLikedIds((prev) => {
-      const next = new Set(prev);
-      if (already) next.delete(p.objectID);
-      else next.add(p.objectID);
-      return next;
-    });
+    const already = effectiveLikedIds.has(p.objectID);
+    if (onLike) {
+      onLike(p.objectID);
+    } else {
+      setLocalLikedIds((prev) => {
+        const next = new Set(prev);
+        if (already) next.delete(p.objectID);
+        else next.add(p.objectID);
+        return next;
+      });
+    }
     if (!already) {
       trackProductClick({ userToken, objectID: p.objectID, queryID: p._queryID ?? "", position: activeIdx + 1 });
       fetch("/api/taste/click", {
@@ -367,7 +390,28 @@ function ProductScrollView({
         body: JSON.stringify({ userToken, product: { objectID: p.objectID, title: p.title, brand: p.brand, color: p.color, category: p.category, retailer: p.retailer, price_range: p.price_range, image_url: p.image_url } }),
       }).catch(() => {});
     }
-  }, [activeProduct, likedIds, userToken, activeIdx]);
+  }, [activeProduct, effectiveLikedIds, userToken, activeIdx, onLike]);
+
+  // Fire onNearEnd when we cross into the last NEAR_END_THRESHOLD cards of
+  // the current products list, and only once per threshold-crossing — the
+  // ref re-arms when the products array grows (parent appended new items).
+  useEffect(() => {
+    if (!onNearEnd || !hasMore || loadingMore) return;
+    if (products.length === 0) return;
+    const threshold = Math.max(0, products.length - NEAR_END_THRESHOLD);
+    if (activeIdx >= threshold && activeIdx > lastFiredNearEndRef.current) {
+      lastFiredNearEndRef.current = activeIdx;
+      onNearEnd();
+    }
+  }, [activeIdx, products.length, hasMore, loadingMore, onNearEnd]);
+
+  // Re-arm the near-end guard when the products array grows (parent appended
+  // a new page). Without this, if the user scrolled past the threshold,
+  // triggered a fetch, and waited for results, the next threshold crossing
+  // in the grown list wouldn't fire.
+  useEffect(() => {
+    lastFiredNearEndRef.current = -1;
+  }, [products.length]);
 
   const handleSteerSubmit = useCallback((comment: string) => {
     const trimmed = comment.trim();
@@ -454,6 +498,21 @@ function ProductScrollView({
               {products.map((p, i) => (
                 <ProductScrollCard key={p.objectID} product={p} index={i} activeIdx={activeIdx} userToken={userToken} />
               ))}
+              {loadingMore && (
+                <div className="flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+                  <p className="font-display italic text-xl text-muted">Finding more<span className="inline-flex ml-0.5">
+                    <span style={{ animation: "dotPulse 1.4s ease-in-out 0s infinite" }}>.</span>
+                    <span style={{ animation: "dotPulse 1.4s ease-in-out 0.28s infinite" }}>.</span>
+                    <span style={{ animation: "dotPulse 1.4s ease-in-out 0.56s infinite" }}>.</span>
+                  </span></p>
+                </div>
+              )}
+              {!loadingMore && hasMore === false && products.length > 0 && (
+                <div className="flex flex-col items-center justify-center bg-background gap-3" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
+                  <p className="font-display italic text-xl text-muted">That's everything that fits.</p>
+                  <p className="font-sans text-[10px] tracking-widest uppercase text-muted/70">Refine via Steer, or go back to pick new inputs</p>
+                </div>
+              )}
             </div>
             {activeIdx === 0 && products.length > 1 && (
               <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 pointer-events-none animate-bounce">
@@ -936,6 +995,18 @@ const SHOPPING_STEPS = [
 
 const CATEGORIES = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
 
+// focus_categories -> /api/shop-all categoryFilter label. Lets the shopping
+// step paginate against the full category inventory (not just the 20-item
+// bucket /api/shop returns) when Claude flagged the input as single-category.
+const FOCUS_TO_CATEGORY_LABEL: Record<string, string> = {
+  dress:  "Dresses",
+  top:    "Tops",
+  bottom: "Bottoms",
+  jacket: "Outerwear",
+  shoes:  "Shoes",
+  bag:    "Bags and accessories",
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -954,6 +1025,23 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
   const [shopViewMode, setShopViewMode]     = useState<ViewMode>("scroll");
+
+  // Infinite-scroll pagination on top of the initial /api/shop candidates.
+  // Once the user works through the visual-first picks Pinecone returned,
+  // we page against /api/shop-all scoped to focus_categories[0] so they can
+  // browse the entire relevant inventory (the whole shoes catalog for a
+  // shoes board, etc). Resets on /api/shop re-fetch via handleShopMulti.
+  const [extraProducts,    setExtraProducts]    = useState<AlgoliaProduct[]>([]);
+  const [extraPage,        setExtraPage]        = useState(1);
+  const [extraHasMore,     setExtraHasMore]     = useState(true);
+  const [loadingMoreExtra, setLoadingMoreExtra] = useState(false);
+  // Tracks products already in the feed (initial candidates + extras + Algolia
+  // pages) so /api/shop-all pagination doesn't hand us duplicates.
+  const seenExtraIdsRef = useRef<Set<string>>(new Set());
+
+  // Session likes/dislikes in the shopping scroll view — used both to bias
+  // subsequent /api/shop-all pages and to persist to taste memory.
+  const [sessionLikedIds, setSessionLikedIds] = useState<Set<string>>(new Set());
 
   // Multi-context blocks (up to 4, each independently typed)
   interface ContextBlock {
@@ -1187,6 +1275,17 @@ export default function DashboardPage() {
             setShoppingStep((s) => (s < 1 ? 1 : s));
           } else if (event.phase === "candidates") {
             setCandidates(event.candidates);
+            // Seed seen-id set with the initial picks so /api/shop-all
+            // pagination doesn't rehand us the same products.
+            const seen = seenExtraIdsRef.current;
+            seen.clear();
+            for (const cat of CATEGORIES) {
+              for (const p of event.candidates[cat] ?? []) seen.add(p.objectID);
+            }
+            setExtraProducts([]);
+            setExtraPage(1);
+            setExtraHasMore(true);
+            setSessionLikedIds(new Set());
           } else if (event.phase === "done") {
             sawDone = true;
           } else if (event.phase === "error") {
@@ -1255,6 +1354,89 @@ export default function DashboardPage() {
     }
   }, [aesthetic, userToken, isRefining]);
 
+  // ── Infinite scroll: page against /api/shop-all after initial candidates ──
+  //
+  // The initial /api/shop call returns ~15-20 visual-first picks (Pinecone +
+  // CLIP + hybrid search). Once the user scrolls through those, paginate
+  // against /api/shop-all scoped to focus_categories[0] so they can browse
+  // the full inventory of their actual interest (all shoes for a shoes
+  // board, all dresses for a dresses board, etc.). Session likes flow back
+  // as bias so each page reflects what they've been engaging with.
+  const loadMoreExtras = useCallback(async () => {
+    if (loadingMoreExtra || !extraHasMore || !aesthetic) return;
+    setLoadingMoreExtra(true);
+    try {
+      // Scope: prefer the focus category when Claude flagged one (shoes
+      // board -> "Shoes"). Otherwise leave empty so /api/shop-all runs
+      // unscoped bias+steer search across the whole catalog.
+      const focusCat = aesthetic.focus_categories?.[0];
+      const categoryFilter = focusCat ? FOCUS_TO_CATEGORY_LABEL[focusCat] ?? "" : "";
+
+      // Steer query — the aesthetic's searchable keywords. Algolia folds
+      // these in as optionalWords, so each term ranks-boosts rather than
+      // hard-filters. Cap length because the underlying Algolia index has
+      // a max query length.
+      const steerQuery = [
+        ...(aesthetic.style_keywords ?? []).slice(0, 6),
+        ...(aesthetic.color_palette  ?? []).slice(0, 3).map((c) => c.split(" ").pop() ?? c),
+      ].filter((t) => t && t.length > 2).join(" ");
+
+      // Bias — derive from session likes. Pull each liked product's brand /
+      // category / color out of the feed we already have so the server's
+      // buildQueryFromBias can rank-boost matching items on the next page.
+      const likedProducts = [
+        ...CATEGORIES.flatMap((c) => (candidates?.[c] ?? [])),
+        ...extraProducts,
+      ].filter((p) => sessionLikedIds.has(p.objectID));
+      const byKey = (key: "brand" | "category" | "color", max: number): string[] => {
+        const counts = new Map<string, number>();
+        for (const p of likedProducts) {
+          const v = String((p as Record<string, unknown>)[key] ?? "").trim();
+          if (!v) continue;
+          counts.set(v, (counts.get(v) ?? 0) + 1);
+        }
+        return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, max).map(([v]) => v);
+      };
+      const bias = {
+        likedBrands:     byKey("brand",    5),
+        likedCategories: byKey("category", 4),
+        likedColors:     byKey("color",    3),
+      };
+
+      const res = await fetch("/api/shop-all", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          page:            extraPage,
+          bias,
+          likedProductIds: Array.from(sessionLikedIds),
+          categoryFilter,
+          steerQuery,
+        }),
+      });
+      if (!res.ok) { setExtraHasMore(false); return; }
+      const data = await res.json();
+      const fresh = (data.products ?? []) as AlgoliaProduct[];
+
+      // Dedup against everything already shown (initial candidates + prior extras pages)
+      const seen = seenExtraIdsRef.current;
+      const batch: AlgoliaProduct[] = [];
+      for (const p of fresh) {
+        if (seen.has(p.objectID)) continue;
+        seen.add(p.objectID);
+        batch.push(p);
+      }
+
+      setExtraProducts((prev) => [...prev, ...batch]);
+      setExtraPage((p) => p + 1);
+      if (!data.hasMore || batch.length === 0) setExtraHasMore(false);
+    } catch (err) {
+      console.warn("[loadMoreExtras] failed:", err);
+    } finally {
+      setLoadingMoreExtra(false);
+    }
+  }, [aesthetic, candidates, extraProducts, extraPage, extraHasMore, loadingMoreExtra, sessionLikedIds]);
+
   // ── Reset ─────────────────────────────────────────────────────────────────
 
   const reset = () => {
@@ -1268,6 +1450,11 @@ export default function DashboardPage() {
     setShopViewMode("scroll");
     setContextBlocks([{ id: "b1", type: "pinterest", textQuery: "", uploadedFiles: [] }]);
     setIsRefining(false);
+    setExtraProducts([]);
+    setExtraPage(1);
+    setExtraHasMore(true);
+    setSessionLikedIds(new Set());
+    seenExtraIdsRef.current.clear();
   };
 
   // ── Context block type labels ─────────────────────────────────────────────
@@ -1465,18 +1652,44 @@ export default function DashboardPage() {
             aesthetic.primary_aesthetic?.toLowerCase() ?? "",
           ].map((t) => t.toLowerCase());
 
+          // Initial picks (visual-first matches from /api/shop) score-ranked
+          // against aesthetic terms, then extra paginated products from
+          // /api/shop-all appended in fetch order. Extras stay below initial
+          // picks so Pinecone-best results surface first.
           const scored = CATEGORIES.flatMap((cat) => candidates[cat]).map((p) => {
             const haystack = [...(p.aesthetic_tags ?? []), (p.title ?? "").toLowerCase(), (p.description ?? "").toLowerCase()].join(" ");
             const score = terms.filter((t) => t.length > 2 && haystack.includes(t)).length;
             return { product: p, score };
           });
           scored.sort((a, b) => b.score - a.score);
-          const sortedProducts = scored.map(({ product }) => product);
+          const sortedProducts = [
+            ...scored.map(({ product }) => product),
+            ...extraProducts,
+          ];
+
+          const handleLikeInScroll = (objectID: string) => {
+            setSessionLikedIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(objectID)) next.delete(objectID);
+              else next.add(objectID);
+              return next;
+            });
+          };
 
           return (
             <>
               {shopViewMode === "scroll" && (
-                <ProductScrollView products={sortedProducts} onClose={() => setShopViewMode("grid")} userToken={userToken} onSayMore={handleSayMore} />
+                <ProductScrollView
+                  products={sortedProducts}
+                  onClose={() => setShopViewMode("grid")}
+                  userToken={userToken}
+                  onSayMore={handleSayMore}
+                  onNearEnd={loadMoreExtras}
+                  hasMore={extraHasMore}
+                  loadingMore={loadingMoreExtra}
+                  likedIds={sessionLikedIds}
+                  onLike={handleLikeInScroll}
+                />
               )}
 
               <div className="fade-in-up">
