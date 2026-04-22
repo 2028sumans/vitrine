@@ -98,45 +98,36 @@ const EDITS = [
     },
   },
   {
-    slug:        "summer",
-    title:       "Summer",
-    subtitle:    "Bikinis, linen, long evenings",
-    description: "The pieces for the slow months. Dippin Daisys across the pool deck, loose linen, cotton sundresses, sandals worn through. A summer wardrobe, not a summer trend.",
+    slug:        "swimwear",
+    title:       "Swimwear",
+    subtitle:    "Bikinis, one-pieces, string, high-waisted",
+    description: "Swim, nothing else. Dippin Daisys anchors the deck — string bikinis, triangle tops, high-waisted bottoms, and one-pieces from the brands making swim the focal point, not the afterthought.",
+    // Hand-picked editorial cover (Dippin Daisys Seaport Thong Bikini Bottom lifestyle shot).
+    heroImageUrl: "https://cdn.shopify.com/s/files/1/1427/1236/files/SEAPORT-BOTTOM-BLACK-3.webp?v=1726270102",
     filter:      "", // broad — we filter in JS
     match: (p) => {
       const brand = (p.brand ?? "").toLowerCase();
-      const t = (p.title ?? "").toLowerCase();
-      const m = (p.material ?? "").toLowerCase();
-      const c = (p.color ?? "").toLowerCase();
-      const h = `${t} ${m}`;
+      const t     = (p.title ?? "").toLowerCase();
 
-      // Reject formal / bridal / vintage-gown territory (catches the 1930s
-      // Hand Crochet Tulle Gown that was slipping through on "crochet").
-      if (/\b(gown|tulle|bridal|wedding|corset|victorian|edwardian|regency|1920s?|1930s?|1940s?|1950s?|debutante|ball\s*gown|floor[\s-]?length|opera|evening\s*gown)\b/.test(t)) return false;
-      if (/\b(wool|cashmere|fleece|fur|leather\s*jacket|parka|puffer|heavy\s*coat|winter\s*coat)\b/.test(h)) return false;
-      // Reject gift cards (EN + ES) — "Tarjeta Regalo" was slipping in on "Bikini Lab" in the title.
-      if (/\b(gift\s*card|tarjeta\s*regalo|tarjeta\s*de\s*regalo|e-gift)\b/.test(t)) return false;
+      // Obvious rejects
+      if (/\b(gown|tulle|bridal|wedding|gift\s*card|tarjeta\s*regalo|e-gift)\b/.test(t)) return false;
+      // Accessories / footwear / non-swim items that share summer vocabulary
+      if (/\b(sandal|shoe\b|heel|boot|clog|sunglass|earring|bracelet|necklace|ring\b|hair\s*clip|jaw\s*clip)\b/.test(t)) return false;
+      // Cover-ups, sarongs, sundresses — bikinis only
+      if (/\b(cover[\s-]?up|sarong|sundress|kaftan|caftan|pareo|wrap\s*dress)\b/.test(t)) return false;
 
-      // Dippin Daisys — pass-through the whole brand (it's a swim label,
-      // everything they make is summer). Per-brand cap controls volume.
+      // Dippin Daisys is an all-swim brand — accept the whole catalog,
+      // capped by maxPerBrand below.
       if (brand === "dippin daisys") return true;
 
-      // Strong summer signals — swim gets priority weight (bikini/swimsuit
-      // always passes; other signals still require non-wintry context above).
-      if (/\b(bikini|swimsuit|one[\s-]?piece\s*swim|swim\s*(?:top|bottom|brief|short)|beachwear|swimwear|tankini)\b/.test(t)) return true;
-
-      if (/\b(linen|sundress|eyelet|broderie|seersucker|poplin|espadrille|sandal|straw|raffia|crochet|chambray)\b/.test(h)) return true;
-
-      // Light colours + summery silhouettes
-      if (/\b(short|sundress|camisole|tank|tube\s*top|shift\s*dress)\b/.test(t) &&
-          /\b(white|cream|ecru|yellow|pink|blue|sky|mint|butter|coral|peach)\b/.test(c)) return true;
-
-      return false;
+      // Hard-swim keyword gate: title must explicitly say it's swim.
+      return /\b(bikini|swimsuit|swim\s*(?:top|bottom|brief|short|set|wear|suit)|tankini|one[\s-]?piece\s*swim|bathing\s*suit|swimwear)\b/.test(t);
     },
-    // Cap Dippin Daisys at 8 so they anchor but don't dominate the 36-item grid.
-    maxPerBrand: { "Dippin Daisys": 8 },
-    // Float Dippin Daisys + any bikini/swim product to the top of their
-    // category bucket so the round-robin picks swim first.
+    // Dippin Daisys anchors the edit; bump to 10 so they have a visible share
+    // alongside the ~15 other swim brands in the catalog.
+    maxPerBrand: { "Dippin Daisys": 10 },
+    // Float Dippin Daisys to the top of each category bucket so the
+    // round-robin fills with them first.
     prioritize: (p) => {
       const brand = (p.brand ?? "").toLowerCase();
       const t     = (p.title ?? "").toLowerCase();
@@ -252,8 +243,9 @@ async function main() {
       title:                edit.title,
       subtitle:             edit.subtitle,
       description:          edit.description,
-      // Default hero = first product's image. Replace with editorial art when available.
-      hero_image_url:       picked[0]?.image_url ?? null,
+      // Hero: per-edit override wins; otherwise fall back to the first
+      // picked product's image as a placeholder.
+      hero_image_url:       edit.heroImageUrl ?? picked[0]?.image_url ?? null,
       product_ids:          picked.map((p) => p.objectID),
       featured_on_homepage: true,
       published_at:         new Date().toISOString().slice(0, 10),
