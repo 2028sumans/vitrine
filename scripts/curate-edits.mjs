@@ -54,17 +54,46 @@ const EDITS = [
   {
     slug:        "lbd",
     title:       "The Little Black Dress",
-    subtitle:    "A column of black, thirty ways",
-    description: "Every occasion you can think of, filed under black. Slip, column, mini, midi — a tight survey of the one dress that earns its spot in every wardrobe.",
+    subtitle:    "Black, mini, thirty ways",
+    description: "The one dress that earns its spot in every wardrobe — black, above-the-knee, no prints, no distractions. A tight survey of the short black dress, brand by brand.",
     filter:      "category:dress",
     match: (p) => {
-      const c = (p.color ?? "").toLowerCase();
+      const c = (p.color ?? "").toLowerCase().trim();
       const t = (p.title ?? "").toLowerCase();
-      // Must be black (color field or title), not just "dark"
-      const isBlack = c.includes("black") || /\bblack\b/.test(t);
-      if (!isBlack) return false;
-      // Avoid prints that happen to have "black" in the name
-      if (/\b(floral|flower|print|stripe|checker|polka|gingham|tiger|leopard|rainbow)\b/.test(t)) return false;
+
+      // Must explicitly be a MINI and have "dress" in the title — this
+      // disqualifies accessories (clips, bralettes) mis-indexed as dresses.
+      if (!/\bmini\b/.test(t))  return false;
+      if (!/\bdress\b/.test(t)) return false;
+      if (/\b(midi|maxi|long|floor|gown|full[-\s]?length)\b/.test(t)) return false;
+
+      // Extra accessory / non-dress guards in case "mini" + "dress" both
+      // appear in an accessory title by coincidence.
+      if (/\b(clip|jaw|earring|necklace|bracelet|ring|shoe|bag|belt|hair\b)\b/.test(t)) return false;
+
+      // Prints and patterns — check title and color field both
+      const PATTERNS = /\b(floral|flower|print|stripe|check(?:ed|er)?|polka|gingham|leopard|tiger|rainbow|ombre|tie[\s-]?dye|camo|animal|paisley|combo|two[-\s]?tone|multi|mix|colou?rblock|ikat|jacquard|pineapple|abstract|graphic|embroidered)\b/;
+      if (PATTERNS.test(t)) return false;
+      if (c && PATTERNS.test(c)) return false;
+
+      // Non-black colour words. If either color field OR title mentions
+      // another colour, reject. This catches mis-tagged variants where
+      // Algolia's color="Black" but title is "Lettuce Mini Dress - Lilac".
+      const OTHER_COLORS = /\b(white|red|pink|blue|green|yellow|purple|brown|gold|silver|navy|cream|ecru|beige|tan|ivory|orange|grey|gray|rose|nude|olive|burgundy|taupe|charcoal|plum|lilac|lavender|mauve|khaki|rust|mint)\b/;
+      if (OTHER_COLORS.test(t)) return false;
+
+      // Case A: color field is populated. Must contain "black", no combos,
+      // no other colour words, no pattern words.
+      if (c) {
+        if (!c.includes("black"))                                      return false;
+        if (/[\/&]|\band\b|\swith\b|,/.test(c))                        return false;
+        if (OTHER_COLORS.test(c))                                      return false;
+        if (/\b(polka|print|floral|stripe|dot|pattern|check|plaid)\b/.test(c)) return false;
+        return true;
+      }
+
+      // Case B: color field empty. Title must explicitly say "black".
+      if (!/\bblack\b/.test(t)) return false;
       return true;
     },
   },
@@ -140,8 +169,9 @@ function pickDiverse(candidates, size, maxPerBrandOverrides = {}) {
 
   const cats = [...byCat.keys()];
   const idx  = Object.fromEntries(cats.map((c) => [c, 0]));
-  const perBrand = new Map();
-  const picked   = [];
+  const perBrand   = new Map();
+  const seenTitles = new Set(); // dedup identical (brand|title) products — catalog has real dupes
+  const picked     = [];
 
   outer: while (picked.length < size) {
     let progress = false;
@@ -152,6 +182,9 @@ function pickDiverse(candidates, size, maxPerBrandOverrides = {}) {
         const p = arr[idx[cat]++];
         const brand = p.brand ?? "";
         if ((perBrand.get(brand) ?? 0) >= capFor(brand)) continue;
+        const titleKey = `${brand.toLowerCase()}|${(p.title ?? "").toLowerCase().trim()}`;
+        if (seenTitles.has(titleKey)) continue;
+        seenTitles.add(titleKey);
         perBrand.set(brand, (perBrand.get(brand) ?? 0) + 1);
         picked.push(p);
         progress = true;

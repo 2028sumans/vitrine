@@ -211,12 +211,41 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ══ 2. EDITOR'S PICKS — CREAM ══════════════════════════════════════
+        {/* ══ 2. HOW IT WORKS — CREAM ═════════════════════════════════════════ */}
+        <section className="bg-cream px-8 py-28 max-w-full">
+          <div className="max-w-6xl mx-auto">
+            <Reveal>
+              <div className="mb-20">
+                <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
+                  Three steps.
+                </h2>
+              </div>
+            </Reveal>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-8">
+              {steps.map((step, i) => (
+                <Reveal key={step.num} delay={i * 120}>
+                  <p className="font-display font-light text-6xl text-navy/40 mb-6 leading-none select-none">
+                    {step.num}
+                  </p>
+                  <h3 className="font-display font-light text-3xl text-navy mb-3 leading-snug">
+                    {step.title}
+                  </h3>
+                  <p className="font-sans text-base text-navy-strong leading-relaxed">
+                    {step.body}
+                  </p>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ══ 3. EDITOR'S PICKS — CREAM ══════════════════════════════════════
             Phia-inspired: three tall hero cards pointing at curated edits.
-            Sits between the hero and "Three steps" so the first thing past the
-            wordmark is something shoppable. */}
+            Sits after "Three steps" — you understand the pitch first, then
+            see something shoppable. */}
         {featuredEdits.length > 0 && (
-          <section className="bg-cream px-8 pt-28 pb-24 max-w-full">
+          <section className="bg-cream px-8 pt-4 pb-28 max-w-full">
             <div className="max-w-6xl mx-auto">
               <Reveal>
                 <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
@@ -247,35 +276,6 @@ export default function HomePage() {
             </div>
           </section>
         )}
-
-        {/* ══ 3. HOW IT WORKS — CREAM ═════════════════════════════════════════ */}
-        <section className="bg-cream px-8 py-28 max-w-full">
-          <div className="max-w-6xl mx-auto">
-            <Reveal>
-              <div className="mb-20">
-                <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
-                  Three steps.
-                </h2>
-              </div>
-            </Reveal>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 sm:gap-8">
-              {steps.map((step, i) => (
-                <Reveal key={step.num} delay={i * 120}>
-                  <p className="font-display font-light text-6xl text-navy/40 mb-6 leading-none select-none">
-                    {step.num}
-                  </p>
-                  <h3 className="font-display font-light text-3xl text-navy mb-3 leading-snug">
-                    {step.title}
-                  </h3>
-                  <p className="font-sans text-base text-navy-strong leading-relaxed">
-                    {step.body}
-                  </p>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* ══ 3. STATEMENT — NAVY ═════════════════════════════════════════════ */}
         <section className="bg-background px-8 py-32">
