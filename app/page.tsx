@@ -32,21 +32,43 @@ const steps = [
 
 // ── Brand spotlight ───────────────────────────────────────────────────────────
 // Rotates monthly in spirit; the actual content is hand-edited each time so
-// the copy doesn't drift into generic brand-PR territory. Image is a hero
-// from St. Agni's own lookbook — borrowed through their Shopify CDN the same
-// way /brands surfaces brand cards.
+// the copy doesn't drift into generic brand-PR territory. Images are pulled
+// from each brand's own Shopify CDN — same pattern as /brands.
+// Each card links through to /shop?brand=X, the identical route you land on
+// when you click a brand tile on /brands, so the grid/scroll toggle, pagination,
+// and session signals all work out of the box.
 
-const SPOTLIGHT = {
-  brand: "St. Agni",
-  href:  "/shop?brand=St.%20Agni",
-  image: "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_130_BAMBI_5649copy.jpg?v=1768956513",
-  kicker: "Inside",
-  paragraphs: [
-    "Lara and Matthew Fells started St. Agni out of Byron Bay a decade ago, and the brand still feels run from there — mid-weight cream linen, leather slides cut the shape of a ballet flat, a wardrobe that reads like a long summer on the Northern Rivers.",
-    "The ethics are the quiet kind. Leather comes from Leather Working Group-certified tanneries in Portugal and Italy rather than the cheapest hide on the market. Ready-to-wear is mostly linen, organic cotton, and silk, stitched in a handful of factories the brand has used for years and names on the site. Drops are small, a few times a year — the opposite of a fast-fashion calendar.",
-    "Nothing about St. Agni is trying to be new. The cream trousers from 2019 are still in production. That's the point.",
-  ],
+type Spotlight = {
+  brand:    string;
+  href:     string;
+  image:    string;
+  kicker:   string;
+  tagline:  string; // one editorial line, runs under the card
 };
+
+const SPOTLIGHTS: ReadonlyArray<Spotlight> = [
+  {
+    brand:   "St. Agni",
+    href:    "/shop?brand=St.%20Agni",
+    image:   "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_130_BAMBI_5649copy.jpg?v=1768956513",
+    kicker:  "Inside",
+    tagline: "Byron Bay slow fashion. LWG-certified leather, linen cut for a long Australian summer, drops small enough to still feel personal.",
+  },
+  {
+    brand:   "Johnstons Of Elgin",
+    href:    "/shop?brand=Johnstons%20Of%20Elgin",
+    image:   "https://cdn.shopify.com/s/files/1/0725/7427/1766/files/WR000024_SB3022_VICUNA_flat_lay.jpg?v=1770368221",
+    kicker:  "Since 1797",
+    tagline: "Scottish cashmere, still mill-spun in Hawick after 228 years. Fleece traced to named farms, woven and finished on the Elgin looms their grandparents ran.",
+  },
+  {
+    brand:   "Tove",
+    href:    "/shop?brand=Tove",
+    image:   "https://cdn.shopify.com/s/files/1/0155/8868/7920/files/emily_shearling_tove.jpg?v=1710886755",
+    kicker:  "Inside",
+    tagline: "A small London studio run by Camille Perry and Holly Wright. Silks, cottons, a handful of pieces a season — each one cut to outlast the trend that launched it.",
+  },
+];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -83,6 +105,13 @@ export default function HomePage() {
             Shop
           </Link>
           <Link
+            href="/edits"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` }}
+          >
+            Edits
+          </Link>
+          <Link
             href="/brands"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` }}
@@ -105,6 +134,7 @@ export default function HomePage() {
           links={[
             { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
+            { href: "/edits",     label: "Edits" },
             { href: "/brands",    label: "Brands" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
@@ -231,11 +261,13 @@ export default function HomePage() {
         </section>
 
         {/* ══ 4. BRAND SPOTLIGHT — CREAM ══════════════════════════════════════
-            Replaces the old "What you get" features grid. One editorial
-            card (large image + serif kicker + brand name) on the left, a
-            hand-written brand note on the right. Phia's "Editor's picks"
-            card shape borrowed for the image; everything else is MUSE
-            typography. */}
+            Three equal-sized editorial cards, borrowing Phia's "Editor's
+            picks" shape: full-bleed 4:5 image, italic kicker + serif brand
+            name overlaid at the bottom-left, "Start exploring →" underlined.
+            A one-line editor's note sits below each card with the ethics
+            angle. Each card links to /shop?brand=X — exactly the same route
+            as clicking a brand on /brands, so the grid/scroll toggle and
+            pagination come along for free. */}
         <section className="bg-cream px-8 py-28">
           <div className="max-w-6xl mx-auto">
             <Reveal>
@@ -249,69 +281,47 @@ export default function HomePage() {
               </div>
             </Reveal>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-10 lg:gap-16 items-start">
-
-              {/* Card — full-bleed image with serif overlay at bottom-left,
-                  "Start exploring →" underneath. Slight hover-zoom on the
-                  image, matching /brands and /shop tiles. */}
-              <Reveal>
-                <Link
-                  href={SPOTLIGHT.href}
-                  className="group relative block aspect-[4/5] w-full overflow-hidden bg-[rgba(42,51,22,0.04)] shadow-card hover:shadow-card-hover transition-shadow duration-300"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={SPOTLIGHT.image}
-                    alt={SPOTLIGHT.brand}
-                    loading="eager"
-                    decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-700"
-                  />
-                  {/* Darkening gradient so the overlay text reads against any
-                      image. Kept strong at the bottom, transparent up top. */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent pointer-events-none" />
-
-                  <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10">
-                    <p className="font-display font-light italic text-white/80 text-lg mb-1">
-                      {SPOTLIGHT.kicker}
-                    </p>
-                    <h3 className="font-display font-light text-white text-4xl sm:text-5xl leading-[1.05] tracking-tight mb-5 drop-shadow-sm">
-                      {SPOTLIGHT.brand}
-                    </h3>
-                    <span className="font-sans text-[10px] tracking-widest uppercase text-white border-b border-white/60 pb-px">
-                      Start exploring →
-                    </span>
-                  </div>
-                </Link>
-              </Reveal>
-
-              {/* Story — plain editorial body text so the card carries the
-                  image weight. */}
-              <Reveal delay={120}>
-                <div className="lg:pt-4">
-                  <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-5">
-                    Why we&apos;re featuring them
-                  </p>
-                  <h4 className="font-display font-light text-3xl sm:text-4xl text-navy leading-tight mb-6">
-                    Slow fashion out of Byron Bay.
-                  </h4>
-                  {SPOTLIGHT.paragraphs.map((p, i) => (
-                    <p
-                      key={i}
-                      className="font-sans text-base text-navy-strong leading-relaxed mb-5 last:mb-0"
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-7 md:gap-6">
+              {SPOTLIGHTS.map((s, i) => (
+                <Reveal key={s.brand} delay={i * 120}>
+                  <div className="flex flex-col h-full">
+                    <Link
+                      href={s.href}
+                      className="group relative block aspect-[4/5] w-full overflow-hidden bg-[rgba(42,51,22,0.04)] shadow-card hover:shadow-card-hover transition-shadow duration-300"
                     >
-                      {p}
-                    </p>
-                  ))}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={s.image}
+                        alt={s.brand}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-700"
+                      />
+                      {/* Gradient so the overlay text reads against any image.
+                          Kept strong at the bottom, transparent up top. */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent pointer-events-none" />
 
-                  <Link
-                    href={SPOTLIGHT.href}
-                    className="mt-8 inline-block px-7 py-3 border border-navy text-navy font-sans text-[10px] tracking-widest uppercase hover:bg-navy hover:text-cream transition-colors duration-200"
-                  >
-                    Shop {SPOTLIGHT.brand} →
-                  </Link>
-                </div>
-              </Reveal>
+                      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-7">
+                        <p className="font-display font-light italic text-white/80 text-base mb-1">
+                          {s.kicker}
+                        </p>
+                        <h3 className="font-display font-light text-white text-3xl sm:text-[34px] leading-[1.05] tracking-tight mb-4 drop-shadow-sm break-words">
+                          {s.brand}
+                        </h3>
+                        <span className="font-sans text-[10px] tracking-widest uppercase text-white border-b border-white/60 pb-px">
+                          Start exploring →
+                        </span>
+                      </div>
+                    </Link>
+
+                    {/* Editor's note — one line, runs under the card. Kept
+                        plain body text so the image carries the visual weight. */}
+                    <p className="font-sans text-sm text-navy-strong leading-relaxed mt-5">
+                      {s.tagline}
+                    </p>
+                  </div>
+                </Reveal>
+              ))}
             </div>
           </div>
         </section>
