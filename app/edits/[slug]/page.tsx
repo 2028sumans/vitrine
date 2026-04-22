@@ -86,10 +86,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ slu
 
         {/* Editorial copy */}
         <section className="px-8 pt-14 pb-10 max-w-3xl mx-auto">
-          <p className="font-sans text-base text-muted-strong leading-relaxed">
-            {edit.description}
-          </p>
-          <p className="font-sans text-[10px] tracking-widest uppercase text-muted mt-6">
+          <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
             {products.length} piece{products.length === 1 ? "" : "s"}
           </p>
         </section>

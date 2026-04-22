@@ -15,7 +15,6 @@ export interface Edit {
   slug:                 string;
   title:                string;
   subtitle:             string;
-  description:          string;
   hero_image_url:       string | null;
   product_ids:          string[];
   featured_on_homepage: boolean;

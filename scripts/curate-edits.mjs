@@ -39,10 +39,50 @@ const client = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY);
 
 const EDITS = [
   {
+    slug:        "swimwear",
+    title:       "Swimwear",
+    subtitle:    "Bikinis, one-pieces, string, high-waisted",
+    // Hand-picked editorial cover (Dippin Daisys Seaport Thong Bikini Bottom lifestyle shot).
+    heroImageUrl: "https://cdn.shopify.com/s/files/1/1427/1236/files/SEAPORT-BOTTOM-BLACK-3.webp?v=1726270102",
+    // Hand exclusions — products the filter admits but we don't want in the edit.
+    excludeIds: [
+      "shpfy-arthurapparelcom-9148247900375", // Arthur Apparel Mini Bikini Bottom in Black — user-rejected
+    ],
+    filter:      "", // broad — we filter in JS
+    match: (p) => {
+      const brand = (p.brand ?? "").toLowerCase();
+      const t     = (p.title ?? "").toLowerCase();
+
+      // Obvious rejects
+      if (/\b(gown|tulle|bridal|wedding|gift\s*card|tarjeta\s*regalo|e-gift)\b/.test(t)) return false;
+      // Accessories / footwear / non-swim items that share summer vocabulary
+      if (/\b(sandal|shoe\b|heel|boot|clog|sunglass|earring|bracelet|necklace|ring\b|hair\s*clip|jaw\s*clip)\b/.test(t)) return false;
+      // Cover-ups, sarongs, sundresses — bikinis only
+      if (/\b(cover[\s-]?up|sarong|sundress|kaftan|caftan|pareo|wrap\s*dress)\b/.test(t)) return false;
+
+      // Dippin Daisys is an all-swim brand — accept the whole catalog,
+      // capped by maxPerBrand below.
+      if (brand === "dippin daisys") return true;
+
+      // Hard-swim keyword gate: title must explicitly say it's swim.
+      return /\b(bikini|swimsuit|swim\s*(?:top|bottom|brief|short|set|wear|suit)|tankini|one[\s-]?piece\s*swim|bathing\s*suit|swimwear)\b/.test(t);
+    },
+    // Dippin Daisys anchors the edit; bump to 10 so they have a visible share
+    // alongside the ~15 other swim brands in the catalog.
+    maxPerBrand: { "Dippin Daisys": 10 },
+    // Float Dippin Daisys to the top of each category bucket so the
+    // round-robin fills with them first.
+    prioritize: (p) => {
+      const brand = (p.brand ?? "").toLowerCase();
+      const t     = (p.title ?? "").toLowerCase();
+      return brand === "dippin daisys"
+          || /\b(bikini|swimsuit|swim\s*(?:top|bottom|brief|short)|tankini|one[\s-]?piece\s*swim)\b/.test(t);
+    },
+  },
+  {
     slug:        "streetwear",
     title:       "Streetwear",
     subtitle:    "Zip hoodies, joggers, graphic tees",
-    description: "4028 and its peers — racing hoodies, selvedge baggy jeans, MA-1 bombers, tracksuits. Graphic-forward small labels making the real thing, not the fashion-week version.",
     // Brand allowlist + per-brand cap below that lets 4028 dominate.
     // Restrict to top/bottom/jacket/shoes — drops stray dresses and mis-
     // categorized accessories (e.g. a Bubon beanie indexed as "bag").
@@ -55,7 +95,6 @@ const EDITS = [
     slug:        "lbd",
     title:       "The Little Black Dress",
     subtitle:    "Black, mini, thirty ways",
-    description: "The one dress that earns its spot in every wardrobe — black, above-the-knee, no prints, no distractions. A tight survey of the short black dress, brand by brand.",
     filter:      "category:dress",
     match: (p) => {
       const c = (p.color ?? "").toLowerCase().trim();
@@ -97,49 +136,12 @@ const EDITS = [
       return true;
     },
   },
-  {
-    slug:        "swimwear",
-    title:       "Swimwear",
-    subtitle:    "Bikinis, one-pieces, string, high-waisted",
-    description: "Swim, nothing else. Dippin Daisys anchors the deck — string bikinis, triangle tops, high-waisted bottoms, and one-pieces from the brands making swim the focal point, not the afterthought.",
-    // Hand-picked editorial cover (Dippin Daisys Seaport Thong Bikini Bottom lifestyle shot).
-    heroImageUrl: "https://cdn.shopify.com/s/files/1/1427/1236/files/SEAPORT-BOTTOM-BLACK-3.webp?v=1726270102",
-    filter:      "", // broad — we filter in JS
-    match: (p) => {
-      const brand = (p.brand ?? "").toLowerCase();
-      const t     = (p.title ?? "").toLowerCase();
-
-      // Obvious rejects
-      if (/\b(gown|tulle|bridal|wedding|gift\s*card|tarjeta\s*regalo|e-gift)\b/.test(t)) return false;
-      // Accessories / footwear / non-swim items that share summer vocabulary
-      if (/\b(sandal|shoe\b|heel|boot|clog|sunglass|earring|bracelet|necklace|ring\b|hair\s*clip|jaw\s*clip)\b/.test(t)) return false;
-      // Cover-ups, sarongs, sundresses — bikinis only
-      if (/\b(cover[\s-]?up|sarong|sundress|kaftan|caftan|pareo|wrap\s*dress)\b/.test(t)) return false;
-
-      // Dippin Daisys is an all-swim brand — accept the whole catalog,
-      // capped by maxPerBrand below.
-      if (brand === "dippin daisys") return true;
-
-      // Hard-swim keyword gate: title must explicitly say it's swim.
-      return /\b(bikini|swimsuit|swim\s*(?:top|bottom|brief|short|set|wear|suit)|tankini|one[\s-]?piece\s*swim|bathing\s*suit|swimwear)\b/.test(t);
-    },
-    // Dippin Daisys anchors the edit; bump to 10 so they have a visible share
-    // alongside the ~15 other swim brands in the catalog.
-    maxPerBrand: { "Dippin Daisys": 10 },
-    // Float Dippin Daisys to the top of each category bucket so the
-    // round-robin fills with them first.
-    prioritize: (p) => {
-      const brand = (p.brand ?? "").toLowerCase();
-      const t     = (p.title ?? "").toLowerCase();
-      return brand === "dippin daisys"
-          || /\b(bikini|swimsuit|swim\s*(?:top|bottom|brief|short)|tankini|one[\s-]?piece\s*swim)\b/.test(t);
-    },
-  },
 ];
 
 // ─── Collect candidates ───────────────────────────────────────────────────────
 
 async function collectCandidates(edit) {
+  const excludeSet = new Set(edit.excludeIds ?? []);
   const candidates = [];
   await client.browseObjects({
     indexName: INDEX_NAME,
@@ -154,6 +156,7 @@ async function collectCandidates(edit) {
     },
     aggregator: (res) => {
       for (const hit of res.hits) {
+        if (excludeSet.has(hit.objectID)) continue;
         const img = hit.image_url ?? "";
         if (img.length < 20 || img.includes("blank.gif") || img.includes("placeholder")) continue;
         if (!edit.match(hit)) continue;
@@ -242,7 +245,6 @@ async function main() {
       slug:                 edit.slug,
       title:                edit.title,
       subtitle:             edit.subtitle,
-      description:          edit.description,
       // Hero: per-edit override wins; otherwise fall back to the first
       // picked product's image as a placeholder.
       hero_image_url:       edit.heroImageUrl ?? picked[0]?.image_url ?? null,
