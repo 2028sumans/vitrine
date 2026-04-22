@@ -180,7 +180,7 @@
       "shpfy-dhruvkapoorcom-10000072376602",
       "shpfy-dimaayadcom-8735178883235"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -226,7 +226,7 @@
       "shpfy-elywoodcom-10377841934614",
       "shpfy-elywoodcom-10378001776918"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -272,7 +272,7 @@
       "shpfy-lamajounicom-10083737108787",
       "shpfy-lamajounicom-9622653108531"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -318,7 +318,7 @@
       "shpfy-ghiaiacashmerecom-10905725403329",
       "shpfy-hiveprelovedcom-9222708560111"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -364,41 +364,37 @@
       "shpfy-kookaicom-7814377439302",
       "shpfy-laruiccicom-8145527832796"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
     "slug": "wedding-guest",
     "title": "Wedding Guest",
     "subtitle": "Midi to maxi, never white, never black",
-    "hero_image_url": "https://cdn11.bigcommerce.com/s-c4qgcy99jk/images/stencil/500x659/products/2664/29785/P85756_03_studio_S25__43171.1738790032.jpg?c=1",
+    "hero_image_url": "https://cdn11.bigcommerce.com/s-c4qgcy99jk/images/stencil/500x659/products/2729/30422/P865282CU_587_studio_F25__70405.1753377621.jpg?c=1",
     "product_ids": [
-      "html-aventuraclothingcom-p85756",
-      "html-aventuraclothingcom-p865282",
+      "html-aventuraclothingcom-p865282cu",
       "html-tl180com-15531",
       "shpfy-ajeworldcom-6829073694800",
-      "shpfy-ajeworldcom-6917001150544",
+      "shpfy-ajeworldcom-6917001773136",
       "shpfy-annasuicom-10279286341935",
-      "shpfy-annasuicom-10578808176943",
-      "shpfy-anniesibizacom-6843607285878",
-      "shpfy-anniesibizacom-6892584009846",
+      "shpfy-annasuicom-10581223145775",
+      "shpfy-anniesibizacom-7670822830198",
+      "shpfy-anniesibizacom-7717946949750",
       "shpfy-astrthelabelcom-2043750580294",
       "shpfy-astrthelabelcom-6678899556528",
       "shpfy-atoircom-10199648141634",
       "shpfy-atoircom-10234627785026",
-      "shpfy-azrathelabelcom-7889211555876",
       "shpfy-azrathelabelcom-7978340417572",
       "shpfy-baobabstorecom-7503213166657",
       "shpfy-baobabstorecom-7503218802753",
       "shpfy-becandbridgecom-4614975488055",
       "shpfy-becandbridgecom-4614977945655",
       "shpfy-chanluucom-7865150177379",
-      "shpfy-cleobellacom-8356388602085",
       "shpfy-cleobellacom-9255909589221",
-      "shpfy-cuyanacom-8126251761979",
-      "shpfy-cuyanacom-9317165269307",
+      "shpfy-cleobellacom-9258456350949",
       "shpfy-cybersweetiecouk-10124471599423",
-      "shpfy-cybersweetiecouk-10124496929087",
+      "shpfy-cybersweetiecouk-10238496735551",
       "shpfy-damsonmaddercom-15316444578179",
       "shpfy-damsonmaddercom-15354228834691",
       "shpfy-datchoicecom-7654645334169",
@@ -408,9 +404,13 @@
       "shpfy-destreecom-10388316848461",
       "shpfy-destreecom-10388317503821",
       "shpfy-dhruvkapoorcom-10020866883866",
-      "shpfy-dhruvkapoorcom-10039430512922"
+      "shpfy-dhruvkapoorcom-10039430512922",
+      "shpfy-disshcom-14634775576944",
+      "shpfy-disshcom-14638011122032",
+      "shpfy-elywoodcom-10025050112278",
+      "shpfy-elywoodcom-9791587811606"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -456,7 +456,7 @@
       "shpfy-baumundpferdgartencom-9798099697959",
       "shpfy-brandonblackwoodcom-7962848854183"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -502,7 +502,7 @@
       "shpfy-vertigousacom-8439440933024",
       "shpfy-autriquebrandcom-7601347297469"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -548,7 +548,7 @@
       "shpfy-astrthelabelcom-7715124084912",
       "shpfy-ec2ndstreetusacom-8001267957869"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -594,7 +594,7 @@
       "shpfy-cultgaiacom-8113698472010",
       "shpfy-damsonmaddercom-15421201514883"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -640,7 +640,7 @@
       "shpfy-azrathelabelcom-7978425581604",
       "shpfy-boyycom-6856422588494"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   },
   {
@@ -686,7 +686,7 @@
       "shpfy-disshcom-14634765025648",
       "shpfy-insisshop-7732095877225"
     ],
-    "featured_on_homepage": false,
+    "featured_on_homepage": true,
     "published_at": "2026-04-22"
   }
 ]

@@ -143,7 +143,6 @@ const EDITS = [
     slug:                "white-shirt",
     title:               "The White Shirt",
     subtitle:            "Oxford, poplin, bias-cut, oversized",
-    featuredOnHomepage:  false,
     filter:              "category:top",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -172,7 +171,6 @@ const EDITS = [
     slug:                "trench",
     title:               "The Trench",
     subtitle:            "For the months that can't decide",
-    featuredOnHomepage:  false,
     filter:              "category:jacket",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -186,7 +184,6 @@ const EDITS = [
     slug:                "slip-dress",
     title:               "The Slip Dress",
     subtitle:            "Silk, satin, bias-cut",
-    featuredOnHomepage:  false,
     filter:              "category:dress",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -202,7 +199,6 @@ const EDITS = [
     slug:                "cashmere",
     title:               "Cashmere",
     subtitle:            "Mill-spun, named-farm, built to last",
-    featuredOnHomepage:  false,
     filter:              "", // broad — cashmere shows up across tops/jackets/bottoms
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -217,7 +213,6 @@ const EDITS = [
     slug:                "wide-leg-jeans",
     title:               "Wide-Leg Jeans",
     subtitle:            "Baggy, relaxed, straight-to-flare",
-    featuredOnHomepage:  false,
     filter:              "category:bottom",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -233,21 +228,26 @@ const EDITS = [
     slug:                "wedding-guest",
     title:               "Wedding Guest",
     subtitle:            "Midi to maxi, never white, never black",
-    featuredOnHomepage:  false,
     filter:              "category:dress",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       const c = (p.color ?? "").toLowerCase().trim();
       if (!/\bdress\b/.test(t))                                                          return false;
       if (!/\b(midi|maxi|full[-\s]?length|floor[-\s]?length|column|wrap|a[-\s]?line|gown)\b/.test(t)) return false;
-      // Never white / ivory / cream / black for a wedding guest. Include
-      // Italian/French colour words — Muse's catalog tags things like
-      // "Dress Nero" (nero = black) and the English-only filter missed them.
-      const EXCLUDE_COLORS = /\b(white|ivory|cream|ecru|off[-\s]?white|chalk|black|nero|noir|blanc|bianco|jet)\b/;
-      if (c && EXCLUDE_COLORS.test(c)) return false;
-      if (EXCLUDE_COLORS.test(t))      return false;
-      // Not an actual wedding dress
-      if (/\b(bridal|wedding\s*dress|bride\b)\b/.test(t)) return false;
+      if (/\b(bridal|wedding\s*dress|bride\b)\b/.test(t))                                return false;
+
+      const h = `${t} ${c}`;
+
+      // Hard reject any white/black/ivory family signal, EN + IT + FR.
+      const EXCLUDE = /\b(white|ivory|cream|ecru|off[-\s]?white|chalk|black|nero|noir|blanc|bianco|jet|onyx|raven|charcoal)\b/;
+      if (EXCLUDE.test(h)) return false;
+
+      // Must carry a positive, non-white/black colour signal in title or
+      // color field — otherwise we're gambling on ambiguous listings
+      // ("V-Neck Midi Dress" with no color info could be anything).
+      const POSITIVE = /\b(red|pink|rose|blush|fuchsia|magenta|coral|peach|salmon|orange|rust|copper|terracotta|amber|yellow|butter|mustard|gold|olive|green|sage|mint|emerald|forest|teal|turquoise|aqua|navy|blue|sky|cobalt|cerulean|periwinkle|indigo|purple|plum|lavender|lilac|mauve|grape|violet|aubergine|melanzana|brown|chocolate|cocoa|espresso|tan|camel|taupe|sand|beige|nude|khaki|burgundy|wine|maroon|oxblood|roseira|magnolia|marigold|ivy|chili|bloom|posie|floral|print|polka|stripe|paisley|multi)\b/;
+      if (!POSITIVE.test(h)) return false;
+
       return true;
     },
   },
@@ -256,7 +256,6 @@ const EDITS = [
     slug:                "resort",
     title:               "Resort",
     subtitle:            "Linen, crochet, raffia, sandals, canvas",
-    featuredOnHomepage:  false,
     filter:              "",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -277,7 +276,6 @@ const EDITS = [
     slug:                "office",
     title:               "The Office",
     subtitle:            "Tailored, confident, not corporate",
-    featuredOnHomepage:  false,
     filter:              "",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -292,7 +290,6 @@ const EDITS = [
     slug:                "quiet-luxury",
     title:               "Quiet Luxury",
     subtitle:            "No logos. No prints. Just fit, fabric, finish.",
-    featuredOnHomepage:  false,
     // Accept products from anchor brands OR anything in a luxurious natural
     // material. Then filter out loud prints/logos/graphics.
     filter:              "", // broad — we judge in JS via material + brand
@@ -326,7 +323,6 @@ const EDITS = [
     slug:                "old-money",
     title:               "Old Money",
     subtitle:            "Polo shirts, pleated skirts, loafers, pearls",
-    featuredOnHomepage:  false,
     filter:              "",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -343,7 +339,6 @@ const EDITS = [
     slug:                "coastal",
     title:               "Coastal",
     subtitle:            "Stripes, linen, raffia, rope — everywhere but the water",
-    featuredOnHomepage:  false,
     filter:              "",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
@@ -362,7 +357,6 @@ const EDITS = [
     slug:                "linen",
     title:               "All Linen",
     subtitle:            "The fabric that gets better the longer you own it",
-    featuredOnHomepage:  false,
     filter:              "",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();

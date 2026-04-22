@@ -76,7 +76,20 @@ const SPOTLIGHTS: ReadonlyArray<Spotlight> = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const featuredEdits = listFeaturedEdits();
+  // Rotate the three homepage cards on every page load. SSR and the first
+  // client render both show the first three in authored order so hydration
+  // matches; useEffect reshuffles after mount. The edits section sits below
+  // the fold (after the hero and "Three steps"), so the swap happens before
+  // the user ever sees it — no visible flicker on scroll down.
+  const allEdits = listFeaturedEdits();
+  const [featuredEdits, setFeaturedEdits] = useState<Edit[]>(() => allEdits.slice(0, 3));
+  useEffect(() => {
+    const shuffled = [...allEdits].sort(() => Math.random() - 0.5);
+    setFeaturedEdits(shuffled.slice(0, 3));
+    // allEdits is derived from static JSON, stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
 
