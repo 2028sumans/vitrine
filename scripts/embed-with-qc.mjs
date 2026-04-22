@@ -49,7 +49,7 @@ const MODEL_ID          = "ff13/fashion-clip";
 const CHECKPOINT_FILE   = "scripts/embed-qc-checkpoint.json";
 const REPORT_FILE       = "scripts/embed-qc-report.json";
 
-const PINECONE_CAP      = 100_000;
+const PINECONE_CAP      = Number(process.env.PINECONE_CAP ?? 500_000);
 const DOWNLOAD_BATCH    = 10;      // images downloaded in parallel
 const UPSERT_BATCH      = 100;     // vectors per Pinecone upsert call
 const CHECKPOINT_EVERY  = 200;
