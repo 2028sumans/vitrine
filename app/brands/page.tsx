@@ -47,6 +47,7 @@ export default function BrandsPage() {
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
           <Link href="/shop"   className="text-muted hover:text-foreground transition-colors">Shop</Link>
+          <Link href="/edits"  className="text-muted hover:text-foreground transition-colors">Edits</Link>
           <Link href="/brands" className="text-foreground hover:text-accent transition-colors">Brands</Link>
           <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
         </div>
@@ -55,6 +56,7 @@ export default function BrandsPage() {
           links={[
             { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
+            { href: "/edits",     label: "Edits" },
             { href: "/brands",    label: "Brands" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
