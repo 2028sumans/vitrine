@@ -166,7 +166,6 @@ export default function PrivacyPage() {
         <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
           <Link href="/shop"      className="text-muted hover:text-foreground transition-colors">Shop</Link>
-          <Link href="/edits"     className="text-muted hover:text-foreground transition-colors">Edits</Link>
           <Link href="/brands"    className="text-muted hover:text-foreground transition-colors">Brands</Link>
           <Link href="/edit"      className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
         </div>

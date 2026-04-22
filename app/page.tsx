@@ -50,11 +50,11 @@ type Spotlight = {
 
 const SPOTLIGHTS: ReadonlyArray<Spotlight> = [
   {
-    brand:   "St. Agni",
-    href:    "/shop?brand=St.%20Agni",
-    image:   "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_130_BAMBI_5649copy.jpg?v=1768956513",
+    brand:   "California Cloth Foundry",
+    href:    "/shop?brand=California%20Cloth%20Foundry",
+    image:   "https://cdn.shopify.com/s/files/1/0094/4914/4379/files/LydiaCCF11689.jpg?v=1713994269",
     kicker:  "Inside",
-    tagline: "Byron Bay slow fashion. LWG-certified leather, linen cut for a long Australian summer, drops small enough to still feel personal.",
+    tagline: "California fiber, California fabric, California garment. Cleaner Cotton™ grown in the San Joaquin Valley, dyed in tea baths of Gaia Herbs botanicals — slow fashion built backwards from the soil.",
   },
   {
     brand:   "Johnstons Of Elgin",
@@ -108,13 +108,6 @@ export default function HomePage() {
             Shop
           </Link>
           <Link
-            href="/edits"
-            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
-            style={{ color: `${HERO_TEXT}b3` }}
-          >
-            Edits
-          </Link>
-          <Link
             href="/brands"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` }}
@@ -137,7 +130,6 @@ export default function HomePage() {
           links={[
             { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
-            { href: "/edits",     label: "Edits" },
             { href: "/brands",    label: "Brands" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
