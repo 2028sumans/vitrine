@@ -100,23 +100,48 @@ const EDITS = [
   {
     slug:        "summer",
     title:       "Summer",
-    subtitle:    "Linen, cotton, and long evenings",
-    description: "The pieces for the slow months. Loose linen, cotton sundresses, sandals worn through, the single swim piece you'll pack every trip. A summer wardrobe, not a summer trend.",
+    subtitle:    "Bikinis, linen, long evenings",
+    description: "The pieces for the slow months. Dippin Daisys across the pool deck, loose linen, cotton sundresses, sandals worn through. A summer wardrobe, not a summer trend.",
     filter:      "", // broad — we filter in JS
     match: (p) => {
+      const brand = (p.brand ?? "").toLowerCase();
       const t = (p.title ?? "").toLowerCase();
       const m = (p.material ?? "").toLowerCase();
       const c = (p.color ?? "").toLowerCase();
       const h = `${t} ${m}`;
-      // Strong summer signals
-      if (/\b(linen|sundress|eyelet|broderie|seersucker|bikini|swimsuit|swim|beachwear|poplin|espadrille|sandal|straw|raffia|crochet)\b/.test(h)) {
-        // But exclude wintry things
-        if (/\b(wool|cashmere|fleece|fur|leather\s*jacket|parka|puffer|coat)\b/.test(h)) return false;
-        return true;
-      }
-      // Light colors + shorts/sundress-ish
-      if (/\b(short|sundress|camisole|tank|tube\s*top)\b/.test(t) && /\b(white|cream|ecru|yellow|pink|blue|sky|mint|butter)\b/.test(c)) return true;
+
+      // Reject formal / bridal / vintage-gown territory (catches the 1930s
+      // Hand Crochet Tulle Gown that was slipping through on "crochet").
+      if (/\b(gown|tulle|bridal|wedding|corset|victorian|edwardian|regency|1920s?|1930s?|1940s?|1950s?|debutante|ball\s*gown|floor[\s-]?length|opera|evening\s*gown)\b/.test(t)) return false;
+      if (/\b(wool|cashmere|fleece|fur|leather\s*jacket|parka|puffer|heavy\s*coat|winter\s*coat)\b/.test(h)) return false;
+      // Reject gift cards (EN + ES) — "Tarjeta Regalo" was slipping in on "Bikini Lab" in the title.
+      if (/\b(gift\s*card|tarjeta\s*regalo|tarjeta\s*de\s*regalo|e-gift)\b/.test(t)) return false;
+
+      // Dippin Daisys — pass-through the whole brand (it's a swim label,
+      // everything they make is summer). Per-brand cap controls volume.
+      if (brand === "dippin daisys") return true;
+
+      // Strong summer signals — swim gets priority weight (bikini/swimsuit
+      // always passes; other signals still require non-wintry context above).
+      if (/\b(bikini|swimsuit|one[\s-]?piece\s*swim|swim\s*(?:top|bottom|brief|short)|beachwear|swimwear|tankini)\b/.test(t)) return true;
+
+      if (/\b(linen|sundress|eyelet|broderie|seersucker|poplin|espadrille|sandal|straw|raffia|crochet|chambray)\b/.test(h)) return true;
+
+      // Light colours + summery silhouettes
+      if (/\b(short|sundress|camisole|tank|tube\s*top|shift\s*dress)\b/.test(t) &&
+          /\b(white|cream|ecru|yellow|pink|blue|sky|mint|butter|coral|peach)\b/.test(c)) return true;
+
       return false;
+    },
+    // Cap Dippin Daisys at 8 so they anchor but don't dominate the 36-item grid.
+    maxPerBrand: { "Dippin Daisys": 8 },
+    // Float Dippin Daisys + any bikini/swim product to the top of their
+    // category bucket so the round-robin picks swim first.
+    prioritize: (p) => {
+      const brand = (p.brand ?? "").toLowerCase();
+      const t     = (p.title ?? "").toLowerCase();
+      return brand === "dippin daisys"
+          || /\b(bikini|swimsuit|swim\s*(?:top|bottom|brief|short)|tankini|one[\s-]?piece\s*swim)\b/.test(t);
     },
   },
 ];
@@ -155,7 +180,7 @@ async function collectCandidates(edit) {
 // Shuffle within each bucket deterministically (by objectID hash) so reruns
 // are stable unless the underlying data changes.
 
-function pickDiverse(candidates, size, maxPerBrandOverrides = {}) {
+function pickDiverse(candidates, size, maxPerBrandOverrides = {}, prioritize = null) {
   const capFor = (brand) =>
     maxPerBrandOverrides[brand] ?? maxPerBrandOverrides[brand?.toLowerCase()] ?? DEFAULT_MAX_PER_BRAND;
 
@@ -165,7 +190,20 @@ function pickDiverse(candidates, size, maxPerBrandOverrides = {}) {
     if (!byCat.has(cat)) byCat.set(cat, []);
     byCat.get(cat).push(p);
   }
-  for (const arr of byCat.values()) arr.sort((a, b) => a.objectID.localeCompare(b.objectID));
+  // Sort: priority products first within each category, then stable by objectID.
+  // Without the priority pass, a round-robin that only breaks ties by objectID
+  // silently skips later-alphabet brands — e.g. Dippin Daisys never surfaced
+  // because Aje/Anine-Bing/Aventura filled every category's opening slots.
+  for (const arr of byCat.values()) {
+    arr.sort((a, b) => {
+      if (prioritize) {
+        const pa = prioritize(a) ? 0 : 1;
+        const pb = prioritize(b) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+      }
+      return a.objectID.localeCompare(b.objectID);
+    });
+  }
 
   const cats = [...byCat.keys()];
   const idx  = Object.fromEntries(cats.map((c) => [c, 0]));
@@ -204,7 +242,7 @@ async function main() {
   for (const edit of EDITS) {
     console.log(`\n→ Curating "${edit.title}"`);
     const candidates = await collectCandidates(edit);
-    const picked     = pickDiverse(candidates, SIZE_PER_EDIT, edit.maxPerBrand ?? {});
+    const picked     = pickDiverse(candidates, SIZE_PER_EDIT, edit.maxPerBrand ?? {}, edit.prioritize ?? null);
     const brands     = new Set(picked.map((p) => p.brand));
     const cats       = new Set(picked.map((p) => p.category ?? "other"));
     console.log(`  Picked: ${picked.length} across ${brands.size} brands, ${cats.size} categories`);
