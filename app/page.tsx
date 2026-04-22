@@ -30,24 +30,23 @@ const steps = [
   },
 ];
 
-const features = [
-  {
-    label: "Three ways to start",
-    body: "Pinterest, words, or images. However your taste comes to you.",
-  },
-  {
-    label: "Styled, not searched",
-    body: "We read your exact aesthetic with a fashion editor's eye: palette, silhouette, mood, references. No keyword shortcuts.",
-  },
-  {
-    label: "Sustainable, vintage, preloved",
-    body: "Hundreds of ethical brands and small-batch makers, alongside vintage stores from around the world and preloved platforms. The shops worth your time, not the ones with the biggest ad budgets.",
-  },
-  {
-    label: "Nothing generic",
-    body: "No algorithm-famous pieces, no filler. The feed optimizes for what fits your eye, not for what's trending.",
-  },
-];
+// ── Brand spotlight ───────────────────────────────────────────────────────────
+// Rotates monthly in spirit; the actual content is hand-edited each time so
+// the copy doesn't drift into generic brand-PR territory. Image is a hero
+// from St. Agni's own lookbook — borrowed through their Shopify CDN the same
+// way /brands surfaces brand cards.
+
+const SPOTLIGHT = {
+  brand: "St. Agni",
+  href:  "/shop?brand=St.%20Agni",
+  image: "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_130_BAMBI_5649copy.jpg?v=1768956513",
+  kicker: "Inside",
+  paragraphs: [
+    "Lara and Matthew Fells started St. Agni out of Byron Bay a decade ago, and the brand still feels run from there — mid-weight cream linen, leather slides cut the shape of a ballet flat, a wardrobe that reads like a long summer on the Northern Rivers.",
+    "The ethics are the quiet kind. Leather comes from Leather Working Group-certified tanneries in Portugal and Italy rather than the cheapest hide on the market. Ready-to-wear is mostly linen, organic cotton, and silk, stitched in a handful of factories the brand has used for years and names on the site. Drops are small, a few times a year — the opposite of a fast-fashion calendar.",
+    "Nothing about St. Agni is trying to be new. The cream trousers from 2019 are still in production. That's the point.",
+  ],
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -231,30 +230,88 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ══ 4. FEATURES — CREAM ═════════════════════════════════════════════ */}
-        <section className="bg-cream px-8 py-24">
+        {/* ══ 4. BRAND SPOTLIGHT — CREAM ══════════════════════════════════════
+            Replaces the old "What you get" features grid. One editorial
+            card (large image + serif kicker + brand name) on the left, a
+            hand-written brand note on the right. Phia's "Editor's picks"
+            card shape borrowed for the image; everything else is MUSE
+            typography. */}
+        <section className="bg-cream px-8 py-28">
           <div className="max-w-6xl mx-auto">
             <Reveal>
-              <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-14">
-                What you get
-              </p>
+              <div className="mb-14 flex items-baseline gap-4">
+                <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted">
+                  Brand spotlight
+                </p>
+                <p className="font-display font-light italic text-lg text-navy/70">
+                  this month
+                </p>
+              </div>
             </Reveal>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10">
-              {features.map(({ label, body }, i) => (
-                <Reveal key={label} delay={i * 100}>
-                  <div className="flex gap-6 items-start">
-                    <div className="w-px h-10 bg-navy-border-mid flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="font-display font-light text-xl text-navy mb-2">
-                        {label}
-                      </h3>
-                      <p className="font-sans text-base text-navy-strong leading-relaxed">
-                        {body}
-                      </p>
-                    </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-10 lg:gap-16 items-start">
+
+              {/* Card — full-bleed image with serif overlay at bottom-left,
+                  "Start exploring →" underneath. Slight hover-zoom on the
+                  image, matching /brands and /shop tiles. */}
+              <Reveal>
+                <Link
+                  href={SPOTLIGHT.href}
+                  className="group relative block aspect-[4/5] w-full overflow-hidden bg-[rgba(42,51,22,0.04)] shadow-card hover:shadow-card-hover transition-shadow duration-300"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={SPOTLIGHT.image}
+                    alt={SPOTLIGHT.brand}
+                    loading="eager"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-700"
+                  />
+                  {/* Darkening gradient so the overlay text reads against any
+                      image. Kept strong at the bottom, transparent up top. */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent pointer-events-none" />
+
+                  <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10">
+                    <p className="font-display font-light italic text-white/80 text-lg mb-1">
+                      {SPOTLIGHT.kicker}
+                    </p>
+                    <h3 className="font-display font-light text-white text-4xl sm:text-5xl leading-[1.05] tracking-tight mb-5 drop-shadow-sm">
+                      {SPOTLIGHT.brand}
+                    </h3>
+                    <span className="font-sans text-[10px] tracking-widest uppercase text-white border-b border-white/60 pb-px">
+                      Start exploring →
+                    </span>
                   </div>
-                </Reveal>
-              ))}
+                </Link>
+              </Reveal>
+
+              {/* Story — plain editorial body text so the card carries the
+                  image weight. */}
+              <Reveal delay={120}>
+                <div className="lg:pt-4">
+                  <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-5">
+                    Why we&apos;re featuring them
+                  </p>
+                  <h4 className="font-display font-light text-3xl sm:text-4xl text-navy leading-tight mb-6">
+                    Slow fashion out of Byron Bay.
+                  </h4>
+                  {SPOTLIGHT.paragraphs.map((p, i) => (
+                    <p
+                      key={i}
+                      className="font-sans text-base text-navy-strong leading-relaxed mb-5 last:mb-0"
+                    >
+                      {p}
+                    </p>
+                  ))}
+
+                  <Link
+                    href={SPOTLIGHT.href}
+                    className="mt-8 inline-block px-7 py-3 border border-navy text-navy font-sans text-[10px] tracking-widest uppercase hover:bg-navy hover:text-cream transition-colors duration-200"
+                  >
+                    Shop {SPOTLIGHT.brand} →
+                  </Link>
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
