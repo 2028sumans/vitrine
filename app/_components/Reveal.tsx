@@ -35,7 +35,10 @@ export function Reveal({ children, delay = 0, className = "" }: Props) {
           }
         }
       },
-      { threshold: 0, rootMargin: "0px 0px -8% 0px" },
+      // Fire when the element crosses ~15% above the viewport bottom. Later
+      // trigger + longer transition = the reveal actually animates while the
+      // user is watching, instead of being nearly-done by the time it's in view.
+      { threshold: 0, rootMargin: "0px 0px -15% 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
