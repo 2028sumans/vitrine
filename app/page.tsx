@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { Reveal } from "./_components/Reveal";
 import { MobileMenu } from "./_components/MobileMenu";
+import { EditCard } from "./_components/EditCard";
+import { listFeaturedEdits } from "@/lib/edits";
 
 // Deep olive hero background + warm cream foreground. Kept as literals here
 // (instead of tailwind tokens) so the rest of the app — cream bg + olive text —
@@ -73,6 +75,7 @@ const SPOTLIGHTS: ReadonlyArray<Spotlight> = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const featuredEdits = listFeaturedEdits();
   return (
     <div className="min-h-screen flex flex-col">
 
@@ -208,7 +211,44 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ══ 2. HOW IT WORKS — CREAM ═════════════════════════════════════════ */}
+        {/* ══ 2. EDITOR'S PICKS — CREAM ══════════════════════════════════════
+            Phia-inspired: three tall hero cards pointing at curated edits.
+            Sits between the hero and "Three steps" so the first thing past the
+            wordmark is something shoppable. */}
+        {featuredEdits.length > 0 && (
+          <section className="bg-cream px-8 pt-28 pb-24 max-w-full">
+            <div className="max-w-6xl mx-auto">
+              <Reveal>
+                <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
+                  <div>
+                    <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted mb-4">
+                      Editor&apos;s picks
+                    </p>
+                    <h2 className="font-display font-light text-5xl sm:text-6xl text-navy leading-tight">
+                      The edits.
+                    </h2>
+                  </div>
+                  <Link
+                    href="/edits"
+                    className="font-sans text-[10px] tracking-widest uppercase text-navy-strong hover:text-accent transition-colors"
+                  >
+                    View all →
+                  </Link>
+                </div>
+              </Reveal>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {featuredEdits.slice(0, 3).map((e, i) => (
+                  <Reveal key={e.slug} delay={i * 100}>
+                    <EditCard edit={e} />
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ══ 3. HOW IT WORKS — CREAM ═════════════════════════════════════════ */}
         <section className="bg-cream px-8 py-28 max-w-full">
           <div className="max-w-6xl mx-auto">
             <Reveal>
@@ -271,13 +311,13 @@ export default function HomePage() {
         <section className="bg-cream px-8 py-28">
           <div className="max-w-6xl mx-auto">
             <Reveal>
-              <div className="mb-14 flex items-baseline gap-4">
-                <p className="font-sans text-[9px] tracking-widest uppercase text-navy-muted">
+              <div className="mb-14">
+                <p className="font-sans text-[10px] tracking-widest uppercase text-navy-muted mb-3">
+                  This month
+                </p>
+                <h2 className="font-display font-light italic text-5xl sm:text-6xl text-navy leading-tight">
                   Brand spotlight
-                </p>
-                <p className="font-display font-light italic text-lg text-navy/70">
-                  this month
-                </p>
+                </h2>
               </div>
             </Reveal>
 
