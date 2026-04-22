@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Reveal } from "./_components/Reveal";
 import { MobileMenu } from "./_components/MobileMenu";
 import { EditCard } from "./_components/EditCard";
-import { listFeaturedEdits } from "@/lib/edits";
+import { listFeaturedEdits, type Edit } from "@/lib/edits";
 
 // Deep olive hero background + warm cream foreground. Kept as literals here
 // (instead of tailwind tokens) so the rest of the app — cream bg + olive text —
@@ -115,6 +116,13 @@ export default function HomePage() {
             Brands
           </Link>
           <Link
+            href="/twin"
+            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
+            style={{ color: `${HERO_TEXT}b3` }}
+          >
+            Twin
+          </Link>
+          <Link
             href="/edit"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` }}
@@ -131,6 +139,7 @@ export default function HomePage() {
             { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
+            { href: "/twin",      label: "Twin" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
         />
