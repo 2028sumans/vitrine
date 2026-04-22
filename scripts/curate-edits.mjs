@@ -136,6 +136,243 @@ const EDITS = [
       return true;
     },
   },
+
+  // ─── Long-tail edits (not featured on homepage, shown on /edits index) ──────
+
+  {
+    slug:                "white-shirt",
+    title:               "The White Shirt",
+    subtitle:            "Oxford, poplin, bias-cut, oversized",
+    featuredOnHomepage:  false,
+    filter:              "category:top",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      const c = (p.color ?? "").toLowerCase().trim();
+      // Must be a shirt/blouse — not a tee/tank/sweater
+      if (!/\b(shirt|blouse|poplin|oxford|button[-\s]?(?:up|down))\b/.test(t)) return false;
+      if (/\b(t[-\s]?shirt|\btee\b|tank|crewneck|sweat|hoodie|cardigan)\b/.test(t)) return false;
+      // Must be white family
+      const WHITE_RE = /(white|cream|ecru|ivory|off[-\s]?white|chalk)/;
+      const OTHER_COLORS = /\b(red|pink|blue|green|yellow|purple|brown|gold|silver|navy|black|orange|grey|gray|plum|rust|olive|burgundy)\b/;
+      if (OTHER_COLORS.test(t)) return false;
+      if (c) {
+        if (!WHITE_RE.test(c))                  return false;
+        if (OTHER_COLORS.test(c))               return false;
+        if (/[\/&]|\band\b|,/.test(c))          return false;
+      } else {
+        if (!WHITE_RE.test(t)) return false;
+      }
+      // No prints
+      if (/\b(stripe|check|polka|floral|print|gingham|plaid)\b/.test(t)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "trench",
+    title:               "The Trench",
+    subtitle:            "For the months that can't decide",
+    featuredOnHomepage:  false,
+    filter:              "category:jacket",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      if (!/\b(trench|mac\b|mackintosh|duster|rain[\s-]?coat)\b/.test(t)) return false;
+      if (/\b(puffer|parka|sherpa|fleece|shearling|down)\b/.test(t)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "slip-dress",
+    title:               "The Slip Dress",
+    subtitle:            "Silk, satin, bias-cut",
+    featuredOnHomepage:  false,
+    filter:              "category:dress",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      if (!/\bdress\b/.test(t)) return false;
+      if (!/\b(slip|bias|cami(?:sole)?)\b/.test(t)) return false;
+      // Not a top or coat mis-indexed as dress
+      if (/\b(blazer|jacket|coat|sweater|cardigan|boxer|brief|thong|bralette)\b/.test(t)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "cashmere",
+    title:               "Cashmere",
+    subtitle:            "Mill-spun, named-farm, built to last",
+    featuredOnHomepage:  false,
+    filter:              "", // broad — cashmere shows up across tops/jackets/bottoms
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      const m = (p.material ?? "").toLowerCase();
+      return /\bcashmere\b/.test(t) || /\bcashmere\b/.test(m);
+    },
+    // Johnstons of Elgin + Ghiaia Cashmere anchor; let them show more.
+    maxPerBrand: { "Johnstons Of Elgin": 6, "Ghiaia Cashmere": 6 },
+  },
+
+  {
+    slug:                "wide-leg-jeans",
+    title:               "Wide-Leg Jeans",
+    subtitle:            "Baggy, relaxed, straight-to-flare",
+    featuredOnHomepage:  false,
+    filter:              "category:bottom",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      if (!/\b(jean|denim)\b/.test(t))                                             return false;
+      if (/\b(jacket|skirt|short\b|vest|dress)\b/.test(t))                         return false;
+      if (!/\b(wide|baggy|relaxed|straight|flare|flared|boot[-\s]?cut|loose|oversized|trouser)\b/.test(t)) return false;
+      if (/\b(skinny|slim|tapered|tight|cigarette)\b/.test(t))                     return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "wedding-guest",
+    title:               "Wedding Guest",
+    subtitle:            "Midi to maxi, never white, never black",
+    featuredOnHomepage:  false,
+    filter:              "category:dress",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      const c = (p.color ?? "").toLowerCase().trim();
+      if (!/\bdress\b/.test(t))                                                          return false;
+      if (!/\b(midi|maxi|full[-\s]?length|floor[-\s]?length|column|wrap|a[-\s]?line|gown)\b/.test(t)) return false;
+      // Never white / ivory / cream / black for a wedding guest. Include
+      // Italian/French colour words — Muse's catalog tags things like
+      // "Dress Nero" (nero = black) and the English-only filter missed them.
+      const EXCLUDE_COLORS = /\b(white|ivory|cream|ecru|off[-\s]?white|chalk|black|nero|noir|blanc|bianco|jet)\b/;
+      if (c && EXCLUDE_COLORS.test(c)) return false;
+      if (EXCLUDE_COLORS.test(t))      return false;
+      // Not an actual wedding dress
+      if (/\b(bridal|wedding\s*dress|bride\b)\b/.test(t)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "resort",
+    title:               "Resort",
+    subtitle:            "Linen, crochet, raffia, sandals, canvas",
+    featuredOnHomepage:  false,
+    filter:              "",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      const m = (p.material ?? "").toLowerCase();
+      const h = `${t} ${m}`;
+      // Must hit a resort signal
+      if (!/\b(linen|crochet|raffia|straw|espadrille|sandal|sundress|kaftan|caftan|cover[-\s]?up|sarong|pareo|beach|resort|tunic)\b/.test(h)) return false;
+      // Explicitly exclude swim (lives in its own edit) and wintry
+      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|swim\s*(?:top|bottom|brief|short|set|wear|suit))\b/.test(t)) return false;
+      if (/\b(wool|cashmere|fleece|parka|puffer|heavy\s*coat)\b/.test(h))          return false;
+      // No gowns / bridal
+      if (/\b(gown|bridal|wedding|tulle)\b/.test(t))                               return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "office",
+    title:               "The Office",
+    subtitle:            "Tailored, confident, not corporate",
+    featuredOnHomepage:  false,
+    filter:              "",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      if (!/\b(blazer|trouser|loafer|oxford\s*shoe|pleated|button[-\s]?(?:up|down)|pencil\s*skirt|tailored|wool\s*pant|suit\s*pant)\b/.test(t)) return false;
+      // No streetwear/loungewear
+      if (/\b(hoodie|sweatpant|jogger|cargo|graphic\s*tee|tracksuit|sweatshirt)\b/.test(t)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "quiet-luxury",
+    title:               "Quiet Luxury",
+    subtitle:            "No logos. No prints. Just fit, fabric, finish.",
+    featuredOnHomepage:  false,
+    // Accept products from anchor brands OR anything in a luxurious natural
+    // material. Then filter out loud prints/logos/graphics.
+    filter:              "", // broad — we judge in JS via material + brand
+    match: (p) => {
+      const brand = (p.brand ?? "").toLowerCase();
+      const t     = (p.title ?? "").toLowerCase();
+      const m     = (p.material ?? "").toLowerCase();
+      const h     = `${t} ${m}`;
+
+      const ANCHOR_BRANDS = new Set([
+        "st. agni", "tove", "johnstons of elgin", "ghiaia cashmere",
+        "totême", "toteme", "lemaire", "le 17 septembre", "o. files",
+        "khaite", "the row", "nour hammour", "casper the label",
+      ]);
+      const LUX_MATERIAL = /\b(cashmere|silk|wool|merino|camel\s*hair|suede|leather|linen|mohair|alpaca)\b/;
+
+      if (!ANCHOR_BRANDS.has(brand) && !LUX_MATERIAL.test(h)) return false;
+
+      // Drop loud prints, logos, graphics
+      if (/\b(rainbow|neon|fluoro|patchwork|colou?rblock|tie[-\s]?dye|tropical|leopard|zebra|camo)\b/.test(t)) return false;
+      if (/\b(logo|monogram|graphic\s*tee|graphic\s*t-shirt)\b/.test(t)) return false;
+      // Drop obvious non-apparel household items (towels, blankets, napkins, washcloths)
+      if (/\b(washcloth|dishcloth|napkin|placemat|pillow\s*case|duvet|doormat|blanket|throw)\b/.test(t)) return false;
+
+      return true;
+    },
+    maxPerBrand: { "Johnstons Of Elgin": 5, "Ghiaia Cashmere": 5, "St. Agni": 5, "Tove": 5 },
+  },
+
+  {
+    slug:                "old-money",
+    title:               "Old Money",
+    subtitle:            "Polo shirts, pleated skirts, loafers, pearls",
+    featuredOnHomepage:  false,
+    filter:              "",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      if (!/\b(polo|pleated\s*(?:skirt|trouser|pant)|pearl|cable[-\s]?knit|argyle|boat[-\s]?neck|button[-\s]?down|blazer|loafer|ballet\s*flat|camel\s*coat|cardigan|tennis|tartan|houndstooth|twin[-\s]?set)\b/.test(t)) return false;
+      // No streetwear crossover
+      if (/\b(hoodie|graphic\s*tee|cargo|baggy|track\s*pant|jogger)\b/.test(t)) return false;
+      // Drop housewares (matched an "Argyle Rose Washcloth" — towels aren't old money).
+      if (/\b(washcloth|dishcloth|napkin|placemat|towel|doormat|soap|candle)\b/.test(t)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "coastal",
+    title:               "Coastal",
+    subtitle:            "Stripes, linen, raffia, rope — everywhere but the water",
+    featuredOnHomepage:  false,
+    filter:              "",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      const m = (p.material ?? "").toLowerCase();
+      const h = `${t} ${m}`;
+      if (!/\b(stripe|breton|mariniere|linen|rope|raffia|canvas|chambray|nautical|sailor|fisherman)\b/.test(h)) return false;
+      // Swim has its own edit
+      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|swim\s*(?:top|bottom|brief|short|set|wear|suit))\b/.test(t)) return false;
+      // Wintry items read differently
+      if (/\b(parka|puffer|heavy\s*coat|fleece|shearling)\b/.test(h)) return false;
+      return true;
+    },
+  },
+
+  {
+    slug:                "linen",
+    title:               "All Linen",
+    subtitle:            "The fabric that gets better the longer you own it",
+    featuredOnHomepage:  false,
+    filter:              "",
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      const m = (p.material ?? "").toLowerCase();
+      if (!/\blinen\b/.test(t) && !/\blinen\b/.test(m)) return false;
+      // Exclude gowns/bridal — "linen wedding dress" isn't what we want here
+      if (/\b(bridal|wedding\s*dress|tulle)\b/.test(t)) return false;
+      return true;
+    },
+  },
 ];
 
 // ─── Collect candidates ───────────────────────────────────────────────────────
@@ -249,7 +486,9 @@ async function main() {
       // picked product's image as a placeholder.
       hero_image_url:       edit.heroImageUrl ?? picked[0]?.image_url ?? null,
       product_ids:          picked.map((p) => p.objectID),
-      featured_on_homepage: true,
+      // Default to homepage-featured for backwards compat; new long-tail edits
+      // set featuredOnHomepage: false so only the top 3 lead the homepage.
+      featured_on_homepage: edit.featuredOnHomepage ?? true,
       published_at:         new Date().toISOString().slice(0, 10),
     });
   }
