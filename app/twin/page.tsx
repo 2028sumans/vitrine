@@ -160,8 +160,8 @@ export default function TwinPage() {
               TwinFinder
             </h1>
             <p className="font-sans text-base text-muted-strong max-w-xl leading-relaxed mb-14">
-              Upload a piece from anywhere. We&rsquo;ll find its small-batch,
-              hand-made counterpart in the Muse catalog of independent labels.
+              Upload a piece from anywhere. We&rsquo;ll find its Back Catalogue
+              counterpart in the Muse catalog of independent labels.
             </p>
 
             <DropZone
