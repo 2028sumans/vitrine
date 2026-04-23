@@ -180,7 +180,9 @@ async function getVisionModel(): Promise<{ processor: unknown; model: unknown } 
       /* webpackIgnore: true */ "@xenova/transformers"
     );
     env.allowLocalModels = false;
-    env.cacheDir = "./.cache/transformers";
+    // Vercel's filesystem is read-only except for `/tmp`; local dev writes
+    // alongside the repo for a warmer next-boot experience.
+    env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
 
     if (!_visionProcessorPromise) _visionProcessorPromise = AutoProcessor.from_pretrained(MODEL_ID);
     if (!_visionModelPromise)
@@ -204,7 +206,9 @@ async function getTextModel(): Promise<{ tokenizer: unknown; model: unknown } | 
       /* webpackIgnore: true */ "@xenova/transformers"
     );
     env.allowLocalModels = false;
-    env.cacheDir = "./.cache/transformers";
+    // Vercel's filesystem is read-only except for `/tmp`; local dev writes
+    // alongside the repo for a warmer next-boot experience.
+    env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
 
     if (!_textTokenizerPromise) _textTokenizerPromise = AutoTokenizer.from_pretrained(MODEL_ID);
     if (!_textModelPromise)

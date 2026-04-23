@@ -30,6 +30,12 @@ import {
 import { getProductsByIds } from "@/lib/algolia";
 import type { VisionImage } from "@/lib/types";
 
+// First-request cold-starts have to download the FashionCLIP model
+// (~100MB quantized) before doing anything. Warm requests take ~2s.
+// 60s is the safe upper bound that still fits the Hobby tier ceiling.
+export const maxDuration = 60;
+export const runtime     = "nodejs";
+
 // Over-fetch so we can drop the inevitable Pinecone hits whose Algolia record
 // was deleted during a QC cleanup, and still surface a full twin + alternates set.
 const FETCH_K = 24;
