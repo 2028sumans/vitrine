@@ -27,6 +27,7 @@ export default function EditsIndexPage() {
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
           <Link href="/shop"   className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
+          <Link href="/twin"   className="text-muted hover:text-foreground transition-colors">TwinFinder</Link>
           <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
         </div>
         <MobileMenu
@@ -35,6 +36,7 @@ export default function EditsIndexPage() {
             { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
+            { href: "/twin",      label: "TwinFinder" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
         />

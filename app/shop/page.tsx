@@ -686,6 +686,7 @@ function ShopPageContent() {
           <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
           <Link href="/shop"   className="text-foreground hover:text-accent transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
+          <Link href="/twin"   className="text-muted hover:text-foreground transition-colors">TwinFinder</Link>
           <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
         </div>
         <MobileMenu
@@ -694,6 +695,7 @@ function ShopPageContent() {
             { href: "/dashboard", label: "Tailor to my taste →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
+            { href: "/twin",      label: "TwinFinder" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
         />

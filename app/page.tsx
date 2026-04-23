@@ -133,7 +133,7 @@ export default function HomePage() {
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` }}
           >
-            Twin
+            TwinFinder
           </Link>
           <Link
             href="/edit"
@@ -152,7 +152,7 @@ export default function HomePage() {
             { href: "/dashboard", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/twin",      label: "Twin" },
+            { href: "/twin",      label: "TwinFinder" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
         />
