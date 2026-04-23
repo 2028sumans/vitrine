@@ -158,7 +158,7 @@ export default function TwinPage() {
               TwinFinder
             </h1>
             <p className="font-sans text-base text-muted-strong max-w-xl leading-relaxed mb-14">
-              Upload a piece from anywhere — we&rsquo;ll find its small-batch,
+              Upload a piece from anywhere. We&rsquo;ll find its small-batch,
               hand-made counterpart in the Muse catalog of independent labels.
             </p>
 
@@ -177,7 +177,7 @@ export default function TwinPage() {
             />
 
             <p className="mt-6 font-sans text-[10px] tracking-widest uppercase text-muted">
-              Tip — a clean shot on a plain background works best
+              Tip · a clean shot on a plain background works best
             </p>
           </div>
         )}
@@ -412,7 +412,7 @@ function DropZone({
           : "border-border-mid bg-[rgba(42,51,22,0.03)] hover:bg-[rgba(42,51,22,0.05)] hover:border-foreground/60"
       }`}
     >
-      <p className="mb-2 font-display font-light text-3xl text-foreground">Drop a piece</p>
+      <p className="mb-2 font-display font-light italic text-4xl text-foreground">Drop a piece</p>
       <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
         or click to upload · jpg · png · heic
       </p>
