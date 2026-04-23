@@ -23,12 +23,20 @@ function emptyBuckets(): CategoryCandidates {
   return { dress: [], top: [], bottom: [], jacket: [], shoes: [], bag: [] };
 }
 
-/** Merge N ranked ID lists with RRF, return top maxResults IDs. */
-function rrfMerge(lists: string[][], maxResults: number): string[] {
+/**
+ * Merge N ranked ID lists with RRF. Optional per-list weights let strict-mode
+ * callers de-emphasise noisy rankers (e.g. Algolia keyword match) without
+ * removing them entirely — weight=0.25 means the voter still contributes
+ * diversity but can't single-handedly push an off-aesthetic hit into the
+ * top results. Default weight per list = 1 (original behaviour).
+ */
+function rrfMerge(lists: string[][], maxResults: number, weights?: number[]): string[] {
   const scores = new Map<string, number>();
-  for (const list of lists) {
-    list.forEach((id, rank) => {
-      scores.set(id, (scores.get(id) ?? 0) + 1 / (rank + RRF_K));
+  for (let i = 0; i < lists.length; i++) {
+    const w = weights?.[i] ?? 1;
+    if (w === 0) continue;
+    lists[i].forEach((id, rank) => {
+      scores.set(id, (scores.get(id) ?? 0) + w / (rank + RRF_K));
     });
   }
   return Array.from(scores.entries())
@@ -87,24 +95,41 @@ function vibePhrases(dna: StyleDNA): string[] {
  *
  * Falls back to whatever subset is non-empty.
  */
+/** Strictness knobs for semantic queries — default loose, set strict via opts. */
+const STRICT_MIN_SCORE      = 0.20;  // cosine floor for Pinecone visual/vibe
+const STRICT_ALGOLIA_WEIGHT = 0.25;  // RRF weight multiplier for Algolia voter
+
 export async function hybridSearch(
   embeddings:     number[][],
   aesthetic:      StyleDNA,
   userToken:      string,
   maxPerCategory  = 20,
-  opts:           { useTasteHead?: boolean } = {},
+  opts:           { useTasteHead?: boolean; strict?: boolean } = {},
 ): Promise<CategoryCandidates> {
   const useTasteHead = opts.useTasteHead === true;
+  // Strict mode = typed text / quiz queries where the user gave a deliberate
+  // brief. Raises the Pinecone similarity floor and de-weights the Algolia
+  // keyword voter so off-aesthetic neighbours (bikini bags in a dad-chic
+  // brief, pink slip dresses in an old-money brief, etc.) don't survive
+  // the RRF merge just because they happened to be among the top-K or
+  // keyword-matched a color word.
+  //
+  // Pinterest / upload modes default to loose — the user didn't give us
+  // words, so we need the wider net.
+  const strict = opts.strict === true;
+  const minScore = strict ? STRICT_MIN_SCORE : 0;
+  const algoliaWeight = strict ? STRICT_ALGOLIA_WEIGHT : 1;
+
   const valid   = embeddings.filter((e) => e.length > 0);
   const phrases = vibePhrases(aesthetic);
 
   const [pineconeIds, vibeIds, tasteIds, algoliaCandidates] = await Promise.all([
     valid.length > 0
-      ? searchByEmbeddings(valid, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
+      ? searchByEmbeddings(valid, 200, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     phrases.length > 0
-      ? searchByVibeText(phrases, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
+      ? searchByVibeText(phrases, 200, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     // Taste head: learned projection on top of FashionCLIP. Only fires when
@@ -113,7 +138,7 @@ export async function hybridSearch(
     // (Also drops out silently when no head is trained or no vectors in the
     // `taste` namespace.)
     useTasteHead && valid.length > 0
-      ? searchByTasteEmbeddings(valid, 200, { priceRange: aesthetic.price_range }).catch(() => [] as string[])
+      ? searchByTasteEmbeddings(valid, 200, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     searchByCategory(
@@ -160,7 +185,15 @@ export async function hybridSearch(
     const tstIds  = tasteBuckets[cat].map((p) => p.objectID);
     const algIds  = algoliaCandidates[cat].map((p) => p.objectID);
 
-    const mergedIds = rrfMerge([visIds, vibIds, tstIds, algIds], maxPerCategory);
+    // In strict mode the Algolia keyword voter is de-weighted (≈0.25) so a
+    // noisy keyword hit on "navy bag" can't push a bikini bag into the top
+    // results just by ranking high in Algolia. Visual + vibe rankers carry
+    // the load; keyword stays in for diversity but loses veto power.
+    const mergedIds = rrfMerge(
+      [visIds, vibIds, tstIds, algIds],
+      maxPerCategory,
+      [1, 1, 1, algoliaWeight],
+    );
 
     const lookup = new Map<string, AlgoliaProduct>();
     [...visualBuckets[cat], ...vibeBuckets[cat], ...tasteBuckets[cat], ...algoliaCandidates[cat]].forEach((p) => {

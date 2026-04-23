@@ -387,6 +387,18 @@ export interface SearchOptions {
   axes?:       AxisFilter;
   /** Pinecone namespace. Default = "" (visual); "vibe" = caption-based vectors. */
   namespace?:  string;
+  /**
+   * Minimum per-match cosine similarity to accept. Default: 0 (accept all).
+   * Set to 0.20-0.25 for "strict" semantic queries where off-aesthetic
+   * neighbours should be dropped regardless of top-K ranking. FashionCLIP
+   * cosine scores typically land 0.15-0.35 for real matches on this catalog;
+   * below 0.18 the nearest neighbour is often off-aesthetic (pink dress for
+   * a menswear query, bikini for a quiet-luxury query, etc.).
+   *
+   * Applied BEFORE the cluster-weight multiplier so the threshold is a real
+   * similarity floor, not a weighted one.
+   */
+  minScore?:   number;
 }
 
 export async function searchByEmbeddings(
@@ -399,6 +411,7 @@ export async function searchByEmbeddings(
 
   const clusters       = clusterEmbeddings(valid, 0.78);
   const pineconeFilter = mergeFilters(options.priceRange, options.axes);
+  const minScore       = options.minScore ?? 0;
   const seen           = new Map<string, number>();
   const idx            = await getPineconeIndex();
   const target         = options.namespace ? idx.namespace(options.namespace) : idx;
@@ -414,7 +427,12 @@ export async function searchByEmbeddings(
       });
 
       for (const match of result.matches ?? []) {
-        const score = (match.score ?? 0) * cluster.weight;
+        const rawScore = match.score ?? 0;
+        // Strict threshold — drops off-aesthetic neighbours even when they
+        // happen to be among the topK. When minScore is 0 (the historical
+        // default) this is a no-op.
+        if (rawScore < minScore) continue;
+        const score = rawScore * cluster.weight;
         seen.set(match.id, (seen.get(match.id) ?? 0) + score);
       }
     })

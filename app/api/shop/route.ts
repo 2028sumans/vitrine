@@ -336,7 +336,12 @@ export async function POST(request: Request) {
           if (isShortPivot) console.log(`[shop] Short pivot detected ("${userTypedQuery}") — skipping softAvoids`);
           const queryVectors = await buildTextQueryVectors(aesthetic!, softAvoids);
           console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
-          rawCandidates = await hybridSearch(queryVectors, aesthetic!, token, 20, { useTasteHead });
+          // Strict mode for text/quiz: raises Pinecone min-score floor and
+          // de-weights the Algolia keyword voter so off-aesthetic neighbours
+          // get filtered out across ALL semantic queries — not just dad-chic.
+          // Pinterest / image modes stay loose because their image embeddings
+          // already encode the user's intent more precisely.
+          rawCandidates = await hybridSearch(queryVectors, aesthetic!, token, 20, { useTasteHead, strict: true });
 
         } else {
           console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
