@@ -227,25 +227,53 @@ const EDITS = [
   {
     slug:                "wedding-guest",
     title:               "Wedding Guest",
-    subtitle:            "Midi to maxi, never white, never black",
+    subtitle:            "Silk, satin, chiffon, gowns — midi to maxi",
     filter:              "category:dress",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       const c = (p.color ?? "").toLowerCase().trim();
-      if (!/\bdress\b/.test(t))                                                          return false;
+      const m = (p.material ?? "").toLowerCase();
+      const d = (p.description ?? "").toLowerCase();
+      const h = `${t} ${c} ${m} ${d}`;
+
+      if (!/\b(dress|gown)\b/.test(t))                                                              return false;
       if (!/\b(midi|maxi|full[-\s]?length|floor[-\s]?length|column|wrap|a[-\s]?line|gown)\b/.test(t)) return false;
-      if (/\b(bridal|wedding\s*dress|bride\b)\b/.test(t))                                return false;
+      if (/\b(bridal|wedding\s*dress|bride\b)\b/.test(t))                                           return false;
 
-      const h = `${t} ${c}`;
+      // Hard reject white/black/ivory family (bride's colors), EN + IT + FR.
+      const WHITE_BLACK = /\b(white|ivory|cream|ecru|off[-\s]?white|chalk|black|nero|noir|blanc|bianco|jet|onyx|raven|charcoal)\b/;
+      if (WHITE_BLACK.test(`${t} ${c}`)) return false;
 
-      // Hard reject any white/black/ivory family signal, EN + IT + FR.
-      const EXCLUDE = /\b(white|ivory|cream|ecru|off[-\s]?white|chalk|black|nero|noir|blanc|bianco|jet|onyx|raven|charcoal)\b/;
-      if (EXCLUDE.test(h)) return false;
+      // Reject "dowdy" / too-casual signals — the stuff that reads like a day
+      // dress, not an evening one. Smocked + prairie + tiered cottagecore,
+      // beach-shape kaftans, denim/gingham/plaid. These make the edit feel
+      // matronly or like Sunday brunch, not a cocktail hour.
+      const DOWDY = /\b(smock(?:ed)?|prairie|peasant|shirtdress|t[-\s]?shirt\s*dress|polo\s*dress|polo\s*(?:mini|midi|maxi)|knit\s*polo|milkmaid|sundress|sun[-\s]?dress|beach\s*dress|cover[-\s]?up|caftan|kaftan|muumuu|gauze|linen|poplin|cotton\s*(?:gauze|poplin|jersey)|denim|gingham|chambray|plaid|flannel|corduroy|oversized|relax(?:ed)?[-\s]?fit|boho|bohemian|prairie|mini\s*dress)\b/;
+      if (DOWDY.test(h)) return false;
 
-      // Must carry a positive, non-white/black colour signal in title or
-      // color field — otherwise we're gambling on ambiguous listings
-      // ("V-Neck Midi Dress" with no color info could be anything).
-      const POSITIVE = /\b(red|pink|rose|blush|fuchsia|magenta|coral|peach|salmon|orange|rust|copper|terracotta|amber|yellow|butter|mustard|gold|olive|green|sage|mint|emerald|forest|teal|turquoise|aqua|navy|blue|sky|cobalt|cerulean|periwinkle|indigo|purple|plum|lavender|lilac|mauve|grape|violet|aubergine|melanzana|brown|chocolate|cocoa|espresso|tan|camel|taupe|sand|beige|nude|khaki|burgundy|wine|maroon|oxblood|roseira|magnolia|marigold|ivy|chili|bloom|posie|floral|print|polka|stripe|paisley|multi)\b/;
+      // Reject earthy / neutral colors — technically "color signals" but they
+      // skew dowdy and read as everyday-wear. Save these for the Resort edit.
+      const DULL_COLOR = /\b(sand|beige|oatmeal|stone|mushroom|mocha|taupe|camel|khaki|sage|olive|army|forest|moss|chocolate|espresso|coffee|bronze|natural|nude|ecru|tan\b)\b/;
+      if (DULL_COLOR.test(`${t} ${c}`)) return false;
+
+      // Reject stripes and polka dot — retro/day-dress territory, rarely
+      // reads wedding-formal unless stone-cold couture.
+      if (/\b(stripe|striped|pinstripe|polka)\b/.test(h)) return false;
+
+      // Reject collar/collared language — strong tell for a shirt-ish day dress.
+      if (/\b(collar|collared|peter\s*pan|button[-\s]?down)\b/.test(t)) return false;
+
+      // Require at least one formal-occasion signal. This is the crux of the
+      // fix: the old filter only checked "is it midi/maxi with a color" which
+      // let day-dresses slip in. Now we require the garment to actually read
+      // like occasionwear — via fabric, silhouette, or explicit language.
+      const FORMAL_FABRIC     = /\b(silk|satin|velvet|chiffon|tulle|sequin(?:ed|s)?|bead(?:ed|s|ing)?|lam[ée]|metallic|lurex|organza|taffeta|brocade|jacquard|lace|crepe|duchess|mikado)\b/;
+      const FORMAL_SILHOUETTE = /\b(gown|column|sheath|mermaid|halter|cowl|backless|one[-\s]?shoulder|strapless|bias|slip|drap(?:e|ed|ing)|cors(?:et|eted)|bodice|fit[-\s]?and[-\s]?flare|plunge|plunging)\b/;
+      const FORMAL_OCCASION   = /\b(formal|evening|occasion|cocktail|black[-\s]?tie|gala|ballroom|red[-\s]?carpet|party)\b/;
+      if (!(FORMAL_FABRIC.test(h) || FORMAL_SILHOUETTE.test(h) || FORMAL_OCCASION.test(h))) return false;
+
+      // Positive colour signal in title or color field.
+      const POSITIVE = /\b(red|pink|rose|blush|fuchsia|magenta|coral|peach|salmon|orange|rust|copper|terracotta|amber|yellow|butter|mustard|gold|mint|emerald|teal|turquoise|aqua|navy|blue|sky|cobalt|cerulean|periwinkle|indigo|purple|plum|lavender|lilac|mauve|grape|violet|aubergine|melanzana|burgundy|wine|maroon|oxblood|roseira|magnolia|marigold|chili|bloom|posie|floral|print|polka|paisley|multi|champagne|silver|rose[-\s]?gold)\b/;
       if (!POSITIVE.test(h)) return false;
 
       return true;
