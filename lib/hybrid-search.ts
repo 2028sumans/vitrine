@@ -47,14 +47,25 @@ function vibePhrases(dna: StyleDNA): string[] {
   }
   if (out.length > 0) return out.slice(0, 8);
 
-  // Fallback: synthesise a short vibe line from the structured fields.
-  const synthesised = [
-    dna.primary_aesthetic, dna.secondary_aesthetic, dna.mood,
-    ...(dna.color_palette ?? []).slice(0, 3),
-    ...(dna.silhouettes   ?? []).slice(0, 2),
-    ...(dna.style_keywords ?? []).slice(0, 4),
-  ].filter((s): s is string => Boolean(s?.trim())).join(", ");
-  return synthesised ? [synthesised] : [];
+  // Fallback: build a NATURAL SENTENCE from structured fields. The previous
+  // version comma-joined everything into "minimalist, with parisian undertones,
+  // unhurried, cream, navy, oversized, …" — keyword salad pushes the encoded
+  // vector into low-density CLIP space and the search recovers generic
+  // products. A real sentence stays in the captioned-image neighborhood and
+  // recovers on-aesthetic products.
+  const aesthetic = (dna.primary_aesthetic ?? "").trim();
+  const colors    = (dna.color_palette ?? []).slice(0, 3).filter(Boolean);
+  const sils      = (dna.silhouettes  ?? []).slice(0, 2).filter(Boolean);
+  if (!aesthetic && colors.length === 0 && sils.length === 0) return [];
+
+  const lead   = aesthetic ? `a ${aesthetic} outfit` : "an outfit";
+  const palette = colors.length > 0
+    ? ` in ${colors.length === 1 ? colors[0] : colors.slice(0, -1).join(", ") + " and " + colors[colors.length - 1]}`
+    : "";
+  const shapes = sils.length > 0
+    ? ` with ${sils.join(" and ")}`
+    : "";
+  return [`a photo of ${lead}${palette}${shapes}`];
 }
 
 /**

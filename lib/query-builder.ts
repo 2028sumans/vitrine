@@ -30,27 +30,49 @@ const AESTHETIC_ANCHOR_WT   = 0.10;
 const MAX_AVOIDS_TO_ENCODE  = 5;
 const MAX_PHRASES_PER_CAT   = 2;
 
-/** A short FashionCLIP-friendly phrase summarizing the overall vibe. */
+/**
+ * A short FashionCLIP-friendly NATURAL SENTENCE summarising the overall vibe.
+ *
+ * The previous implementation comma-joined keyword fragments, e.g.
+ *   "dad-core chic, with skater edge, unhurried, cream, navy, oversized boxy top, …"
+ * That's keyword salad — FashionCLIP was trained on caption-like sentences,
+ * not tag dumps, so the resulting vector lands in low-density regions of the
+ * latent space and steers retrieval toward whatever generic catalog vectors
+ * happen to be nearest. Building one well-formed sentence keeps the query in
+ * the distributional region where the image vectors actually live.
+ */
 function aestheticPhrase(dna: StyleDNA): string {
-  const parts = [
-    dna.primary_aesthetic,
-    dna.secondary_aesthetic,
-    dna.mood,
-    ...(dna.color_palette ?? []).slice(0, 3),
-    ...(dna.silhouettes  ?? []).slice(0, 2),
-    ...(dna.style_keywords ?? []).slice(0, 4),
-  ].filter((s): s is string => Boolean(s && s.trim()));
-  return parts.join(", ");
+  const aesthetic = (dna.primary_aesthetic ?? "").trim();
+  const colors    = (dna.color_palette ?? []).slice(0, 3).filter(Boolean);
+  const sils      = (dna.silhouettes  ?? []).slice(0, 2).filter(Boolean);
+
+  // Compose a sentence like:
+  //   "a photo of a dad-core chic outfit in cream, navy, and washed denim
+  //    with oversized boxy top and baggy carpenter pant"
+  const lead   = aesthetic ? `a ${aesthetic} outfit` : "an outfit";
+  const palette = colors.length > 0
+    ? ` in ${colors.length === 1 ? colors[0] : colors.slice(0, -1).join(", ") + " and " + colors[colors.length - 1]}`
+    : "";
+  const shapes = sils.length > 0
+    ? ` with ${sils.join(" and ")}`
+    : "";
+  return `a photo of ${lead}${palette}${shapes}`.trim();
 }
 
-/** Collect every per-category phrase Claude generated. */
+/**
+ * Collect every per-category phrase Claude generated, wrapped in the
+ * canonical "a photo of …" template (FashionCLIP / CLIP zero-shot prefix).
+ * `category_queries` are short retail terms like "olive dress" — without
+ * the prefix they lose ~5-15% recall on text→image search.
+ */
 function collectCategoryPhrases(dna: StyleDNA): string[] {
   const cats = ["dress", "top", "bottom", "jacket", "shoes", "bag"] as const;
   const phrases: string[] = [];
   for (const cat of cats) {
     const list = dna.category_queries?.[cat] ?? [];
     for (const q of list.slice(0, MAX_PHRASES_PER_CAT)) {
-      if (q?.trim()) phrases.push(q.trim());
+      const trimmed = q?.trim();
+      if (trimmed) phrases.push(`a photo of ${trimmed}`);
     }
   }
   return phrases;

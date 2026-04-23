@@ -89,12 +89,12 @@ function toImageBlocks(images: VisionImage[], maxCount = 12) {
 // ── Step 1: Aesthetic analysis — synthesises board images + taste history ─────
 
 const JSON_SCHEMA_TEMPLATE = `{
-  "primary_aesthetic": "specific named aesthetic, e.g. 'quiet luxury minimalist', 'coastal grandmother', 'dark academia', 'clean girl', 'old money prep'",
-  "secondary_aesthetic": "secondary influence, e.g. 'with Parisian casual undertones'",
+  "primary_aesthetic": "specific named aesthetic — feminine OR masculine OR androgynous. Examples span the spectrum: 'quiet luxury minimalist', 'coastal grandmother', 'dad-core chic', 'workwear utilitarian', 'old money prep', 'gorpcore', 'menswear-inspired tailoring', 'street goth', 'clean girl', 'preppy ivy'",
+  "secondary_aesthetic": "secondary influence, e.g. 'with Parisian casual undertones', 'with skater edge', 'with vintage workwear sensibility'",
   "color_palette": ["5-6 very specific color names — e.g. 'warm ivory', 'dusty sage', 'caramel', 'slate blue' — never just 'beige' or 'blue'"],
-  "silhouettes": ["4-5 silhouette preferences, e.g. 'relaxed wide-leg trouser', 'flowy bias-cut midi', 'oversized boxy top'"],
-  "key_pieces": ["5-6 specific hero garments, e.g. 'linen wrap dress', 'structured leather blazer', 'bias-cut slip skirt'"],
-  "avoids": ["3-4 explicit avoids, e.g. 'heavy logos', 'neon colors', 'shiny polyester'"],
+  "silhouettes": ["4-5 silhouette preferences spanning the gender spectrum as the brief demands — e.g. 'relaxed wide-leg trouser', 'oversized boxy top', 'baggy carpenter pant', 'cropped boxy tee', 'flowy bias-cut midi'"],
+  "key_pieces": ["5-6 specific hero garments — match the brief's gender coding, do not default to feminine. Masculine-coded brief examples: 'oversized graphic tee', 'baggy carpenter pants', 'pleated wool trouser', 'oxford button-down', 'chore jacket', 'dad cap', 'leather penny loafer'. Feminine: 'linen wrap dress', 'structured leather blazer', 'bias-cut slip skirt'. Androgynous: 'cashmere crewneck', 'straight-leg denim', 'tailored blazer'"],
+  "avoids": ["3-4 CONCRETE visual avoids — things FashionCLIP can recognize in an image. Good: 'neon colors', 'logos', 'sequins', 'sheer fabric', 'puff sleeves'. Bad: 'overly formal', 'too trendy' (these are abstract and steer the vector search badly — skip them)"],
   "occasion_mix": { "casual": 40, "work": 20, "weekend": 30, "going_out": 10 },
   "price_range": "budget | mid | luxury",
   "mood": "3-4 words, understated and specific, e.g. 'unhurried, a little cinematic'",
@@ -105,16 +105,16 @@ const JSON_SCHEMA_TEMPLATE = `{
     { "name": "...", "era": "...", "why": "..." }
   ],
   "category_queries": {
-    "IMPORTANT": "Queries must match how products are actually titled in a retail catalogue. Short. Simple. Color + type. NOT descriptive sentences.",
-    "dress": ["3 queries, MAX 3 words each — color + silhouette only — e.g. 'black midi dress', 'ivory slip dress', 'floral mini dress' — NOT 'dusty sage bias-cut linen slip dress'"],
-    "top": ["3 queries, MAX 3 words each — e.g. 'cream knit top', 'white blouse', 'black bodysuit' — NOT 'relaxed oversized cotton turtleneck'"],
-    "bottom": ["3 queries, MAX 3 words each — e.g. 'camel wide pants', 'black mini skirt', 'beige trousers' — NOT 'high-waisted flowy linen wide-leg trouser'"],
-    "jacket": ["3 queries, MAX 3 words each — e.g. 'camel coat', 'black blazer', 'leather jacket' — NOT 'structured oversized vintage-inspired blazer'"],
-    "shoes": ["3 queries, MAX 3 words each — e.g. 'black heels', 'tan sandals', 'white sneakers'"],
-    "bag": ["3 queries, MAX 3 words each — e.g. 'black leather bag', 'tan tote', 'mini shoulder bag'"]
+    "IMPORTANT": "Queries must match how products are titled in a retail catalogue. Short. Simple. Color + type. NOT descriptive sentences. ALSO: it is OK and PREFERRED to leave a category as an EMPTY ARRAY [] when it doesn't fit the brief. A masculine brief should have empty 'dress'. A swimwear brief should have empty 'jacket'. Padding categories with off-brief queries pollutes the results.",
+    "dress": ["0-3 queries, MAX 3 words each. EMPTY ARRAY if the brief is masculine, athletic, or otherwise dress-incompatible. Otherwise: 'black midi dress', 'ivory slip dress', 'floral mini dress'"],
+    "top": ["0-3 queries, MAX 3 words each. Span gender as needed: feminine 'cream knit top', 'white blouse'; masculine 'oversized graphic tee', 'oxford shirt', 'crew sweatshirt'"],
+    "bottom": ["0-3 queries, MAX 3 words each. Feminine: 'black mini skirt'. Masculine: 'baggy carpenter pant', 'wide leg trouser', 'cargo pants'. Mixed: 'straight leg denim'"],
+    "jacket": ["0-3 queries, MAX 3 words each. Feminine: 'camel coat'. Masculine: 'chore jacket', 'work jacket', 'bomber jacket', 'varsity jacket'. Both: 'black blazer', 'leather jacket'"],
+    "shoes": ["0-3 queries, MAX 3 words each. Feminine: 'black heels', 'tan sandals'. Masculine/unisex: 'penny loafer', 'work boot', 'white sneakers', 'dad sneaker', 'chelsea boot'"],
+    "bag": ["0-3 queries, MAX 3 words each. Feminine: 'mini shoulder bag'. Masculine/unisex: 'leather messenger', 'canvas tote', 'crossbody bag'"]
   },
-  "retrieval_phrases": ["5-8 FULL descriptive sentences about ideal outfits that capture the vibe — written in FashionCLIP's native vocabulary: garment + fabric + color + silhouette + styling. Unlike category_queries (which are short retail-catalog terms), these are LONG evocative sentences used for visual similarity search. Examples: 'flowy cream silk slip dress worn layered over a fitted white tee', 'oversized camel wool trench coat belted at the waist with leather', 'strong-shouldered tweed blazer in cream and gold paired with straight-leg denim', 'chunky cream cable-knit turtleneck with pleated midi skirt in dove gray'. Each phrase should describe ONE complete visual concept the wearer would actually want to see."],
-  "focus_categories": "ONLY include this field if 60%+ of the pins clearly depict ONE or TWO categories from ['dress','top','bottom','jacket','shoes','bag']. A shoes board with 100+ heels/sandals/boots -> ['shoes']. A handbag board -> ['bag']. A mixed-lookbook board that shows full outfits -> OMIT this field entirely (set to null or skip). This is the guardrail that prevents a shoes board from coming back as dresses just because the catalog has more dresses. Conservative bias: when in doubt, omit."
+  "retrieval_phrases": ["5-8 FULL descriptive sentences about ideal outfits — written in FashionCLIP's native 'a photo of ...' vocabulary: garment + fabric + color + silhouette + styling. ALWAYS prefix each with 'a photo of'. Match the brief's gender coding. Examples for dad-core: 'a photo of an oversized navy crewneck sweatshirt with baggy washed denim and white sneakers', 'a photo of a faded chore jacket layered over a white tee with relaxed straight pants'. Examples for old money: 'a photo of a chunky cream cable-knit turtleneck with pleated midi skirt in dove gray', 'a photo of an oversized camel wool trench coat belted at the waist'. Each phrase = ONE complete visual the wearer would actually want."],
+  "focus_categories": "OPTIONAL array of category names. Set this whenever the brief is gender-coded or category-coded such that some categories don't apply. A masculine 'dad-core' or 'workwear' brief -> ['top','bottom','jacket','shoes']. A swim board -> [] is fine but better to set ['dress'] only if it's a sundress brief, otherwise leave open. A shoes-only board -> ['shoes']. When set, only those categories will be retrieved — this PROTECTS the brief from being polluted by off-aesthetic dress matches. Set conservatively but DO USE IT for gender-coded text briefs."
 }`;
 
 function buildHistoryBlock(previousDNAs: StyleDNA[]): string {
@@ -331,18 +331,29 @@ export async function fetchCandidateProductsByCategory(
   // Supplement Claude's queries with simple [color] + [type] fallbacks.
   // Channel3 titles are short (e.g. "Black Viscose Blend Dress") so overly
   // descriptive queries miss inventory. Simple color + type always hits something.
+  //
+  // CRITICAL: only augment categories Claude actually populated. If Claude
+  // returned `dress: []` for a masculine "dad-core" brief, padding with
+  // `"olive dress", "navy dress"` etc would re-pollute the very category we
+  // wanted suppressed. Empty stays empty.
   const baseColors = (dna.color_palette ?? [])
     .slice(0, 4)
     .map((c) => c.toLowerCase().split(" ").pop() ?? c)   // "dusty sage" → "sage"
     .filter((c) => c.length > 2 && !/^\d/.test(c));
 
+  function augment(cat: ClothingCategory, terms: string[]): string[] {
+    const seed = queries[cat] ?? [];
+    if (seed.length === 0) return [];                 // honor explicit empties
+    return [...seed, ...baseColors.flatMap((c) => terms.map((t) => `${c} ${t}`))];
+  }
+
   const augmented: Record<ClothingCategory, string[]> = {
-    dress:  [...(queries.dress  ?? []), ...baseColors.map((c) => `${c} dress`)],
-    top:    [...(queries.top    ?? []), ...baseColors.map((c) => `${c} top`)],
-    bottom: [...(queries.bottom ?? []), ...baseColors.map((c) => `${c} skirt`),  ...baseColors.map((c) => `${c} pants`)],
-    jacket: [...(queries.jacket ?? []), ...baseColors.map((c) => `${c} blazer`), ...baseColors.map((c) => `${c} coat`)],
-    shoes:  [...(queries.shoes  ?? []), ...baseColors.map((c) => `${c} heels`),  ...baseColors.map((c) => `${c} boots`)],
-    bag:    [...(queries.bag    ?? []), ...baseColors.map((c) => `${c} bag`)],
+    dress:  augment("dress",  ["dress"]),
+    top:    augment("top",    ["top"]),
+    bottom: augment("bottom", ["skirt", "pants"]),
+    jacket: augment("jacket", ["blazer", "coat"]),
+    shoes:  augment("shoes",  ["heels", "boots"]),
+    bag:    augment("bag",    ["bag"]),
   };
 
   const result = await searchByCategory(
@@ -974,17 +985,31 @@ export async function textQueryToAesthetic(
   previousDNAs: StyleDNA[] = []
 ): Promise<StyleDNA> {
   const client = getClient();
-  const historyBlock = buildHistoryBlock(previousDNAs);
+
+  // STYLE-PIVOT GUARD — when a user types a short, decisive brief like
+  // "Dad-core chic" or "night at the opera" they're often pivoting away
+  // from their established taste, not refining it. Feeding their previous
+  // boards into Claude with the instruction "strengthen patterns that
+  // repeat" actively pulls the interpretation back toward old terrain
+  // and surfaces feminine dresses for menswear briefs (and vice versa).
+  // Heuristic: queries ≤6 words are deliberate aesthetic pivots → no
+  // history. Longer queries are usually descriptive / refining →
+  // history is helpful.
+  const wordCount = query.trim().split(/\s+/).filter(Boolean).length;
+  const isShortPivot = wordCount > 0 && wordCount <= 6;
+  const useHistory = previousDNAs.length > 0 && !isShortPivot;
+  const historyBlock = useHistory ? buildHistoryBlock(previousDNAs) : "";
 
   const promptText =
     `You are a fashion editor and stylist with a sharp, quiet eye.\n` +
-    (previousDNAs.length > 0 ? `\n${historyBlock}\n\n` : "") +
+    (useHistory ? `\n${historyBlock}\n\n` : "") +
     `A user is looking for fashion recommendations and described their style or intent in their own words:\n\n` +
     `"${query}"\n\n` +
     `Interpret this as a fashion brief. Infer aesthetic, palette, silhouettes, mood, and shopping intent from their words. ` +
     `Be generous — they may be vague or use non-fashion language. ` +
     `If they mention an occasion (dinner, vacation, work), let that shape the occasion_mix. ` +
-    `If they mention price signals ("affordable", "investment piece", "splurge"), set price_range accordingly.\n\n` +
+    `If they mention price signals ("affordable", "investment piece", "splurge"), set price_range accordingly. ` +
+    `Read the brief on its own terms — if it's masculine-coded ("dad-core", "menswear", "workwear"), use empty arrays for dress and lean masculine across other categories; if it's coded for one occasion or category, set focus_categories. Don't pad categories that don't fit just to fill the schema.\n\n` +
     `Return a StyleDNA JSON. Be specific and exact — no filler, no em dashes, no superlatives. Return ONLY valid JSON:\n\n` +
     JSON_SCHEMA_TEMPLATE;
 

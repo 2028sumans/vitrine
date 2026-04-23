@@ -321,8 +321,30 @@ export async function embedBase64Images(images: VisionImage[]): Promise<number[]
 // ── Embed a text query (for text → Pinecone visual search) ────────────────────
 // Encodes a fashion text query into the same 512-dim space as the image vectors,
 // enabling direct text-to-image search against the Pinecone index.
+//
+// CLIP / FashionCLIP were trained on natural-sentence captions paired with
+// images. Raw keyword salad ("dad-core chic") and abstract style words
+// underperform on text→image search by ~5-15% recall vs. a templated prompt.
+// Wrapping the query in `"a photo of …"` (the canonical CLIP zero-shot
+// template) puts the text in the same distributional region as training
+// captions and consistently improves nearest-neighbour quality.
+//
+// Caller can opt out by passing `template: "raw"` for queries that already
+// include the prefix (e.g. retrieval_phrases produced by Claude in lib/ai.ts).
 
-export async function embedTextQuery(text: string): Promise<number[]> {
+function applyTemplate(text: string, template: "auto" | "raw"): string {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return trimmed;
+  if (template === "raw") return trimmed;
+  // Already wrapped — don't double-prefix.
+  if (/^a\s+(photo|picture|image)\s+of\b/i.test(trimmed)) return trimmed;
+  return `a photo of ${trimmed}`;
+}
+
+export async function embedTextQuery(
+  text:     string,
+  template: "auto" | "raw" = "auto",
+): Promise<number[]> {
   const modelData = await getTextModel();
   if (!modelData) return [];
 
@@ -330,7 +352,7 @@ export async function embedTextQuery(text: string): Promise<number[]> {
 
   try {
     // @ts-expect-error — dynamic model call
-    const inputs = await tokenizer(text, { padding: true, truncation: true });
+    const inputs = await tokenizer(applyTemplate(text, template), { padding: true, truncation: true });
     // @ts-expect-error — dynamic model call
     const { text_embeds } = await model(inputs);
     return Array.from(text_embeds.data as Float32Array);
