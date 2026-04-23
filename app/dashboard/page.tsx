@@ -8,7 +8,7 @@ import type { StyleDNA } from "@/lib/ai";
 import { displayTitle, type AlgoliaProduct, type CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
-import { getShortlistSummary } from "@/lib/saved";
+import { addSaved, removeSaved, isSaved, getShortlistSummary } from "@/lib/saved";
 import { PriceFilterBar, useFilteredByPrice, type PriceTier } from "@/components/price-filter";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -203,6 +203,12 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
     ? formatPrice(product.price)
     : product.price_range !== "unknown" ? product.price_range : null;
 
+  // Self-managed save state — initialised from localStorage on mount. We don't
+  // lift this to the parent because save is a bookmark action, not a taste
+  // signal (unlike Like). The brief flicker on first paint is acceptable.
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { setSaved(isSaved(product.objectID)); }, [product.objectID]);
+
   const handleClick = () => {
     trackProductClick({ userToken, objectID: product.objectID, queryID: product._queryID ?? "", position: product._position ?? 1 });
     fetch("/api/taste/click", {
@@ -210,6 +216,30 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userToken, product: { objectID: product.objectID, title: product.title, brand: product.brand, color: product.color, category: product.category, retailer: product.retailer, price_range: product.price_range, image_url: product.image_url } }),
     }).catch(() => {});
+  };
+
+  const handleSaveToggle = (e: React.MouseEvent) => {
+    // The card is wrapped in an <a>, so we must stop the navigation.
+    e.preventDefault();
+    e.stopPropagation();
+    if (saved) {
+      removeSaved(product.objectID);
+      setSaved(false);
+    } else {
+      addSaved({
+        objectID:    product.objectID,
+        title:       product.title,
+        brand:       product.brand,
+        retailer:    product.retailer,
+        price:       product.price,
+        image_url:   product.image_url,
+        product_url: product.product_url,
+        category:    product.category,
+        color:       product.color,
+        price_range: product.price_range,
+      });
+      setSaved(true);
+    }
   };
 
   const brandLabel = (product.brand || product.retailer || "").trim();
@@ -229,6 +259,22 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
+        {/* Save bookmark — top-right of the image. Always visible when
+            saved (filled olive); on rest it fades in on hover so the grid
+            stays calm. Matches the rail bookmark in the scroll view. */}
+        <button
+          onClick={handleSaveToggle}
+          aria-label={saved ? "Remove from shortlist" : "Save to shortlist"}
+          className={`absolute top-2 right-2 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-background/90 border border-border-mid text-foreground hover:border-foreground/60 transition-all duration-200 ${
+            saved ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4"
+            fill={saved ? "currentColor" : "none"}
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
       </div>
       <div className="pt-3">
         {brandLabel && (
@@ -368,6 +414,44 @@ function ProductScrollView({
 
   const activeProduct = products[activeIdx];
   const activeLiked   = activeProduct ? effectiveLikedIds.has(activeProduct.objectID) : false;
+
+  // Save state — self-managed (save is a bookmark, not a taste signal) and
+  // hydrated from localStorage whenever the active card changes.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!activeProduct) return;
+    if (isSaved(activeProduct.objectID)) {
+      setSavedIds((prev) => (prev.has(activeProduct.objectID) ? prev : new Set(prev).add(activeProduct.objectID)));
+    }
+  }, [activeProduct]);
+  const activeSaved = activeProduct ? savedIds.has(activeProduct.objectID) : false;
+
+  const handleSave = useCallback(() => {
+    const p = activeProduct;
+    if (!p) return;
+    if (savedIds.has(p.objectID)) {
+      removeSaved(p.objectID);
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(p.objectID);
+        return next;
+      });
+    } else {
+      addSaved({
+        objectID:    p.objectID,
+        title:       p.title,
+        brand:       p.brand,
+        retailer:    p.retailer,
+        price:       p.price,
+        image_url:   p.image_url,
+        product_url: p.product_url,
+        category:    p.category,
+        color:       p.color,
+        price_range: p.price_range,
+      });
+      setSavedIds((prev) => new Set(prev).add(p.objectID));
+    }
+  }, [activeProduct, savedIds]);
 
   const handleLike = useCallback(() => {
     const p = activeProduct;
@@ -557,6 +641,11 @@ function ProductScrollView({
                 </svg>
               </RailButton>
             )}
+            <RailButton label={activeSaved ? "Saved" : "Save"} onClick={handleSave}>
+              <svg viewBox="0 0 24 24" className="w-5 h-5" fill={activeSaved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </RailButton>
           </div>
         </div>
 
@@ -574,6 +663,11 @@ function ProductScrollView({
               </svg>
             </RailButton>
           )}
+          <RailButton label={activeSaved ? "Saved" : "Save"} onClick={handleSave}>
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill={activeSaved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+          </RailButton>
         </div>
       </div>
     </div>
