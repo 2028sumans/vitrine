@@ -190,7 +190,8 @@ async function getVisionModel(): Promise<{ processor: unknown; model: unknown } 
 
     const [processor, model] = await Promise.all([_visionProcessorPromise, _visionModelPromise]);
     return { processor, model };
-  } catch {
+  } catch (err) {
+    console.error("[embeddings] getVisionModel failed:", err);
     return null;
   }
 }
@@ -216,7 +217,8 @@ async function getTextModel(): Promise<{ tokenizer: unknown; model: unknown } | 
 
     const [tokenizer, model] = await Promise.all([_textTokenizerPromise, _textModelPromise]);
     return { tokenizer, model };
-  } catch {
+  } catch (err) {
+    console.error("[embeddings] getTextModel failed:", err);
     return null;
   }
 }
@@ -278,7 +280,8 @@ export async function embedImageUrls(urls: string[]): Promise<number[][]> {
       // @ts-expect-error — dynamic model call
       const { image_embeds } = await model(inputs);
       return Array.from(image_embeds.data as Float32Array) as number[];
-    } catch {
+    } catch (err) {
+      console.error("[embeddings] embedImageUrls failed for", url, err);
       return [] as number[];
     }
   }));
