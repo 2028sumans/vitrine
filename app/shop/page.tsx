@@ -733,7 +733,7 @@ function ShopPageContent() {
               <>
                 <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">The catalog</p>
                 <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-4">
-                  Shop
+                  Shop the Back Catalogue
                 </h1>
                 <p className="font-sans text-base text-muted-strong max-w-2xl leading-relaxed">
                   Pick a category to browse. Over 100,000 pieces from vintage stores, eco-friendly labels, and small-batch makers.
