@@ -105,6 +105,10 @@ const CATEGORY_IMAGE_OVERRIDE: Record<string, string> = {
   "Knits":                 "https://cdn.shopify.com/s/files/1/0550/4407/9778/files/LISAYANG_AW25_CAPSULE_ALVIA_SWEATER_2025372BL_BLACK_0038.jpg?v=1767079625",
   // The Row E/W Margaux Bag in Nubuck — page 2 of The Row products
   "Bags and accessories":  "https://cdn.shopify.com/s/files/1/0552/0313/5593/files/W1629L25NUBSF.jpg?v=1767974133",
+  // Cult Gaia Stormie Top in Large Dot Deep Lake — shpfy-cultgaiacom-8019617611850.
+  // Was auto-picking a handbag because the "Tops" pool has mis-tagged rows
+  // that slipped the title whitelist. Pinned to the product the user asked for.
+  "Tops":                  "https://cdn.shopify.com/s/files/1/0336/7793/files/251013_DR_CULT_GAIA_R26_ECOM_43_STORMIE_TOP_CHANTEL_SKIRT_DEEP_LAKE_0043_WEBBED.jpg?v=1763353189",
 };
 
 export async function GET() {
