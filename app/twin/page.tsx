@@ -1,5 +1,5 @@
 /**
- * /twin — "Find its Twin"
+ * /twin — "TwinFinder"
  *
  * Single-page flow:
  *   1. Upload zone (drag/drop or click). Only the hero shot matters — we embed it raw.
@@ -13,7 +13,6 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { MobileMenu } from "../_components/MobileMenu";
 import type { AlgoliaProduct } from "@/lib/algolia";
@@ -26,12 +25,6 @@ interface TwinResult {
   twin:       AlgoliaProduct;
   alternates: AlgoliaProduct[];
 }
-
-// ── Palette (keep inline — matches the deep-olive hero on /) ─────────────────
-
-const BG   = "#EDE5D0"; // warm cream
-const INK  = "#333E1D"; // deep olive
-const MUTE = "#333E1D99";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,12 +68,12 @@ async function fileToDownscaledBase64(
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TwinPage() {
-  const [phase,       setPhase]       = useState<Phase>("idle");
-  const [uploadUrl,   setUploadUrl]   = useState<string | null>(null);
-  const [result,      setResult]      = useState<TwinResult | null>(null);
-  const [twinIndex,   setTwinIndex]   = useState(0);
-  const [errorMsg,    setErrorMsg]    = useState<string>("");
-  const [dragging,    setDragging]    = useState(false);
+  const [phase,     setPhase]     = useState<Phase>("idle");
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [result,    setResult]    = useState<TwinResult | null>(null);
+  const [twinIndex, setTwinIndex] = useState(0);
+  const [errorMsg,  setErrorMsg]  = useState<string>("");
+  const [dragging,  setDragging]  = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
@@ -126,29 +119,22 @@ export default function TwinPage() {
     [runTwin],
   );
 
-  // All candidates (twin + alternates), cycled by twinIndex in the UI rail.
   const candidates = result ? [result.twin, ...result.alternates] : [];
   const shownTwin  = candidates[twinIndex] ?? null;
 
   return (
-    <main style={{ backgroundColor: BG, color: INK, minHeight: "100vh" }}>
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-5 md:px-10">
-        <Link href="/" className="font-serif text-2xl tracking-tight">
-          muse
+    <div className="min-h-screen flex flex-col">
+      {/* ── Nav — same fixed cream bar as /brands, /edit, /edits ───────────── */}
+      <header className="fade-in fixed top-0 left-0 right-0 z-50 px-8 py-5 flex items-center justify-between bg-background/80 backdrop-blur-sm">
+        <Link href="/" className="font-display font-light text-xl tracking-[0.22em] text-foreground">
+          MUSE
         </Link>
-        <nav className="hidden items-center gap-7 font-sans text-sm sm:flex">
-          <Link href="/shop"   className="hover:opacity-70">Shop</Link>
-          <Link href="/brands" className="hover:opacity-70">Brands</Link>
-          <Link href="/edit"   className="hover:opacity-70">Your shortlist</Link>
-          <Link
-            href="/dashboard"
-            className="rounded-full px-4 py-2 text-white transition hover:opacity-90"
-            style={{ backgroundColor: INK }}
-          >
-            Get started →
-          </Link>
-        </nav>
+        <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
+          <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
+          <Link href="/shop"   className="text-muted hover:text-foreground transition-colors">Shop</Link>
+          <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
+          <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
+        </div>
         <MobileMenu
           variant="cream"
           links={[
@@ -160,189 +146,198 @@ export default function TwinPage() {
         />
       </header>
 
-      {/* ── Hero ────────────────────────────────────────────────────────── */}
-      {phase === "idle" && (
-        <section className="mx-auto flex max-w-4xl flex-col items-center px-6 py-10 text-center md:py-16">
-          <p
-            className="mb-4 font-sans text-xs uppercase tracking-[0.25em]"
-            style={{ color: MUTE }}
-          >
-            new
-          </p>
-          <h1 className="mb-5 font-serif text-5xl leading-[1.05] md:text-7xl">
-            Find its Twin
-          </h1>
-          <p
-            className="mb-10 max-w-xl font-sans text-base md:text-lg"
-            style={{ color: MUTE }}
-          >
-            Every basic has a Twin. Upload a piece — from anywhere — and we&rsquo;ll
-            find its small-batch, hand-made counterpart from our catalog of independent labels.
-          </p>
+      <main className="flex-1 pt-24 pb-24 px-8 max-w-7xl mx-auto w-full">
 
-          <DropZone
-            dragging={dragging}
-            setDragging={setDragging}
-            onFile={handleFile}
-            onOpenPicker={() => fileInputRef.current?.click()}
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => handleFile(e.target.files?.[0])}
-          />
+        {/* ── Idle: hero + drop zone ─────────────────────────────────────── */}
+        {phase === "idle" && (
+          <div className="flex flex-col items-center text-center fade-in-up">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-4">
+              New
+            </p>
+            <h1 className="font-display font-light text-6xl sm:text-7xl text-foreground leading-[1.05] mb-6">
+              TwinFinder
+            </h1>
+            <p className="font-sans text-base text-muted-strong max-w-xl leading-relaxed mb-14">
+              Upload a piece from anywhere — we&rsquo;ll find its small-batch,
+              hand-made counterpart in the Muse catalog of independent labels.
+            </p>
 
-          <p className="mt-6 font-sans text-xs" style={{ color: MUTE }}>
-            Tip: a single clean shot of the garment on a plain background works best.
-          </p>
-        </section>
-      )}
+            <DropZone
+              dragging={dragging}
+              setDragging={setDragging}
+              onFile={handleFile}
+              onOpenPicker={() => fileInputRef.current?.click()}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
 
-      {/* ── Reading the room beat ───────────────────────────────────────── */}
-      {phase === "reading" && (
-        <section className="mx-auto flex min-h-[60vh] max-w-4xl flex-col items-center justify-center gap-4 px-6 text-center">
-          <PulseDot />
-          <p className="font-serif text-2xl md:text-3xl">reading the room…</p>
-          <p className="font-sans text-sm" style={{ color: MUTE }}>
-            shape, texture, cut, mood
-          </p>
-        </section>
-      )}
+            <p className="mt-6 font-sans text-[10px] tracking-widest uppercase text-muted">
+              Tip — a clean shot on a plain background works best
+            </p>
+          </div>
+        )}
 
-      {/* ── Error ───────────────────────────────────────────────────────── */}
-      {phase === "error" && (
-        <section className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 px-6 text-center">
-          <p className="font-serif text-3xl">no twin found.</p>
-          <p className="font-sans text-sm" style={{ color: MUTE }}>{errorMsg}</p>
-          <button
-            onClick={reset}
-            className="rounded-full border px-6 py-2 font-sans text-sm uppercase tracking-widest transition hover:opacity-70"
-            style={{ borderColor: INK }}
-          >
-            try another
-          </button>
-        </section>
-      )}
+        {/* ── Reading: soft wait state ───────────────────────────────────── */}
+        {phase === "reading" && (
+          <div className="min-h-[60vh] flex flex-col items-center justify-center gap-5 text-center">
+            <PulseDot />
+            <p className="font-display font-light italic text-3xl text-foreground">
+              Reading the room…
+            </p>
+            <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
+              Shape · Texture · Cut · Mood
+            </p>
+          </div>
+        )}
 
-      {/* ── Reveal ──────────────────────────────────────────────────────── */}
-      {phase === "revealed" && shownTwin && uploadUrl && (
-        <section className="mx-auto max-w-6xl px-6 pb-20 md:px-10">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-0">
-            {/* Yours */}
-            <figure className="twin-pane flex flex-col">
-              <Caption label="Yours" />
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/5">
-                {/* next/image needs width/height for remote URLs; use fill instead */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={uploadUrl}
-                  alt="Your uploaded piece"
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
+        {/* ── Error ──────────────────────────────────────────────────────── */}
+        {phase === "error" && (
+          <div className="min-h-[60vh] flex flex-col items-center justify-center gap-5 text-center max-w-xl mx-auto">
+            <p className="font-display font-light text-4xl text-foreground">
+              No twin found.
+            </p>
+            <p className="font-sans text-sm text-muted-strong">{errorMsg}</p>
+            <button
+              onClick={reset}
+              className="mt-2 px-6 py-3 font-sans text-[10px] tracking-widest uppercase border border-border-mid text-foreground hover:bg-foreground hover:text-background transition-colors"
+            >
+              Try another →
+            </button>
+          </div>
+        )}
+
+        {/* ── Reveal ─────────────────────────────────────────────────────── */}
+        {phase === "revealed" && shownTwin && uploadUrl && (
+          <div className="max-w-6xl mx-auto">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-8 text-center">
+              The twin
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10">
+              {/* Yours */}
+              <div className="twin-pane">
+                <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-3">
+                  Yours
+                </p>
+                <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={uploadUrl}
+                    alt="Your uploaded piece"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                </div>
               </div>
-            </figure>
 
-            {/* Twin */}
-            <figure className="twin-pane flex flex-col">
-              <Caption label="Its Twin" accent />
-              <Link
+              {/* Twin */}
+              <div className="twin-pane">
+                <p className="font-sans text-[10px] tracking-widest uppercase text-accent mb-3">
+                  Its Twin
+                </p>
+                <a
+                  href={shownTwin.product_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card hover:shadow-card-hover transition-all duration-300"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={shownTwin.image_url}
+                    alt={shownTwin.title}
+                    className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
+                  />
+                </a>
+                <div className="pt-3">
+                  <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">
+                    {shownTwin.brand}
+                  </p>
+                  <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-1">
+                    {shownTwin.title}
+                  </p>
+                  {shownTwin.price != null && (
+                    <span className="font-sans text-xs font-medium text-foreground">
+                      {formatPrice(shownTwin.price)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Match line — soft, generic for v1. Future: Claude-crafted per-pair. */}
+            <p className="mx-auto mt-12 max-w-xl text-center font-display font-light italic text-xl sm:text-2xl text-muted-strong leading-snug">
+              Same silhouette. Different soul. Made by an independent label you can actually write to.
+            </p>
+
+            {/* Alternates rail */}
+            {candidates.length > 1 && (
+              <div className="mt-12">
+                <p className="text-center font-sans text-[9px] tracking-widest uppercase text-muted mb-4">
+                  Other twins
+                </p>
+                <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:justify-center">
+                  {candidates.map((p, i) => (
+                    <button
+                      key={p.objectID}
+                      onClick={() => setTwinIndex(i)}
+                      className={`relative aspect-[3/4] w-24 md:w-28 flex-shrink-0 snap-start overflow-hidden border transition-all duration-300 ${
+                        i === twinIndex
+                          ? "border-foreground opacity-100 shadow-card"
+                          : "border-border opacity-50 hover:opacity-90"
+                      }`}
+                      aria-label={`Show twin ${i + 1}: ${p.title}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.image_url}
+                        alt={p.title}
+                        className="absolute inset-0 w-full h-full object-cover object-top"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions — rectangular buttons match /dashboard, /edit */}
+            <div className="mt-12 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <a
                 href={shownTwin.product_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group relative block aspect-[3/4] w-full overflow-hidden bg-black/5"
+                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase bg-foreground text-background hover:bg-accent transition-colors min-w-[220px] text-center"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={shownTwin.image_url}
-                  alt={shownTwin.title}
-                  className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.02]"
-                />
-              </Link>
-              <figcaption className="mt-3 flex items-end justify-between gap-4">
-                <div>
-                  <p className="font-sans text-xs uppercase tracking-[0.2em]" style={{ color: MUTE }}>
-                    {shownTwin.brand}
-                  </p>
-                  <p className="mt-1 font-serif text-lg leading-snug">
-                    {shownTwin.title}
-                  </p>
-                </div>
-                <p className="whitespace-nowrap font-sans text-sm" style={{ color: MUTE }}>
-                  {formatPrice(shownTwin.price)}
-                </p>
-              </figcaption>
-            </figure>
-          </div>
-
-          {/* Match line — soft, generic for v1. Future: Claude-crafted per-pair. */}
-          <p
-            className="mx-auto mt-10 max-w-xl text-center font-serif text-lg leading-relaxed md:text-xl"
-            style={{ color: INK }}
-          >
-            Same silhouette. Different soul. Made by an independent label you can
-            actually write to.
-          </p>
-
-          {/* Alternates rail */}
-          {candidates.length > 1 && (
-            <div className="mt-10">
-              <p
-                className="mb-3 text-center font-sans text-xs uppercase tracking-[0.2em]"
-                style={{ color: MUTE }}
+                Shop the twin →
+              </a>
+              <button
+                onClick={reset}
+                className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase border border-border-mid text-foreground hover:bg-foreground hover:text-background transition-colors min-w-[220px]"
               >
-                other twins
-              </p>
-              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:justify-center">
-                {candidates.map((p, i) => (
-                  <button
-                    key={p.objectID}
-                    onClick={() => setTwinIndex(i)}
-                    className={`relative aspect-[3/4] w-24 flex-shrink-0 snap-start overflow-hidden transition md:w-28 ${
-                      i === twinIndex ? "opacity-100" : "opacity-40 hover:opacity-80"
-                    }`}
-                    style={{
-                      outline: i === twinIndex ? `2px solid ${INK}` : "none",
-                      outlineOffset: "2px",
-                    }}
-                    aria-label={`Show twin ${i + 1}: ${p.title}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.image_url}
-                      alt={p.title}
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
+                Upload another
+              </button>
             </div>
-          )}
-
-          {/* Actions */}
-          <div className="mt-12 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link
-              href={shownTwin.product_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full px-7 py-3 font-sans text-sm uppercase tracking-widest text-white transition hover:opacity-90"
-              style={{ backgroundColor: INK }}
-            >
-              shop the twin →
-            </Link>
-            <button
-              onClick={reset}
-              className="rounded-full border px-7 py-3 font-sans text-sm uppercase tracking-widest transition hover:opacity-70"
-              style={{ borderColor: INK, color: INK }}
-            >
-              upload another
-            </button>
           </div>
-        </section>
-      )}
+        )}
+      </main>
 
-      {/* ── Styles ──────────────────────────────────────────────────────── */}
+      {/* ── Footer — identical to /brands, /edit, /edits ───────────────────── */}
+      <footer className="border-t border-border px-8 py-7">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link href="/" className="font-display font-light tracking-[0.18em] text-sm text-muted hover:text-foreground transition-colors">
+            MUSE
+          </Link>
+          <div className="flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+            <span>© 2025</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* ── Reveal-pane motion — kept from the original, but muted ─────────── */}
       <style jsx>{`
         .twin-pane {
           animation: twinSlide 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -365,28 +360,17 @@ export default function TwinPage() {
           .twin-pane:nth-child(2) { animation: none; }
         }
       `}</style>
-    </main>
+    </div>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Caption({ label, accent = false }: { label: string; accent?: boolean }) {
-  return (
-    <p
-      className="mb-3 font-sans text-xs uppercase tracking-[0.25em]"
-      style={{ color: accent ? INK : MUTE, fontWeight: accent ? 600 : 400 }}
-    >
-      {label}
-    </p>
-  );
-}
-
 function PulseDot() {
   return (
     <span
-      className="inline-block h-3 w-3 rounded-full"
-      style={{ backgroundColor: INK, animation: "twinPulse 1.1s ease-in-out infinite" }}
+      className="inline-block h-3 w-3 rounded-full bg-foreground"
+      style={{ animation: "twinPulse 1.1s ease-in-out infinite" }}
     >
       <style jsx>{`
         @keyframes twinPulse {
@@ -422,14 +406,15 @@ function DropZone({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpenPicker(); }}
-      className={`flex w-full max-w-xl cursor-pointer flex-col items-center justify-center rounded-sm border-2 border-dashed px-10 py-14 transition ${
-        dragging ? "opacity-60" : "hover:opacity-75"
+      className={`flex w-full max-w-xl cursor-pointer flex-col items-center justify-center border border-dashed px-10 py-16 transition-all duration-300 ${
+        dragging
+          ? "border-foreground bg-[rgba(42,51,22,0.06)] shadow-card"
+          : "border-border-mid bg-[rgba(42,51,22,0.03)] hover:bg-[rgba(42,51,22,0.05)] hover:border-foreground/60"
       }`}
-      style={{ borderColor: INK }}
     >
-      <p className="mb-1 font-serif text-2xl">drop a piece</p>
-      <p className="font-sans text-xs" style={{ color: MUTE }}>
-        or click to upload — jpg, png, heic
+      <p className="mb-2 font-display font-light text-3xl text-foreground">Drop a piece</p>
+      <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
+        or click to upload · jpg · png · heic
       </p>
     </div>
   );
