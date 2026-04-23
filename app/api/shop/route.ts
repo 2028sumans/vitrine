@@ -242,9 +242,21 @@ export async function POST(request: Request) {
               { sourceDomains: uniqueDomains },
             );
           } else if (mode === "text") {
+            // For text mode, use ONLY the user's typed query — not the
+            // merged `extraTextContext`, which appends onboarding-quiz
+            // answers, shortlist hints, and other context blocks. Those
+            // injections are appropriate when the user gave us images
+            // and we need extra signal, but for a deliberate typed
+            // query they actively pollute the brief: a user with
+            // feminine onboarding vibes typing "dad chic" had Claude
+            // reading "dad chic\nUser's stated preferences: vibes=
+            // [feminine, romantic, ...]" and predictably produced
+            // feminine results. The H3 short-pivot guard in
+            // textQueryToAesthetic also misfires on the bloated text.
+            const userQuery = (contexts[0].textQuery ?? "").trim();
             aesthetic = await textQueryToAesthetic(
-              (extraTextContext ?? contexts[0].textQuery ?? "").trim(),
-              tasteMemory.previousDNAs
+              userQuery,
+              tasteMemory.previousDNAs,
             );
           } else if (mode === "images") {
             aesthetic = await analyzeAesthetic(
@@ -311,7 +323,18 @@ export async function POST(request: Request) {
 
         } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
           console.log("[shop] Hybrid search: multi-vector text ensemble via FashionCLIP");
-          const queryVectors = await buildTextQueryVectors(aesthetic!, tasteMemory.softAvoids);
+          // Short typed text queries (≤6 words) are deliberate aesthetic
+          // pivots — same heuristic as textQueryToAesthetic. Suppress
+          // tasteMemory softAvoids subtraction in that case so a user with
+          // accumulated feminine softAvoids isn't actively pushed away from
+          // a "dad chic" query vector. For longer queries the softAvoids
+          // continue to provide useful steering.
+          const userTypedQuery = mode === "text" ? (contexts[0].textQuery ?? "").trim() : "";
+          const userWordCount = userTypedQuery.split(/\s+/).filter(Boolean).length;
+          const isShortPivot  = userWordCount > 0 && userWordCount <= 6;
+          const softAvoids    = isShortPivot ? [] : tasteMemory.softAvoids;
+          if (isShortPivot) console.log(`[shop] Short pivot detected ("${userTypedQuery}") — skipping softAvoids`);
+          const queryVectors = await buildTextQueryVectors(aesthetic!, softAvoids);
           console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
           rawCandidates = await hybridSearch(queryVectors, aesthetic!, token, 20, { useTasteHead });
 
