@@ -28,7 +28,10 @@ const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_ADMIN_KEY;
 const PINECONE_API_KEY  = process.env.PINECONE_API_KEY;
 const PINECONE_INDEX    = process.env.PINECONE_INDEX ?? "muse";
 const INDEX_NAME        = "vitrine_products";
-const MODEL_ID          = "Xenova/clip-vit-base-patch32";
+// MUST match scripts/embed-with-qc.mjs and lib/embeddings.ts. The catalog was
+// re-embedded with FashionCLIP — vanilla Xenova/clip-vit-base-patch32 vectors
+// land in a different latent space and break visual similarity search.
+const MODEL_ID          = "ff13/fashion-clip";
 
 const idsFile = process.argv[2];
 if (!idsFile)       { console.error("Usage: node scripts/reembed-from-ids.mjs <ids-file.json>"); process.exit(1); }
