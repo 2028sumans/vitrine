@@ -29,7 +29,11 @@ const ALGOLIA_APP_ID    = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_
 const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_ADMIN_KEY;
 const INDEX_NAME        = "vitrine_products";
 const SIZE_PER_EDIT     = 36;
-const DEFAULT_MAX_PER_BRAND = 2;
+// Per-brand default cap. With it at 2, edits felt tokenized; with no cap at
+// all, alphabetically-early brands filled entire 36-slot edits and pushed
+// everything else out. 8 strikes a balance — a brand can anchor an edit
+// without dominating it, and individual edits can still override.
+const DEFAULT_MAX_PER_BRAND = 8;
 
 if (!ALGOLIA_ADMIN_KEY) { console.error("Missing ALGOLIA_ADMIN_KEY"); process.exit(1); }
 
@@ -59,6 +63,8 @@ const EDITS = [
       if (/\b(sandal|shoe\b|heel|boot|clog|sunglass|earring|bracelet|necklace|ring\b|hair\s*clip|jaw\s*clip)\b/.test(t)) return false;
       // Cover-ups, sarongs, sundresses — bikinis only
       if (/\b(cover[\s-]?up|sarong|sundress|kaftan|caftan|pareo|wrap\s*dress)\b/.test(t)) return false;
+      // Kids / maternity
+      if (/\b(baby|infant|toddler|kids|children|girl\s|boy\s|maternity)\b/.test(t)) return false;
 
       // Dippin Daisys is an all-swim brand — accept the whole catalog,
       // capped by maxPerBrand below.
@@ -87,7 +93,11 @@ const EDITS = [
     // Restrict to top/bottom/jacket/shoes — drops stray dresses and mis-
     // categorized accessories (e.g. a Bubon beanie indexed as "bag").
     filter:      '(brand:"4028" OR brand:"Coramisa" OR brand:"Othernormal" OR brand:"Berlinc" OR brand:"Bubon") AND (category:top OR category:bottom OR category:jacket OR category:shoes)',
-    match: () => true,
+    match: (p) => {
+      const t = (p.title ?? "").toLowerCase();
+      if (/\b(baby|infant|toddler|kids|children|maternity)\b/.test(t)) return false;
+      return true;
+    },
     // Overrides — how many per brand in final pick. 4028 is the anchor.
     maxPerBrand: { "4028": 10, "Coramisa": 8, "Othernormal": 8, "Berlinc": 6, "Bubon": 6 },
   },
@@ -109,6 +119,7 @@ const EDITS = [
       // Extra accessory / non-dress guards in case "mini" + "dress" both
       // appear in an accessory title by coincidence.
       if (/\b(clip|jaw|earring|necklace|bracelet|ring|shoe|bag|belt|hair\b)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|children|maternity|nightgown|sleep|lingerie|pajama|pyjama)\b/.test(t)) return false;
 
       // Prints and patterns — check title and color field both
       const PATTERNS = /\b(floral|flower|print|stripe|check(?:ed|er)?|polka|gingham|leopard|tiger|rainbow|ombre|tie[\s-]?dye|camo|animal|paisley|combo|two[-\s]?tone|multi|mix|colou?rblock|ikat|jacquard|pineapple|abstract|graphic|embroidered)\b/;
@@ -147,9 +158,10 @@ const EDITS = [
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       const c = (p.color ?? "").toLowerCase().trim();
-      // Must be a shirt/blouse — not a tee/tank/sweater
+      // Must be a shirt/blouse — not a tee/tank/sweater/sleepwear
       if (!/\b(shirt|blouse|poplin|oxford|button[-\s]?(?:up|down))\b/.test(t)) return false;
-      if (/\b(t[-\s]?shirt|\btee\b|tank|crewneck|sweat|hoodie|cardigan)\b/.test(t)) return false;
+      if (/\b(t[-\s]?shirt|\btee\b|tank|crewneck|sweat|hoodie|cardigan|pajama|pyjama|nightshirt|night\s*shirt|sleep|robe|bathrobe)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity)\b/.test(t)) return false;
       // Must be white family
       const WHITE_RE = /(white|cream|ecru|ivory|off[-\s]?white|chalk)/;
       const OTHER_COLORS = /\b(red|pink|blue|green|yellow|purple|brown|gold|silver|navy|black|orange|grey|gray|plum|rust|olive|burgundy)\b/;
@@ -175,7 +187,8 @@ const EDITS = [
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       if (!/\b(trench|mac\b|mackintosh|duster|rain[\s-]?coat)\b/.test(t)) return false;
-      if (/\b(puffer|parka|sherpa|fleece|shearling|down)\b/.test(t)) return false;
+      if (/\b(puffer|parka|sherpa|fleece|shearling|down|quilted|puffy)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
       return true;
     },
   },
@@ -189,8 +202,10 @@ const EDITS = [
       const t = (p.title ?? "").toLowerCase();
       if (!/\bdress\b/.test(t)) return false;
       if (!/\b(slip|bias|cami(?:sole)?)\b/.test(t)) return false;
-      // Not a top or coat mis-indexed as dress
+      // Not a top / coat / sleepwear / lingerie mis-indexed as dress
       if (/\b(blazer|jacket|coat|sweater|cardigan|boxer|brief|thong|bralette)\b/.test(t)) return false;
+      if (/\b(nightgown|night\s*dress|sleep|lingerie|robe|bathrobe|pajama|pyjama|chemise)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity)\b/.test(t)) return false;
       return true;
     },
   },
@@ -203,7 +218,11 @@ const EDITS = [
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       const m = (p.material ?? "").toLowerCase();
-      return /\bcashmere\b/.test(t) || /\bcashmere\b/.test(m);
+      if (!/\bcashmere\b/.test(t) && !/\bcashmere\b/.test(m)) return false;
+      // Drop housewares (blankets, throws, pillows, duvets, bedding)
+      if (/\b(blanket|throw|pillow|cushion|bedding|duvet|sheet|tablecloth|napkin|placemat|doormat|washcloth)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
+      return true;
     },
     // Johnstons of Elgin + Ghiaia Cashmere anchor; let them show more.
     maxPerBrand: { "Johnstons Of Elgin": 6, "Ghiaia Cashmere": 6 },
@@ -220,6 +239,7 @@ const EDITS = [
       if (/\b(jacket|skirt|short\b|vest|dress)\b/.test(t))                         return false;
       if (!/\b(wide|baggy|relaxed|straight|flare|flared|boot[-\s]?cut|loose|oversized|trouser)\b/.test(t)) return false;
       if (/\b(skinny|slim|tapered|tight|cigarette)\b/.test(t))                     return false;
+      if (/\b(baby|infant|toddler|kids|maternity)\b/.test(t))                      return false;
       return true;
     },
   },
@@ -239,6 +259,7 @@ const EDITS = [
       if (!/\b(dress|gown)\b/.test(t))                                                              return false;
       if (!/\b(midi|maxi|full[-\s]?length|floor[-\s]?length|column|wrap|a[-\s]?line|gown)\b/.test(t)) return false;
       if (/\b(bridal|wedding\s*dress|bride\b)\b/.test(t))                                           return false;
+      if (/\b(baby|infant|toddler|kids|children|maternity|nightgown|sleep|lingerie|pajama|pyjama)\b/.test(t)) return false;
 
       // Hard reject white/black/ivory family (bride's colors), EN + IT + FR.
       const WHITE_BLACK = /\b(white|ivory|cream|ecru|off[-\s]?white|chalk|black|nero|noir|blanc|bianco|jet|onyx|raven|charcoal)\b/;
@@ -283,20 +304,24 @@ const EDITS = [
   {
     slug:                "resort",
     title:               "Resort",
-    subtitle:            "Linen, crochet, raffia, sandals, canvas",
+    subtitle:            "Linen, crochet, raffia, sandals, kaftans",
     filter:              "",
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       const m = (p.material ?? "").toLowerCase();
       const h = `${t} ${m}`;
-      // Must hit a resort signal
-      if (!/\b(linen|crochet|raffia|straw|espadrille|sandal|sundress|kaftan|caftan|cover[-\s]?up|sarong|pareo|beach|resort|tunic)\b/.test(h)) return false;
-      // Explicitly exclude swim (lives in its own edit) and wintry
+      // Hard rejects — warmth + structure that isn't beachy
+      if (/\b(hoodie|sweatshirt|sweater|cardigan|crewneck|jean|denim|blazer|trench|parka|puffer|fleece|henley|tweed|corduroy|velvet|leather\s*jacket|turtleneck|long\s*sleeve\s*henley|shearling|fur)\b/.test(h)) return false;
+      if (/\b(wool|cashmere|merino|mohair|alpaca|flannel)\b/.test(h))                              return false;
+      // Swim lives in its own edit
       if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|swim\s*(?:top|bottom|brief|short|set|wear|suit))\b/.test(t)) return false;
-      if (/\b(wool|cashmere|fleece|parka|puffer|heavy\s*coat)\b/.test(h))          return false;
-      // No gowns / bridal
-      if (/\b(gown|bridal|wedding|tulle)\b/.test(t))                               return false;
-      return true;
+      // Not formal / bridal
+      if (/\b(gown|bridal|wedding|tulle|ball\s*gown|tuxedo|evening\s*dress)\b/.test(t))            return false;
+      // Not kidswear / pet / housewares
+      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b|blanket|throw|pillow|napkin|towel)\b/.test(t)) return false;
+      // Positive — true resort/beach vocabulary. Dropped bare "beach" (matched
+      // e.g. "beach hoodie") and bare "resort" (too meta).
+      return /\b(linen|crochet|raffia|straw|espadrille|sandal|sundress|kaftan|caftan|cover[-\s]?up|sarong|pareo|tunic|eyelet|broderie|seersucker|cabana|poolside|boardwalk|beach\s*(?:dress|pareo|skirt|shorts|tunic|shirt))\b/.test(h);
     },
   },
 
@@ -308,8 +333,9 @@ const EDITS = [
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
       if (!/\b(blazer|trouser|loafer|oxford\s*shoe|pleated|button[-\s]?(?:up|down)|pencil\s*skirt|tailored|wool\s*pant|suit\s*pant)\b/.test(t)) return false;
-      // No streetwear/loungewear
-      if (/\b(hoodie|sweatpant|jogger|cargo|graphic\s*tee|tracksuit|sweatshirt)\b/.test(t)) return false;
+      // No streetwear / loungewear / athleisure / resort
+      if (/\b(hoodie|sweatpant|jogger|cargo|graphic\s*tee|tracksuit|sweatshirt|athleisure|yoga|gym|pajama|pyjama|sleep|robe|kaftan|sarong|bikini|swim)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet)\b/.test(t)) return false;
       return true;
     },
   },
@@ -339,8 +365,11 @@ const EDITS = [
       // Drop loud prints, logos, graphics
       if (/\b(rainbow|neon|fluoro|patchwork|colou?rblock|tie[-\s]?dye|tropical|leopard|zebra|camo)\b/.test(t)) return false;
       if (/\b(logo|monogram|graphic\s*tee|graphic\s*t-shirt)\b/.test(t)) return false;
-      // Drop obvious non-apparel household items (towels, blankets, napkins, washcloths)
-      if (/\b(washcloth|dishcloth|napkin|placemat|pillow\s*case|duvet|doormat|blanket|throw)\b/.test(t)) return false;
+      // Drop non-apparel household items
+      if (/\b(washcloth|dishcloth|napkin|placemat|pillow\s*case|pillowcase|duvet|doormat|blanket|throw|tablecloth|tea\s*towel|sheet\b|bedding|curtain|rug)\b/.test(t)) return false;
+      // Drop swim / resort / sleepwear / kids / pet — not the quiet-luxury lane
+      if (/\b(bikini|swimsuit|tankini|swim\s*(?:top|bottom|brief|set|suit)|sarong|kaftan|pareo|pajama|pyjama|robe|bathrobe|nightgown)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
 
       return true;
     },
@@ -356,9 +385,12 @@ const EDITS = [
       const t = (p.title ?? "").toLowerCase();
       if (!/\b(polo|pleated\s*(?:skirt|trouser|pant)|pearl|cable[-\s]?knit|argyle|boat[-\s]?neck|button[-\s]?down|blazer|loafer|ballet\s*flat|camel\s*coat|cardigan|tennis|tartan|houndstooth|twin[-\s]?set)\b/.test(t)) return false;
       // No streetwear crossover
-      if (/\b(hoodie|graphic\s*tee|cargo|baggy|track\s*pant|jogger)\b/.test(t)) return false;
-      // Drop housewares (matched an "Argyle Rose Washcloth" — towels aren't old money).
-      if (/\b(washcloth|dishcloth|napkin|placemat|towel|doormat|soap|candle)\b/.test(t)) return false;
+      if (/\b(hoodie|graphic\s*tee|cargo|baggy|track\s*pant|jogger|sweatshirt|sweatpant)\b/.test(t)) return false;
+      // Drop housewares + kids/pet
+      if (/\b(washcloth|dishcloth|napkin|placemat|towel|doormat|soap|candle|blanket|pillow|throw|curtain)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
+      // Not swim / resort
+      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|kaftan|caftan|sarong|pareo)\b/.test(t)) return false;
       return true;
     },
   },
@@ -375,8 +407,10 @@ const EDITS = [
       if (!/\b(stripe|breton|mariniere|linen|rope|raffia|canvas|chambray|nautical|sailor|fisherman)\b/.test(h)) return false;
       // Swim has its own edit
       if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|swim\s*(?:top|bottom|brief|short|set|wear|suit))\b/.test(t)) return false;
-      // Wintry items read differently
-      if (/\b(parka|puffer|heavy\s*coat|fleece|shearling)\b/.test(h)) return false;
+      // Not loungewear / streetwear / cold-weather — coastal should feel breezy
+      if (/\b(hoodie|sweatshirt|sweater|cardigan|crewneck|jean|denim|blazer|trench|parka|puffer|fleece|shearling|tweed|corduroy|velvet)\b/.test(h)) return false;
+      if (/\b(wool|cashmere|merino|mohair|alpaca|flannel)\b/.test(h)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet)\b/.test(t)) return false;
       return true;
     },
   },
@@ -392,6 +426,11 @@ const EDITS = [
       if (!/\blinen\b/.test(t) && !/\blinen\b/.test(m)) return false;
       // Exclude gowns/bridal — "linen wedding dress" isn't what we want here
       if (/\b(bridal|wedding\s*dress|tulle)\b/.test(t)) return false;
+      // Drop housewares (linen napkins, tablecloths, sheets, duvets, towels)
+      if (/\b(napkin|placemat|tablecloth|sheet\b|bedding|duvet|pillowcase|pillow\s*case|tea\s*towel|dish\s*towel|curtain|washcloth|doormat|blanket|throw)\b/.test(t)) return false;
+      // Drop sleepwear
+      if (/\b(pajama|pyjama|nightgown|night\s*dress|night\s*shirt|robe|bathrobe)\b/.test(t)) return false;
+      if (/\b(baby|infant|toddler|kids|maternity|pet)\b/.test(t)) return false;
       return true;
     },
   },
