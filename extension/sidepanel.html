@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Muse — Find its Twin</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="nav">
+      <div class="brand">MUSE</div>
+      <div class="tag">Twin</div>
+    </header>
+
+    <main id="root">
+      <!-- JS injects one of: idle · reading · revealed · error -->
+      <section id="idle" class="screen" hidden>
+        <div class="idle-inner">
+          <h1 class="display">Right-click any image to find its Twin.</h1>
+          <p class="muted small">
+            Muse reads the shape, texture, and mood of what you liked, then finds
+            its Back Catalogue counterpart from an independent label.
+          </p>
+        </div>
+      </section>
+
+      <section id="reading" class="screen" hidden>
+        <div class="reading-inner">
+          <div class="pulse"></div>
+          <p class="display">reading the room…</p>
+          <p class="muted small">shape, texture, cut, mood</p>
+        </div>
+      </section>
+
+      <section id="revealed" class="screen" hidden>
+        <div class="pair">
+          <figure class="pane yours">
+            <p class="caption">Yours</p>
+            <div class="img-wrap">
+              <img id="yours-img" alt="The image you liked" />
+            </div>
+          </figure>
+
+          <figure class="pane twin">
+            <p class="caption accent">Its Twin</p>
+            <a id="twin-link" href="#" target="_blank" rel="noopener noreferrer" class="img-wrap">
+              <img id="twin-img" alt="" />
+            </a>
+            <figcaption>
+              <div>
+                <p class="brand-label" id="twin-brand"></p>
+                <p class="title" id="twin-title"></p>
+              </div>
+              <p class="price" id="twin-price"></p>
+            </figcaption>
+          </figure>
+        </div>
+
+        <p class="match-line display">
+          Same silhouette. Different soul. Made by an independent label you can
+          actually write to.
+        </p>
+
+        <div id="alternates-wrap" hidden>
+          <p class="caption center">other twins</p>
+          <div id="alternates" class="alternates"></div>
+        </div>
+
+        <div class="actions">
+          <a id="shop-cta" class="btn primary" target="_blank" rel="noopener noreferrer">shop the twin →</a>
+          <a class="btn ghost" href="https://muse.vercel.app/twin" target="_blank" rel="noopener noreferrer">open muse</a>
+        </div>
+      </section>
+
+      <section id="error" class="screen" hidden>
+        <div class="error-inner">
+          <p class="display">no twin found.</p>
+          <p class="muted small" id="error-msg"></p>
+          <p class="muted small">Right-click a different image and try again.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>Muse · Twin</span>
+      <span>Back Catalogue, one click away</span>
+    </footer>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

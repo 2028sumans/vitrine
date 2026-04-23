@@ -1,0 +1,253 @@
+/* ── Palette matches the Muse web app (cream bg / deep olive ink) ────────── */
+:root {
+  --ink:   #333E1D;
+  --bg:    #EDE5D0;
+  --muted: #333E1D99;
+  --accent:#5C6F2F;
+  --line:  #333E1D22;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────────── */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 300;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+}
+.tag {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Screens ──────────────────────────────────────────────────────────────── */
+main {
+  flex: 1;
+  padding: 20px 18px 28px;
+}
+.screen { display: block; }
+.screen[hidden] { display: none; }
+
+.display {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: -0.005em;
+}
+.muted { color: var(--muted); }
+.small { font-size: 13px; line-height: 1.55; }
+.caption {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.caption.accent { color: var(--ink); font-weight: 600; }
+.caption.center { text-align: center; }
+
+/* Idle */
+.idle-inner { padding: 40px 4px 8px; }
+.idle-inner .display { font-size: 28px; line-height: 1.15; margin: 0 0 14px; }
+.idle-inner .small { margin: 0; }
+
+/* Reading */
+.reading-inner {
+  min-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+.reading-inner .display { font-size: 22px; margin: 0; }
+.pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(0.6); opacity: 0.4; }
+  50%      { transform: scale(1.0); opacity: 1;   }
+}
+
+/* Revealed — pair */
+.pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+}
+@media (min-width: 520px) {
+  .pair { grid-template-columns: 1fr 1fr; gap: 14px; }
+}
+.pane { margin: 0; display: flex; flex-direction: column; }
+.pane .img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: #333E1D0F;
+  display: block;
+}
+.pane img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+a.img-wrap:hover img { transform: scale(1.02); }
+
+.pane figcaption {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+.brand-label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+.title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.3;
+  margin: 4px 0 0;
+}
+.price {
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Match line */
+.match-line {
+  text-align: center;
+  margin: 24px auto 22px;
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 38ch;
+}
+
+/* Alternates rail */
+.alternates {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  justify-content: center;
+  scroll-snap-type: x mandatory;
+}
+.alternates button {
+  flex: 0 0 auto;
+  width: 64px;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 0;
+  background: #333E1D0F;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+  scroll-snap-align: start;
+  position: relative;
+  overflow: hidden;
+}
+.alternates button:hover      { opacity: 0.85; }
+.alternates button.selected   { opacity: 1; outline: 2px solid var(--ink); outline-offset: 2px; }
+.alternates button img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 26px;
+}
+.btn {
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 11px 18px;
+  border-radius: 999px;
+  transition: opacity 150ms ease;
+  text-align: center;
+}
+.btn:hover { opacity: 0.85; }
+.btn.primary { background: var(--ink); color: var(--bg); }
+.btn.ghost   { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+
+/* Error */
+.error-inner {
+  min-height: 40vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+.error-inner .display { font-size: 22px; margin: 0; }
+
+/* Foot */
+.foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Reveal animation */
+.pane.yours { animation: slideL 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.pane.twin  { animation: slideR 600ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both; }
+@keyframes slideL { from { opacity: 0; transform: translate3d(-18px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes slideR { from { opacity: 0; transform: translate3d( 18px, 0, 0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .pane.yours, .pane.twin, .pulse { animation: none; }
+}
