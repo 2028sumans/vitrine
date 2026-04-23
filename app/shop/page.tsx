@@ -19,6 +19,7 @@ import {
   flushSessionSignals,
 } from "@/lib/session-signals";
 import { MobileMenu } from "../_components/MobileMenu";
+import { displayTitle } from "@/lib/algolia";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,9 +35,43 @@ interface Product {
   category?:    string;
   color?:       string;
   price_range?: string;
+  // English back-fills (scripts/translate-non-english.mjs). When the brand
+  // publishes in French / Italian / German / Portuguese / Spanish, these
+  // hold a Haiku translation; the in-app surface prefers them over the
+  // raw `title` / `description`. Outbound link still goes to the native
+  // brand site.
+  title_en?:          string;
+  description_en?:    string;
+  original_language?: string;
 }
 
+
 type ViewMode = "grid" | "scroll";
+
+// Sort modes for the loaded grid. "featured" is the catalog's native order
+// (Algolia customRanking, currently desc(price) at the index level — but we
+// don't surface that detail in the label since it can change). The two
+// price modes sort the LOADED set client-side; "Load more" continues to fetch
+// in the catalog's native order, then the new batch is re-sorted on arrival.
+type SortMode = "featured" | "price_asc" | "price_desc";
+
+const SORT_OPTIONS: ReadonlyArray<{ label: string; value: SortMode }> = [
+  { label: "Featured",    value: "featured"   },
+  { label: "Price ↑",     value: "price_asc"  },
+  { label: "Price ↓",     value: "price_desc" },
+];
+
+function sortProducts<T extends { price: number | null }>(items: T[], mode: SortMode): T[] {
+  if (mode === "featured") return items;
+  // Items with no price always sink to the bottom in either direction so a
+  // missing price doesn't accidentally win "cheapest" or "most expensive".
+  const withPrice    = items.filter((p) => p.price != null);
+  const withoutPrice = items.filter((p) => p.price == null);
+  withPrice.sort((a, b) => mode === "price_asc"
+    ? (a.price as number) - (b.price as number)
+    : (b.price as number) - (a.price as number));
+  return [...withPrice, ...withoutPrice];
+}
 
 function formatPrice(p: number | null): string {
   if (p == null) return "";
@@ -92,6 +127,9 @@ function ShopPageContent() {
   // Max price cap (USD). null = no cap. Applied as an Algolia numeric filter
   // server-side and as a lenient post-filter for rows missing a price.
   const [priceMax, setPriceMax] = useState<number | null>(null);
+  // Sort mode for the LOADED set (client-side). Doesn't change the fetch
+  // order, just re-orders what's already on screen — see SortMode comment.
+  const [sortMode, setSortMode] = useState<SortMode>("featured");
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(false);
@@ -99,9 +137,13 @@ function ShopPageContent() {
   const seenIdsRef              = useRef<Set<string>>(new Set());
   const sentinelRef             = useRef<HTMLDivElement>(null);
 
-  // Display order = server order. The brand-mixer that used to wrap this
-  // was truncating the grid when a single brand dominated the pool.
-  const displayProducts = products;
+  // Display order = server order, optionally re-sorted client-side by price.
+  // The brand-mixer that used to wrap this was truncating the grid when a
+  // single brand dominated the pool.
+  const displayProducts = useMemo(
+    () => sortProducts(products, sortMode),
+    [products, sortMode],
+  );
 
   // Free-text Steer input from the scroll view. `steerQuery` holds the raw
   // text the user typed (used for scope hashing + pre-filling the input when
@@ -505,6 +547,7 @@ function ShopPageContent() {
       category:    product.category,
       color:       product.color,
       price_range: product.price_range,
+      title_en:    product.title_en,
     });
     setSavedIds((prev) => new Set(prev).add(productId));
     setToast("saved to your shortlist");
@@ -821,6 +864,42 @@ function ShopPageContent() {
                 </div>
               </div>
 
+              {/* Sort pills — re-orders the LOADED set client-side. Doesn't
+                  alter the catalog walk; "Load more" continues fetching in
+                  the catalog's native order and the new batch is folded in
+                  via the displayProducts memo. */}
+              <div
+                role="radiogroup"
+                aria-label="Sort order"
+                className="flex items-center"
+              >
+                <span className="font-sans text-[9px] tracking-widest uppercase text-muted-dim mr-4">
+                  Sort
+                </span>
+                <div className="flex">
+                  {SORT_OPTIONS.map((opt, i) => {
+                    const active = sortMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => setSortMode(opt.value)}
+                        className={`px-4 py-2.5 font-sans text-[10px] tracking-widest uppercase border ${
+                          i === 0 ? "" : "border-l-0"
+                        } transition-colors ${
+                          active
+                            ? "bg-foreground text-background border-foreground"
+                            : "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <span className="font-sans text-[10px] tracking-widest uppercase text-muted">
                 {products.length.toLocaleString()} loaded
               </span>
@@ -938,7 +1017,7 @@ function GridTile({ product }: { product: Product }) {
         {product.image_url && !imgFailed ? (
           <Image
             src={product.image_url}
-            alt={product.title}
+            alt={displayTitle(product)}
             fill
             unoptimized
             className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
@@ -956,13 +1035,15 @@ function GridTile({ product }: { product: Product }) {
           </p>
         )}
         <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">
-          {product.title}
+          {displayTitle(product)}
         </p>
         <div className="flex items-center justify-between">
           {product.price != null ? (
             <span className="font-sans text-xs font-medium text-foreground">{formatPrice(product.price)}</span>
           ) : <span />}
-          <span className="font-sans text-[9px] tracking-widest uppercase text-muted group-hover:text-accent transition-colors">Shop →</span>
+          {/* Always-visible Shop affordance with a subtle underline so users
+              don't miss that the whole card is a buy link to the brand site. */}
+          <span className="font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/40 pb-px group-hover:border-accent group-hover:text-accent transition-colors">Shop →</span>
         </div>
       </div>
     </a>
@@ -1540,7 +1621,7 @@ function ProductScrollCard({
         {product.image_url ? (
           <Image
             src={product.image_url}
-            alt={product.title}
+            alt={displayTitle(product)}
             fill
             unoptimized
             priority={isNear}
@@ -1565,7 +1646,7 @@ function ProductScrollCard({
       {/* Bottom overlay — brand, title, price, shop */}
       <div className="absolute bottom-0 left-0 right-0 z-10 px-5 py-6 bg-gradient-to-t from-background via-background/85 to-transparent">
         {product.brand && <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>}
-        <p className="font-display font-light text-xl text-foreground leading-snug mb-1 break-words">{product.title}</p>
+        <p className="font-display font-light text-xl text-foreground leading-snug mb-1 break-words">{displayTitle(product)}</p>
         {product.price != null && <p className="font-sans text-sm text-muted-strong mb-3">{formatPrice(product.price)}</p>}
         <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">Shop →</span>
       </div>

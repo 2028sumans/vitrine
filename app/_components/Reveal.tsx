@@ -35,10 +35,12 @@ export function Reveal({ children, delay = 0, className = "" }: Props) {
           }
         }
       },
-      // Fire when the element crosses ~15% above the viewport bottom. Later
-      // trigger + longer transition = the reveal actually animates while the
-      // user is watching, instead of being nearly-done by the time it's in view.
-      { threshold: 0, rootMargin: "0px 0px -15% 0px" },
+      // Fire when the element crosses ~10% above the viewport bottom. Pair
+      // with the 600ms transition (see globals.css .reveal) so the animation
+      // actually runs while the user is watching but finishes promptly,
+      // before they've scrolled past — avoids the "mid-animation jank" that
+      // showed up on slower PCs with the older 1.4s / -15% combo.
+      { threshold: 0, rootMargin: "0px 0px -10% 0px" },
     );
     io.observe(el);
     return () => io.disconnect();

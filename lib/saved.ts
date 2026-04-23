@@ -23,6 +23,10 @@ export interface SavedProduct {
   color?:      string;
   price_range?: string;
   savedAt:     number;  // epoch ms for sort-by-recent
+  // Optional English back-fill (scripts/translate-non-english.mjs).
+  // Carried forward when a non-English product is saved so the shortlist
+  // tile reads in English even if the source goes offline.
+  title_en?:        string;
 }
 
 export function readSaved(): SavedProduct[] {

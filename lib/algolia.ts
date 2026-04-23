@@ -21,6 +21,23 @@ export interface AlgoliaProduct {
   // Set by search layer — needed for Insights click events
   _queryID?:      string;
   _position?:     number;
+  // English back-fills written by scripts/translate-non-english.mjs.
+  // Frontend prefers these via displayTitle / displayDescription helpers
+  // for brands publishing in French / Italian / German / Portuguese / Spanish.
+  // Outbound product_url still points at the native-language brand site.
+  title_en?:          string;
+  description_en?:    string;
+  original_language?: string;
+}
+
+/** Title to render in the UI: prefer the English back-fill when present. */
+export function displayTitle(p: { title?: string; title_en?: string }): string {
+  return (p.title_en && p.title_en.trim()) || p.title || "";
+}
+
+/** Description to render in the UI: prefer the English back-fill when present. */
+export function displayDescription(p: { description?: string; description_en?: string }): string {
+  return (p.description_en && p.description_en.trim()) || p.description || "";
 }
 
 export type ClothingCategory = "dress" | "top" | "bottom" | "jacket" | "shoes" | "bag";
@@ -80,6 +97,8 @@ export async function searchProducts(
         "objectID", "title", "brand", "price", "price_range",
         "color", "material", "description", "image_url", "images",
         "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
+        // English back-fills (see scripts/translate-non-english.mjs).
+        "title_en", "description_en", "original_language",
       ],
     },
   });
@@ -243,6 +262,8 @@ export async function getProductsByIds(objectIDs: string[]): Promise<AlgoliaProd
         "objectID", "title", "brand", "price", "price_range",
         "color", "material", "description", "image_url", "images",
         "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
+        // English back-fills (see scripts/translate-non-english.mjs).
+        "title_en", "description_en", "original_language",
       ],
     })),
   });

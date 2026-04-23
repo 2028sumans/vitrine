@@ -114,6 +114,9 @@ export default async function EditDetailPage({ params }: { params: Promise<{ slu
                     price:       p.price,
                     image_url:   p.image_url,
                     product_url: p.product_url,
+                    // Pass through the English back-fill so non-English
+                    // brand titles render in English on the edit page too.
+                    title_en:    p.title_en,
                   }}
                 />
               ))}

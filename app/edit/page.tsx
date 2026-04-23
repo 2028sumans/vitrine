@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { readSaved, removeSaved, type SavedProduct } from "@/lib/saved";
+import { displayTitle } from "@/lib/algolia";
 import { MobileMenu } from "../_components/MobileMenu";
 
 function formatPrice(p: number | null): string {
@@ -126,7 +127,7 @@ function SavedTile({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.image_url}
-              alt={product.title}
+              alt={displayTitle(product)}
               loading="lazy"
               decoding="async"
               className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
@@ -139,12 +140,12 @@ function SavedTile({
           {brandLabel && (
             <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{brandLabel}</p>
           )}
-          <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{product.title}</p>
+          <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{displayTitle(product)}</p>
           <div className="flex items-center justify-between">
             {product.price != null ? (
               <span className="font-sans text-xs font-medium text-foreground">{formatPrice(product.price)}</span>
             ) : <span />}
-            <span className="font-sans text-[9px] tracking-widest uppercase text-muted group-hover:text-accent transition-colors">Shop →</span>
+            <span className="font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/40 pb-px group-hover:border-accent group-hover:text-accent transition-colors">Shop →</span>
           </div>
         </div>
       </a>

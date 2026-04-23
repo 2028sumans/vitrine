@@ -431,6 +431,11 @@ export async function POST(request: Request) {
     "objectID", "title", "brand", "retailer", "price",
     "image_url", "product_url",
     "category", "color", "price_range", "aesthetic_tags",
+    // English back-fills written by scripts/translate-non-english.mjs.
+    // Frontend prefers these when present (see app/shop/page.tsx,
+    // app/dashboard/page.tsx) so non-English brand sites read in English
+    // on the in-app surface; outbound link still goes to the native site.
+    "title_en", "description_en", "original_language",
   ];
 
   // Resolve scope filters. Brand and category are mutually exclusive — the UI

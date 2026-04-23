@@ -136,6 +136,7 @@ export async function POST(request: Request) {
           "objectID", "title", "brand", "retailer", "price",
           "image_url", "product_url",
           "category", "color", "price_range",
+          "title_en", "description_en", "original_language",
         ],
       },
     });

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
 import type { StyleDNA } from "@/lib/ai";
-import type { AlgoliaProduct, CategoryCandidates } from "@/lib/algolia";
+import { displayTitle, type AlgoliaProduct, type CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
 import { getShortlistSummary } from "@/lib/saved";
@@ -225,7 +225,7 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
           of the image to the text row below, matching /shop GridTile. */}
       <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
+          <Image src={product.image_url} alt={displayTitle(product)} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
         )}
@@ -234,10 +234,11 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
         {brandLabel && (
           <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{brandLabel}</p>
         )}
-        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{product.title}</p>
+        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">{displayTitle(product)}</p>
         <div className="flex items-center justify-between">
           {price ? <span className="font-sans text-xs font-medium text-foreground">{price}</span> : <span />}
-          <span className="font-sans text-[9px] tracking-widest uppercase text-muted group-hover:text-accent transition-colors">Shop →</span>
+          {/* Always-visible Shop affordance with subtle underline (matches /shop GridTile). */}
+          <span className="font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/40 pb-px group-hover:border-accent group-hover:text-accent transition-colors">Shop →</span>
         </div>
       </div>
     </a>
@@ -303,7 +304,7 @@ function ProductScrollCard({
       {/* Full-bleed image */}
       <div className="absolute inset-0 bg-white/5">
         {product.image_url ? (
-          <Image src={product.image_url} alt={product.title} fill className="object-cover" unoptimized priority={isNear} sizes="100vw" />
+          <Image src={product.image_url} alt={displayTitle(product)} fill className="object-cover" unoptimized priority={isNear} sizes="100vw" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted/20 font-display text-6xl">▢</div>
         )}
@@ -317,7 +318,7 @@ function ProductScrollCard({
       {/* Bottom overlay */}
       <div className="absolute bottom-0 left-0 right-0 z-10 px-4 py-6 bg-gradient-to-t from-background via-background/70 to-transparent">
         {product.brand && <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1">{product.brand}</p>}
-        <p className="font-display font-light text-xl text-foreground leading-snug mb-1">{product.title}</p>
+        <p className="font-display font-light text-xl text-foreground leading-snug mb-1">{displayTitle(product)}</p>
         {price && <p className="font-sans text-sm text-muted-strong mb-3">{price}</p>}
         <span className="inline-block font-sans text-[9px] tracking-widest uppercase text-foreground border-b border-foreground/30 pb-px">Shop →</span>
       </div>
