@@ -216,18 +216,41 @@ export async function POST(request: Request) {
           }
         }
 
+        // Pinterest/images mode: we need the base64 images both for Claude
+        // vision AND for FashionCLIP embedding. Fetch once, share both ways.
+        // The embedding work runs in parallel with the Claude vision call
+        // (see below) so two ~5 s operations overlap into ~5 s instead of 10.
+        let sharedPinImages: VisionImage[] = [];
+
+        // Fire FashionCLIP embedding in parallel with the Claude vision call.
+        // We await it later after the aesthetic has been emitted, so the
+        // user sees progress as soon as Claude returns.
+        let pinEmbeddingsPromise: Promise<number[][]> | null = null;
+
         if (!aestheticCached) {
           if (mode === "pinterest" || allPinImageUrls.length > 0 || allPinDescriptions.length > 0) {
             const pinDescriptions: string[] = allPinDescriptions.filter((d) => d.trim().length > 0);
 
-            const pinImages: VisionImage[] = pinImageUrls.length
+            sharedPinImages = pinImageUrls.length
               ? await fetchPinImages(pinImageUrls)
               : [];
 
-            if (pinDescriptions.length === 0 && pinImages.length === 0) {
+            if (pinDescriptions.length === 0 && sharedPinImages.length === 0) {
               pinDescriptions.push(
                 `This is a Pinterest board called "${boardName}". Infer a beautiful, specific aesthetic from the board name.`
               );
+            }
+
+            // Start FashionCLIP embedding in parallel with Claude vision
+            // instead of waiting for Claude to finish first. Saves ~5–12 s
+            // on a warm lambda; more on cold. The images are already in
+            // base64 so no re-download.
+            if (USE_VISUAL_SEARCH && sharedPinImages.length > 0) {
+              pinEmbeddingsPromise = embedBase64Images(sharedPinImages.slice(0, 10))
+                .catch((err) => {
+                  console.warn("[shop] parallel embed failed (non-fatal):", err);
+                  return [] as number[][];
+                });
             }
 
             // Top 5 unique source domains — huge signal for price tier and style tribe
@@ -235,7 +258,7 @@ export async function POST(request: Request) {
             aesthetic = await analyzeAesthetic(
               boardName!,
               pinDescriptions,
-              pinImages,
+              sharedPinImages,
               tasteMemory.previousDNAs,
               extraTextContext,
               allPinMeta.slice(0, 12),
@@ -302,8 +325,23 @@ export async function POST(request: Request) {
           rawCandidates  = await hybridSearch(anchored, aesthetic!, token, 20, { useTasteHead });
 
         } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
-          console.log("[shop] Hybrid search: Pinterest board images (with aesthetic anchor)");
-          let embeddings = await embedImageUrls(pinImageUrls.slice(0, 20));
+          console.log("[shop] Hybrid search: Pinterest board images (parallel-embedded)");
+
+          // Await the embedding that we kicked off in parallel with Claude.
+          // If the cache-hit fast path skipped Claude entirely, the promise
+          // is null and we embed now from the freshly-fetched images; else
+          // the embed has been running in parallel and this is a ~0 s await.
+          let embeddings: number[][];
+          if (pinEmbeddingsPromise) {
+            embeddings = await pinEmbeddingsPromise;
+          } else {
+            // Cache-hit path: no Claude call, no fetched images yet. Embed
+            // here. Still cheaper than the old embedImageUrls-20-pins path
+            // because we cap at 10 images.
+            sharedPinImages = sharedPinImages.length ? sharedPinImages : await fetchPinImages(pinImageUrls.slice(0, 10));
+            embeddings = await embedBase64Images(sharedPinImages);
+          }
+
           const validEmbeddings = embeddings.filter((e) => e.length > 0);
 
           if (tasteMemory.styleCentroid && validEmbeddings.length > 0) {
@@ -321,27 +359,21 @@ export async function POST(request: Request) {
 
           rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 20, { useTasteHead });
 
-        } else if (USE_VISUAL_SEARCH && (mode === "text" || mode === "quiz")) {
-          console.log("[shop] Hybrid search: multi-vector text ensemble via FashionCLIP");
-          // Short typed text queries (≤6 words) are deliberate aesthetic
-          // pivots — same heuristic as textQueryToAesthetic. Suppress
-          // tasteMemory softAvoids subtraction in that case so a user with
-          // accumulated feminine softAvoids isn't actively pushed away from
-          // a "dad chic" query vector. For longer queries the softAvoids
-          // continue to provide useful steering.
-          const userTypedQuery = mode === "text" ? (contexts[0].textQuery ?? "").trim() : "";
-          const userWordCount = userTypedQuery.split(/\s+/).filter(Boolean).length;
-          const isShortPivot  = userWordCount > 0 && userWordCount <= 6;
-          const softAvoids    = isShortPivot ? [] : tasteMemory.softAvoids;
-          if (isShortPivot) console.log(`[shop] Short pivot detected ("${userTypedQuery}") — skipping softAvoids`);
-          const queryVectors = await buildTextQueryVectors(aesthetic!, softAvoids);
-          console.log(`[shop] Built ${queryVectors.length} query vectors (positives - negatives)`);
-          // Strict mode for text/quiz: raises Pinecone min-score floor and
-          // de-weights the Algolia keyword voter so off-aesthetic neighbours
-          // get filtered out across ALL semantic queries — not just dad-chic.
-          // Pinterest / image modes stay loose because their image embeddings
-          // already encode the user's intent more precisely.
-          rawCandidates = await hybridSearch(queryVectors, aesthetic!, token, 20, { useTasteHead, strict: true });
+        } else if (mode === "text" || mode === "quiz") {
+          // Text / quiz mode: skip FashionCLIP entirely. For a typed query
+          // we already have Claude's `category_queries`, `style_keywords`,
+          // `color_palette`, `silhouettes` — all great fuel for Algolia
+          // keyword search. Running a ~150 MB ML model on a serverless
+          // lambda to encode 8 text phrases is the tail wagging the dog:
+          // it adds 20–40 s of cold-start for marginal recall gains, when
+          // Algolia returns in ~1 s and Claude's queries are already
+          // semantically-rich.
+          //
+          // If we ever reintroduce visual voting for text mode, do it via
+          // a hot-loaded external embedding service (HuggingFace Inference
+          // Endpoints / Modal), not inline.
+          console.log(`[shop] Algolia-only (mode=${mode}) — FashionCLIP bypassed for speed`);
+          rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
 
         } else {
           console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);

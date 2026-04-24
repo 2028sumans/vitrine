@@ -210,8 +210,13 @@ Return a numbered list with one line per pin. No preamble. No summary. No em das
     { type: "text" as const, text: prompt },
   ];
 
+  // Haiku 4.5 has vision and is ~3–4× faster than Sonnet for multi-image
+  // reads. The synthesis pass (pass 2) does all the pattern-matching, so
+  // pass 1 only needs "accurate per-image descriptions" — a task where
+  // Haiku is competitive and the latency win (~6–10 s on a 12-image board)
+  // is material to the user's perceived loading time.
   const message = await client.messages.create({
-    model:      "claude-sonnet-4-6",
+    model:      "claude-haiku-4-5",
     max_tokens: 2200,
     messages:   [{ role: "user", content: userContent }],
   });

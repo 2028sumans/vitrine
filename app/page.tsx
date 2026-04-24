@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 import { Reveal } from "./_components/Reveal";
 import { MobileMenu } from "./_components/MobileMenu";
 import { EditCard } from "./_components/EditCard";
@@ -90,6 +91,13 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auth — drives the Sign out pill at the right edge of the nav. `status`
+  // goes "loading" → "authenticated" | "unauthenticated" so we wait for a
+  // resolved state before deciding what to render (prevents a flash of the
+  // signed-out state for a signed-in user on first paint).
+  const { status: authStatus } = useSession();
+  const isAuthed = authStatus === "authenticated";
+
   return (
     <div className="min-h-screen flex flex-col">
 
@@ -142,6 +150,23 @@ export default function HomePage() {
           >
             Your shortlist
           </Link>
+
+          {/* Sign out — shown only when authenticated. Bordered pill to
+              distinguish it from the plain-text nav links (it's an action,
+              not navigation). Hidden entirely for signed-out visitors; the
+              "Get started →" link upstream is the entry point for them. */}
+          {isAuthed && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border hover:bg-[rgba(237,229,208,0.1)] transition-colors duration-200"
+              style={{
+                color:       HERO_TEXT,
+                borderColor: `${HERO_TEXT}66` /* ~40% alpha */,
+              }}
+            >
+              Sign out
+            </button>
+          )}
         </div>
 
         {/* Mobile hamburger — olive-bar version so it reads against the

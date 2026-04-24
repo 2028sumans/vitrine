@@ -25,9 +25,6 @@ import { searchByLikedProductIds } from "@/lib/embeddings";
 export const revalidate = 60;
 
 const INDEX_NAME    = "vitrine_products";
-const NUM_SLICES    = 8;
-const PER_SLICE     = 6;
-const CATALOG_SIZE  = 120_000;
 const HITS_PER_PAGE = 48;
 // Over-fetch in scoped mode so the diversifier has a wide enough pool to
 // mix across aesthetic × brand axes. Without this, Algolia's default
@@ -679,48 +676,44 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── Default path: 8-slice catalog walk, interleaved ──────────────────
-    const STRIDE = Math.floor(CATALOG_SIZE / NUM_SLICES);
-    const offsets = Array.from({ length: NUM_SLICES }, (_, i) =>
-      (page * PER_SLICE + i * STRIDE) % CATALOG_SIZE
-    );
-
-    const sliceResults = await Promise.all(
-      offsets.map(async (off) => {
-        try {
-          const res = await client.searchSingleIndex({
-            indexName: INDEX_NAME,
-            searchParams: {
-              query:  "",
-              offset: off,
-              length: PER_SLICE,
-              attributesToRetrieve,
-            },
-          });
-          return { hits: (res.hits ?? []) as Array<Record<string, unknown>> };
-        } catch (e) {
-          console.warn("[shop-all] slice failed (offset=" + off + "):", e instanceof Error ? e.message : e);
-          return { hits: [] };
-        }
-      }),
-    );
-
-    const interleaved: Array<Record<string, unknown>> = [];
-    for (let i = 0; i < PER_SLICE; i++) {
-      for (let j = 0; j < NUM_SLICES; j++) {
-        const hit = sliceResults[j]?.hits?.[i];
-        if (hit) interleaved.push(hit);
-      }
-    }
-
-    const products = interleaved.filter((h) => {
+    // ── Default path: simple paginated catalog walk ──────────────────────
+    //
+    // Previously this lane used an 8-slice interleave that fired parallel
+    // queries at offsets across the catalog (0, 15k, 30k, …). That broke
+    // against Algolia's `paginationLimitedTo` (1000 hits) — 7 of the 8
+    // slices asked for offsets > 1000 and silently got zero hits, which
+    // tripped the `hasMore` check on page 0 and pinned the result set at
+    // ~42 items total.
+    //
+    // No live surface uses this mode on top of the multi-slice guarantee —
+    // /shop always sends a brand or category filter, so the scoped path
+    // upstream handles pagination. The only consumer is /admin/label, which
+    // wants a big raw pool to cherry-pick a gold eval set from. Straight
+    // Algolia pagination at a generous page size is the right shape:
+    // gets ~1000 items across 10 pages, which is plenty for labeling.
+    const FLAT_HITS_PER_PAGE = 96;
+    const res = await client.searchSingleIndex({
+      indexName: INDEX_NAME,
+      searchParams: {
+        query:       "",
+        hitsPerPage: FLAT_HITS_PER_PAGE,
+        page,
+        attributesToRetrieve,
+      },
+    });
+    const products = ((res.hits ?? []) as Array<Record<string, unknown>>).filter((h) => {
       const u = h.image_url;
       return typeof u === "string" && u.startsWith("http");
     });
+    const hasMore = (res.hits?.length ?? 0) >= FLAT_HITS_PER_PAGE;
 
-    const hasMore = sliceResults.every((r) => (r.hits?.length ?? 0) >= PER_SLICE);
-
-    return NextResponse.json({ products, page, hasMore, mode: "flat" });
+    return NextResponse.json({
+      products,
+      page,
+      hasMore,
+      mode:  "flat",
+      total: res.nbHits ?? null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[shop-all] failed:", message);
