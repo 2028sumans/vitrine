@@ -68,9 +68,21 @@ export interface CardScore {
 }
 
 // ── Weights (tuned for fashion discovery) ─────────────────────────────────────
-const W_LIKE    = 0.45;  // strongest — did they save/heart this?
-const W_COMMENT = 0.25;  // novelty-driven — does it make them react?
+// Bumped W_LIKE up and W_COMMENT down after session feedback that likes and
+// saves felt too subtle — a user expressing an explicit preference wants the
+// next 2-3 cards to reflect it, not a weak lean over the next 10. The
+// novelty/comment signal still ships (for the wildcard-injection path that
+// keeps the feed from tunneling) but its weight on primary ranking drops.
+const W_LIKE    = 0.55;  // strongest — explicit preference signal
+const W_COMMENT = 0.15;  // novelty nudge — still feeds wildcards
 const W_CLICK   = 0.30;  // intent signal — will they tap through to buy?
+
+// How much more weight to give RECENT hits in click history vs older ones.
+// The 3 most-recent entries each count as `RECENCY_WEIGHT` hits so "I just
+// liked 3 Khaite pieces" overwhelms "I clicked one Reformation 20 cards ago."
+// clickHistoryRef is maintained newest-first on the shop page.
+const RECENCY_WINDOW = 3;
+const RECENCY_WEIGHT = 2;
 
 // Default wildcard cadence. Used as the baseline for adaptive tuning in
 // `rankCards`: a hot-streak session exploits more (sparser wildcards) and a
@@ -81,24 +93,49 @@ const WILDCARD_INTERVAL_MAX  = 9;   // high-exploitation ceiling
 
 // ── Affinity helpers ──────────────────────────────────────────────────────────
 
+// Count hits in history where `match(entry)` is true, with the first
+// RECENCY_WINDOW entries weighted RECENCY_WEIGHT× so a fresh cluster of
+// likes dominates older history. History is maintained newest-first, so
+// `slice(0, RECENCY_WINDOW)` is the hot cluster.
+function weightedHits(
+  history: ClickSignalLike[],
+  match: (entry: ClickSignalLike) => boolean,
+): number {
+  let n = 0;
+  for (let i = 0; i < history.length; i++) {
+    if (!match(history[i])) continue;
+    n += i < RECENCY_WINDOW ? RECENCY_WEIGHT : 1;
+  }
+  return n;
+}
+
 function categoryAffinity(category: string | undefined, history: ClickSignalLike[]): number {
   if (!category || !history.length) return 0.5;
-  const hits = history.filter((c) => c.category === category).length;
-  // 0 hits → 0.20, 1 hit → 0.55, 2+ → 0.80+
-  return Math.min(0.95, 0.20 + hits * 0.30);
+  const hits = weightedHits(history, (c) => c.category === category);
+  // 0 hits → 0.20, 1 hit → 0.60, 2 → 0.85, 3+ → 0.98. Steeper than before:
+  // an explicit preference now lands a liked-category card at ~0.98 affinity
+  // instead of ~0.80 after the same two hits.
+  return Math.min(0.98, 0.20 + hits * 0.38);
 }
 
 function brandAffinity(brand: string | undefined, history: ClickSignalLike[]): number {
   if (!brand || !history.length) return 0.30;
   const norm = brand.toLowerCase();
-  return history.some((c) => c.brand?.toLowerCase() === norm) ? 0.90 : 0.30;
+  const hits = weightedHits(history, (c) => c.brand?.toLowerCase() === norm);
+  // Was binary (any hit = 0.90). Now multi-hit stacks: a user who's liked
+  // 3 Khaite pieces should see Khaite cards rank harder than a user who
+  // liked one. 0.40 base if unseen (slight downweight vs old 0.30 since
+  // hits now reach higher).
+  if (hits === 0) return 0.40;
+  return Math.min(0.98, 0.75 + (hits - 1) * 0.12);
 }
 
 function colorAffinity(color: string | undefined, history: ClickSignalLike[]): number {
   if (!color || !history.length) return 0.50;
   const norm = color.toLowerCase();
-  const hits = history.filter((c) => c.color?.toLowerCase() === norm).length;
-  return Math.min(0.90, 0.30 + hits * 0.25);
+  const hits = weightedHits(history, (c) => c.color?.toLowerCase() === norm);
+  // 0 → 0.30, 1 → 0.65, 2 → 0.85, 3+ → 0.95
+  return Math.min(0.95, 0.30 + hits * 0.32);
 }
 
 // ── Dislike penalties (mirror of affinities, behavioral-asymmetry tuned) ─────
@@ -163,8 +200,12 @@ export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore
   // How well does this card match what the user has historically liked/clicked?
   const catAffinities   = products.map((p: ScoringProduct) => categoryAffinity(p.category, clickHistory));
   const colorAffinities = products.map((p: ScoringProduct) => colorAffinity(p.color,    clickHistory));
+  // Brand affinity now also feeds predictedLike (previously only predictedClick).
+  // A user who's liked Khaite 3× should see NEW Khaite pieces lift in like-probability,
+  // not just click-probability. The click formula keeps its own brand slot below.
+  const brandAffinitiesForLike = products.map((p: ScoringProduct) => brandAffinity(p.brand, clickHistory));
   const priceScore      = avg(products.map((p: ScoringProduct) => priceMatch(p.price_range, aestheticPrice)));
-  const alreadyLiked    = products.some((p: ScoringProduct) => p.objectID != null && likedProductIds.has(p.objectID)) ? 0.05 : 0;
+  const alreadyLiked    = products.some((p: ScoringProduct) => p.objectID != null && likedProductIds.has(p.objectID)) ? 0.10 : 0;
 
   // Dislike penalties — if any of this card's products share attributes with
   // fast-swiped-past cards, push its score down. Worst attribute wins per card
@@ -173,10 +214,11 @@ export function scoreCard(card: ScoringCard, signals: ScoringSignals): CardScore
   const colorPenalties = products.map((p: ScoringProduct) => colorPenalty(p.color,    dislikedSignals));
 
   const predictedLike = Math.max(0.02, Math.min(0.97, (
-    avg(catAffinities)   * 0.40 +
-    avg(colorAffinities) * 0.25 +
-    priceScore           * 0.20 +
-    0.10                         // base engagement rate
+    avg(catAffinities)           * 0.38 +
+    avg(brandAffinitiesForLike)  * 0.22 +   // new: brand affinity contributes to like
+    avg(colorAffinities)         * 0.20 +
+    priceScore                   * 0.15 +
+    0.05                                    // base engagement rate (was 0.10 — brand now carries that mass)
   ) * dMult + alreadyLiked
     - Math.max(...catPenalties)   * 0.50   // the most-disliked category in the card
     - Math.max(...colorPenalties) * 0.30)); // the most-disliked color in the card
