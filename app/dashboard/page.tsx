@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
@@ -1406,6 +1406,11 @@ export default function DashboardPage() {
             setExtraPage(1);
             setExtraHasMore(true);
             setSessionLikedIds(new Set());
+            // Start each new feed with a clean session-signal slate so the
+            // last run's reactions don't re-order this run's preloaded batch.
+            clickHistoryRef.current    = [];
+            dislikedSignalsRef.current = [];
+            setSignalsTick(0);
           } else if (event.phase === "done") {
             sawDone = true;
           } else if (event.phase === "error") {
@@ -1678,6 +1683,9 @@ export default function DashboardPage() {
     setExtraPage(1);
     setExtraHasMore(true);
     setSessionLikedIds(new Set());
+    clickHistoryRef.current    = [];
+    dislikedSignalsRef.current = [];
+    setSignalsTick(0);
     setSteerInterp(null);
     seenExtraIdsRef.current.clear();
   };
@@ -1871,34 +1879,89 @@ export default function DashboardPage() {
 
         {/* ── Shopping results ── */}
         {step === "shopping" && aesthetic && candidates && (() => {
+          // Read signalsTick so React re-runs this IIFE when the signal refs
+          // mutate (handleLikeInScroll bumps the tick after pushing to
+          // clickHistory). Refs don't trigger re-renders on their own;
+          // `aesthetic` / `candidates` / `extraProducts` already do.
+          void signalsTick;
+
+          // Aesthetic-term list — reference only, retained as a tiebreaker
+          // hook for future. The primary ordering is rankCards below.
           const terms = [
             ...(aesthetic.style_keywords ?? []),
             ...(aesthetic.color_palette ?? []).map((c) => c.toLowerCase().split(" ").pop() ?? c),
             aesthetic.primary_aesthetic?.toLowerCase() ?? "",
           ].map((t) => t.toLowerCase());
+          void terms;
 
-          // Initial picks (visual-first matches from /api/shop) score-ranked
-          // against aesthetic terms, then extra paginated products from
-          // /api/shop-all appended in fetch order. Extras stay below initial
-          // picks so Pinecone-best results surface first.
-          const scored = CATEGORIES.flatMap((cat) => candidates[cat]).map((p) => {
-            const haystack = [...(p.aesthetic_tags ?? []), (p.title ?? "").toLowerCase(), (p.description ?? "").toLowerCase()].join(" ");
-            const score = terms.filter((t) => t.length > 2 && haystack.includes(t)).length;
-            return { product: p, score };
-          });
-          scored.sort((a, b) => b.score - a.score);
-          const sortedProducts = [
-            ...scored.map(({ product }) => product),
+          const allProducts = [
+            ...CATEGORIES.flatMap((cat) => candidates[cat]),
             ...extraProducts,
           ];
 
+          // rankCards is the same scorer /shop uses in its scroll view — it
+          // boosts items whose brand/category/color match the user's likes
+          // and penalises those that match dislikes. Running it on the
+          // loaded batch (initial + extras) means the preloaded picks
+          // re-order live as the user reacts, instead of staying frozen
+          // until they scroll past and /api/shop-all's bias-shaped pagination
+          // kicks in. The steer flow (handleSayMore) mutates `aesthetic`,
+          // which also bumps this recompute via the outer conditional.
+          const signals: ScoringSignals = {
+            likedProductIds: sessionLikedIds,
+            clickHistory:    clickHistoryRef.current,
+            dislikedSignals: dislikedSignalsRef.current,
+            dwellTimes:      {},                            // no dwell tracking on dashboard yet
+            aestheticPrice:  aesthetic.price_range ?? "mid",
+          };
+          const cards: ScoringCard[] = allProducts.map((p) => ({
+            id:       p.objectID,
+            products: [{
+              objectID:    p.objectID,
+              category:    p.category,
+              brand:       p.brand,
+              color:       p.color,
+              price_range: p.price_range,
+              retailer:    p.retailer,
+            }],
+            liked: sessionLikedIds.has(p.objectID),
+          }));
+          const ranked = rankCards(cards, signals) as ScoringCard[];
+          const byId = new Map(allProducts.map((p) => [p.objectID, p]));
+          const sortedProducts = ranked
+            .map((c) => byId.get(c.id))
+            .filter((p): p is AlgoliaProduct => p != null);
+
+          const productToSignal = (p: AlgoliaProduct): ClickSignalLike => ({
+            objectID:    p.objectID,
+            category:    p.category ?? "",
+            brand:       p.brand ?? "",
+            color:       p.color ?? "",
+            price_range: p.price_range ?? "mid",
+            retailer:    p.retailer,
+          });
+
           const handleLikeInScroll = (objectID: string) => {
+            const product = byId.get(objectID);
             setSessionLikedIds((prev) => {
               const next = new Set(prev);
-              if (next.has(objectID)) next.delete(objectID);
-              else next.add(objectID);
+              if (next.has(objectID)) {
+                next.delete(objectID);
+                // Unlike: leave clickHistory alone (the engagement still
+                // happened). Toggling the heart back off shouldn't erase
+                // the taste signal — /shop follows the same convention.
+              } else {
+                next.add(objectID);
+                if (product) {
+                  // Cap at 30 — matches /shop's bound and keeps rankCards'
+                  // per-card work bounded as the session grows.
+                  clickHistoryRef.current = [productToSignal(product), ...clickHistoryRef.current].slice(0, 30);
+                }
+              }
               return next;
             });
+            // Bump tick so the IIFE re-runs with the updated clickHistory.
+            setSignalsTick((t) => t + 1);
           };
 
           return (
