@@ -1,0 +1,20 @@
+{
+  "_comment": "Per-age-range FashionCLIP centroids (512-dim), built from hand-labeled items in data/eval-set.jsonl. Run `node scripts/build-age-centroids.mjs` after labeling at /admin/label. Until it's run, every centroid is null and the taste-profile lib will fall back to just the user's upload vectors.",
+  "version": 1,
+  "dim": 512,
+  "builtAt": null,
+  "sampleCounts": {
+    "age-13-18": 0,
+    "age-18-25": 0,
+    "age-25-32": 0,
+    "age-32-40": 0,
+    "age-40-60": 0
+  },
+  "centroids": {
+    "age-13-18": null,
+    "age-18-25": null,
+    "age-25-32": null,
+    "age-32-40": null,
+    "age-40-60": null
+  }
+}
