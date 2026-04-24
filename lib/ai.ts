@@ -442,8 +442,37 @@ export async function fetchCandidateProductsByCategory(
 // Applied AFTER retrieval (Algolia or hybrid), BEFORE avoid / mens
 // filtering. No-op when focus_categories is empty or undefined (the
 // common mixed-lookbook case — balanced across all six categories).
+//
+// Belt + braces: even the focus bucket gets passed through a title
+// keyword blocker because the Algolia index occasionally has products
+// mis-tagged (a dress filed under category:"shoes"). The blocker
+// rejects items whose titles strongly contradict the bucket — so a
+// "Floral Midi Dress" with category:"shoes" in Algolia won't surface
+// in a shoes-focused feed even though the category field lied.
 
 const NON_FOCUS_CAP = 0; // no complementary pieces — strict focus
+
+// Title-keyword contradiction list per clothing category. If a product
+// purports to be (say) shoes but its title contains "dress", "bag",
+// "earring", etc., we drop it. Mirrors CATEGORY_BLOCKERS in
+// app/api/shop-all/route.ts but keyed by internal ClothingCategory
+// instead of the public /shop-all labels.
+const CATEGORY_TITLE_BLOCKERS: Record<ClothingCategory, readonly string[]> = {
+  dress:  ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "jean", "trouser", "bag", "tote", "handbag", "clutch", "jacket", "coat", "blazer", "necklace", "bracelet", "ring", "earring"],
+  top:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "skirt", "dress", "jean", "trouser", "bag", "tote", "handbag", "clutch", "necklace", "bracelet", "ring", "earring"],
+  bottom: ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "shirt", "blouse", "top", "tee", "tank", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch", "necklace", "bracelet", "ring", "earring"],
+  jacket: ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "gown", "skirt", "short", "jean", "trouser", "bag", "tote", "handbag", "clutch", "necklace", "bracelet", "ring", "earring"],
+  shoes:  ["hoody", "hoodie", "sweater", "sweatshirt", "cardigan", "jumper", "shirt", "blouse", "tee", "tank", "dress", "gown", "pant", "skirt", "short", "jean", "trouser", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch", "necklace", "bracelet", "ring", "earring", "belt", "hat", "cap", "scarf"],
+  bag:    ["shoe", "boot", "sandal", "heel", "sneaker", "pant", "skirt", "dress", "shirt", "blouse", "jacket", "coat", "necklace", "bracelet", "ring", "earring"],
+};
+
+function passesCategoryBlocker(p: AlgoliaProduct, cat: ClothingCategory): boolean {
+  const blockers = CATEGORY_TITLE_BLOCKERS[cat];
+  if (!blockers) return true;
+  const title = String(p.title ?? "").toLowerCase();
+  // Word-boundary match so "heel" doesn't match "heelless" and so on.
+  return !blockers.some((k) => new RegExp(`\\b${k}`, "i").test(title));
+}
 
 export function applyFocusSkew(
   candidates: CategoryCandidates,
@@ -461,7 +490,13 @@ export function applyFocusSkew(
     bag:    candidates.bag,
   };
   for (const cat of cats) {
-    if (!focus.has(cat)) out[cat] = out[cat].slice(0, NON_FOCUS_CAP);
+    if (!focus.has(cat)) {
+      out[cat] = out[cat].slice(0, NON_FOCUS_CAP);
+    } else {
+      // Focus bucket — enforce title blocker on top of the category filter
+      // so mis-tagged products can't sneak in.
+      out[cat] = out[cat].filter((p) => passesCategoryBlocker(p, cat));
+    }
   }
   return out;
 }
