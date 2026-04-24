@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import brandsData from "./brands.json";
 import { MobileMenu } from "../_components/MobileMenu";
 
@@ -13,9 +14,11 @@ interface Brand {
 }
 
 // Data is baked in at build time via scripts/build-brands-data.mjs.
-// Sorted once here — the page only renders A-Z now.
-const BRANDS: Brand[] = [...(brandsData.brands as Brand[])].sort((a, b) =>
-  a.name.localeCompare(b.name)
+// Alphabetical is the fallback / anonymous-user view. Signed-in users get
+// their grid reordered by cosine-similarity of each brand's centroid to
+// their taste vector (see useEffect below).
+const ALPHABETICAL_BRANDS: Brand[] = [...(brandsData.brands as Brand[])].sort((a, b) =>
+  a.name.localeCompare(b.name),
 );
 
 /**
@@ -37,6 +40,53 @@ function thumbUrl(url: string | null, px: number = 500): string | null {
 }
 
 export default function BrandsPage() {
+  const { data: session } = useSession();
+  const userToken = session?.user?.id ?? "";
+
+  // Taste-ordered brand names from /api/brands/ordered, or null while we
+  // wait for the fetch to resolve. Null also means "use alphabetical" —
+  // anon users and taste-unavailable sessions land here without a round-trip.
+  const [orderedNames, setOrderedNames] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!userToken) { setOrderedNames(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/brands/ordered?userToken=${encodeURIComponent(userToken)}`);
+        if (!res.ok) return;
+        const j = await res.json();
+        if (cancelled) return;
+        if (j?.ordered && Array.isArray(j.brands)) {
+          setOrderedNames(j.brands as string[]);
+        }
+      } catch {
+        // Network flake — leave alphabetical in place. No user-visible error
+        // is worthwhile here; the page still works, just not sorted for them.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userToken]);
+
+  // Reorder the brand grid. When ordering is unavailable (anon, fetch
+  // pending, or endpoint returned ordered=false) we keep alphabetical.
+  // When ordered, we index brands.json by name and emit them in the
+  // taste-ranked order. Brands the endpoint returned that aren't in our
+  // static data are skipped; brands in our data missing from the endpoint's
+  // list (shouldn't happen if the centroid builder is in sync) land at
+  // the end alphabetically so nothing disappears.
+  const brands = useMemo<Brand[]>(() => {
+    if (!orderedNames) return ALPHABETICAL_BRANDS;
+    const byName = new Map(ALPHABETICAL_BRANDS.map((b) => [b.name, b]));
+    const ordered: Brand[] = [];
+    const seen = new Set<string>();
+    for (const name of orderedNames) {
+      const b = byName.get(name);
+      if (b) { ordered.push(b); seen.add(name); }
+    }
+    const tail = ALPHABETICAL_BRANDS.filter((b) => !seen.has(b.name));
+    return [...ordered, ...tail];
+  }, [orderedNames]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -76,9 +126,13 @@ export default function BrandsPage() {
           </p>
         </div>
 
-        {/* Grid — always alphabetical */}
+        {/* Grid — taste-ranked for signed-in users (cosine-similarity of
+            each brand's centroid to the user's taste vector), alphabetical
+            for anonymous visitors. Re-order happens client-side after
+            /api/brands/ordered resolves; the first paint shows alphabetical
+            and seamlessly re-orders in place. */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-          {BRANDS.map((b) => <BrandCard key={b.name} brand={b} />)}
+          {brands.map((b) => <BrandCard key={b.name} brand={b} />)}
         </div>
       </main>
 

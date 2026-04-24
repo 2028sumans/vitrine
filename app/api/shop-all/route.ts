@@ -20,7 +20,8 @@
 
 import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
-import { searchByLikedProductIds } from "@/lib/embeddings";
+import { searchByEmbeddings, searchByLikedProductIds } from "@/lib/embeddings";
+import { loadUserTasteVector } from "@/lib/taste-profile";
 
 export const revalidate = 60;
 
@@ -312,6 +313,45 @@ async function clipSimilarityRanking(likedProductIds: string[]): Promise<string[
   }
 }
 
+// Taste-vector ranking — complementary to the liked-products CLIP boost.
+// Pulls the user's unified onboarding vector (age prior + upload centroid +
+// session centroid blended per lib/taste-profile.ts) and runs a single
+// Pinecone query against it. Returns ordered objectIDs to feed into the
+// same boost step as clipIds. Fires for any signed-in user with a non-null
+// centroid — no "liked >= 2" floor, because the onboarding centroid is
+// itself a deliberately-chosen signal, not accumulated click noise.
+async function tasteVectorRanking(userToken: string): Promise<{ ids: string[]; hasVector: boolean }> {
+  if (!userToken || userToken === "anon") return { ids: [], hasVector: false };
+  try {
+    const profile = await loadUserTasteVector(userToken);
+    if (!profile.vector || profile.vector.length === 0) return { ids: [], hasVector: false };
+    // Single-vector Pinecone query — no clustering, the profile is already
+    // one blended centroid. 300K mirrors the clip path for stable merging.
+    const ids = await searchByEmbeddings([profile.vector], 300);
+    return { ids, hasVector: true };
+  } catch (e) {
+    console.warn("[shop-all] taste-vector ranking skipped:", e instanceof Error ? e.message : e);
+    return { ids: [], hasVector: false };
+  }
+}
+
+// Interleave two ranked-ID lists by lowest-combined-rank. Items appearing
+// in both get their ranks averaged (boosted by consensus); items in only
+// one keep their original rank. Result is a single sorted list of unique
+// IDs preserving rank order of "strongest fusion signal first."
+// Used when we have both a liked-products CLIP boost AND a taste-vector
+// boost and want one merged boost list for `boostByClipSimilarity`.
+function mergeRankedIds(a: string[], b: string[]): string[] {
+  if (a.length === 0) return b;
+  if (b.length === 0) return a;
+  const score = new Map<string, number>();
+  a.forEach((id, i) => score.set(id, (score.get(id) ?? 0) + 1 / (i + 1)));
+  b.forEach((id, i) => score.set(id, (score.get(id) ?? 0) + 1 / (i + 1)));
+  return Array.from(score.entries())
+    .sort((x, y) => y[1] - x[1])
+    .map(([id]) => id);
+}
+
 // Boost products whose objectID appears in `clipIds` to the front of the
 // list, ordered by CLIP rank. Cap at `topN` so the tail keeps Algolia's
 // interleaved diversity — we're ordering the lead of the feed, not replacing
@@ -485,6 +525,12 @@ export async function POST(request: Request) {
         .slice(0, 20)
     : [];
 
+  // Signed-in user token — drives the taste-vector boost (onboarding age
+  // centroid + upload centroid + session centroid, blended per
+  // lib/taste-profile.loadUserTasteVector). Empty/anon means no taste
+  // vector and the route falls back to liked-products-only behaviour.
+  const userToken: string = typeof body?.userToken === "string" ? body.userToken.trim() : "";
+
   const appId = process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? "BSDU5QFOT3";
   const key   = process.env.ALGOLIA_SEARCH_KEY
     ?? process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY
@@ -645,9 +691,16 @@ export async function POST(request: Request) {
         nbHits   = res.nbHits ?? 0;
       }
 
-      // CLIP similarity runs independently — same flow regardless of whether
-      // we used the single-fetch or multi-slice path above.
-      const clipIds = await clipSimilarityRanking(likedProductIds);
+      // CLIP similarity + taste-vector similarity run in parallel. The
+      // CLIP lane needs liked-product vectors; the taste-vector lane hits
+      // Pinecone directly against the user's composed onboarding centroid.
+      // Both return ranked objectID lists; `mergeRankedIds` fuses them by
+      // reciprocal rank so items surfacing in both lanes float to the top.
+      const [clipIds, taste] = await Promise.all([
+        clipSimilarityRanking(likedProductIds),
+        tasteVectorRanking(userToken),
+      ]);
+      const boostIds = mergeRankedIds(clipIds, taste.ids);
 
       // Structured Steer post-filter (price tier / category / color / avoid).
       products = applySteerPostFilter(products, steerInterp);
@@ -683,10 +736,16 @@ export async function POST(request: Request) {
       // anyway but the cooldown loop degenerates to a single pass).
       if (!brandFilterQuery) clean = spreadByBrand(clean, 4);
 
-      // CLIP-similarity boost — after interleaving, pull the top-N visually
-      // most-similar items (to the user's liked centroid) to the lead of
-      // the feed. The tail keeps the aesthetic×brand diversification.
-      clean = boostByClipSimilarity(clean, clipIds, likedProductIds.length);
+      // Similarity boost — merged liked-products + onboarding-taste ranking.
+      // boostByClipSimilarity's historical `likedCount >= 2` floor was about
+      // trusting noisy session accumulation; a present taste vector is a
+      // deliberate signal that should fire from the first request, so we
+      // floor to 2 when the vector is available.
+      clean = boostByClipSimilarity(
+        clean,
+        boostIds,
+        Math.max(likedProductIds.length, taste.hasVector ? 2 : 0),
+      );
 
       return NextResponse.json({
         products: clean,
@@ -706,7 +765,7 @@ export async function POST(request: Request) {
       const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
       const optionalWords = q.split(/\s+/).filter(Boolean);
       const filters = composeFilters("", priceMax);
-      const [res, clipIds] = await Promise.all([
+      const [res, clipIds, taste] = await Promise.all([
         client.searchSingleIndex({
           indexName: INDEX_NAME,
           searchParams: {
@@ -719,7 +778,9 @@ export async function POST(request: Request) {
           },
         }),
         clipSimilarityRanking(likedProductIds),
+        tasteVectorRanking(userToken),
       ]);
+      const boostIds = mergeRankedIds(clipIds, taste.ids);
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
       const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
@@ -743,7 +804,11 @@ export async function POST(request: Request) {
       });
 
       clean = interleaveByBrand(clean);
-      clean = boostByClipSimilarity(clean, clipIds, likedProductIds.length);
+      clean = boostByClipSimilarity(
+        clean,
+        boostIds,
+        Math.max(likedProductIds.length, taste.hasVector ? 2 : 0),
+      );
 
       return NextResponse.json({
         products: clean,

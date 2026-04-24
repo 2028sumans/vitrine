@@ -5,10 +5,20 @@
 //   3. Product impressions — products shown but ignored (source of soft avoids)
 
 import { getServiceSupabase } from "@/lib/supabase";
+import { getOnboarding } from "@/lib/onboarding-memory";
+import ageCentroidsFile from "@/lib/age-centroids.json";
 import type { StyleDNA, ClickSignal, TasteMemory } from "@/lib/types";
 
 // Re-export from shared types so consumers can import from either place
 export type { ClickSignal, TasteMemory } from "@/lib/types";
+
+// Age-centroid fallback shape. Mirrors scripts/build-age-centroids.mjs
+// output + lib/taste-profile.ts consumption. Narrowed at module load so
+// the rest of the file has types even though JSON imports are `any`.
+interface AgeCentroidsShape {
+  centroids: Record<string, number[] | null>;
+}
+const AGE_CENTROIDS = ageCentroidsFile as unknown as AgeCentroidsShape;
 
 // ── StyleDNA history ──────────────────────────────────────────────────────────
 
@@ -285,12 +295,32 @@ export async function loadTasteMemory(userToken: string): Promise<TasteMemory> {
     return { previousDNAs: [], clickSignals: [], softAvoids: [], styleCentroid: null };
   }
 
-  const [previousDNARows, clickSignals, softAvoids, styleCentroid] = await Promise.all([
+  // Kick off all four fetches in parallel, including the onboarding row.
+  // The session centroid is still the primary source for styleCentroid;
+  // the onboarding row only comes into play when no session centroid exists
+  // yet (brand-new user's first /dashboard or /shop request).
+  const [previousDNARows, clickSignals, softAvoids, sessionCentroid, onboarding] = await Promise.all([
     getPreviousStyleDNAs(userToken, 5),
     getClickSignals(userToken, 15),
     computeSoftAvoids(userToken),
     getStyleCentroid(userToken),
+    getOnboarding(userToken),
   ]);
+
+  // Onboarding fallback for the styleCentroid slot: upload centroid first
+  // (personal, strongest), age centroid second (demographic prior). This
+  // seeds /dashboard and /shop with the onboarding signal from the user's
+  // very first request instead of cold-starting — session accumulation
+  // then overtakes over the next dozen clicks via /api/taste/centroid.
+  let styleCentroid: number[] | null = sessionCentroid;
+  if (!styleCentroid && onboarding) {
+    if (onboarding.uploadCentroid && onboarding.uploadCentroid.length > 0) {
+      styleCentroid = onboarding.uploadCentroid;
+    } else if (onboarding.ageRange) {
+      const ageVec = AGE_CENTROIDS.centroids?.[onboarding.ageRange] ?? null;
+      if (ageVec && ageVec.length > 0) styleCentroid = ageVec;
+    }
+  }
 
   return {
     previousDNAs: previousDNARows.map((r) => ({ ...r.dna, _boardName: r.board_name } as StyleDNA)),

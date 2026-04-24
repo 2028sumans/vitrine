@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   rankCards,
   interpretDwell,
@@ -123,6 +124,13 @@ function ShopPageContent() {
   const isCategoryMode = !isBrandMode && !!categoryFilter;
   const isPickerMode   = !isBrandMode && !isCategoryMode;
   const scopeLabel     = brandFilter || categoryFilter || "";
+
+  // Signed-in session — feeds `userToken` through to /api/shop-all so the
+  // server can blend the user's onboarding taste vector into the ranking.
+  // Falls back to empty string for anonymous visitors (server treats "" as
+  // "no taste boost" → Algolia + liked-products behaviour, unchanged).
+  const { data: session } = useSession();
+  const userToken = session?.user?.id ?? "";
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   // Max price cap (USD). null = no cap. Applied as an Algolia numeric filter
@@ -353,6 +361,7 @@ function ShopPageContent() {
           page,
           bias:            buildBias(),
           likedProductIds: Array.from(likedIds),
+          userToken,
           brandFilter:     brandFilter    ?? "",
           categoryFilter:  categoryFilter ?? "",
           priceMax,
@@ -377,7 +386,7 @@ function ShopPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds]);
+  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds, userToken]);
 
   // One-shot init guard. The useEffect below has deps that settle in stages
   // on mount (URL read swaps brand/category null → value); without a guard
@@ -421,6 +430,7 @@ function ShopPageContent() {
             page:            0,
             bias:            buildBias(),
             likedProductIds: Array.from(likedIds),
+            userToken,
             brandFilter:     brandFilter    ?? "",
             categoryFilter:  categoryFilter ?? "",
             priceMax,
@@ -451,7 +461,7 @@ function ShopPageContent() {
       }
     })();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode]);
+  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
@@ -487,6 +497,7 @@ function ShopPageContent() {
           page: 0,
           bias,
           likedProductIds: Array.from(likedIds),
+          userToken,
           brandFilter,
           categoryFilter,
           priceMax,
@@ -519,7 +530,7 @@ function ShopPageContent() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds]);
+  }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds, userToken]);
 
   // Toggle-save handler. Saves are a strong, deliberate taste signal:
   //   1. Contribute to the shortlist-derived bias on future /api/shop-all
