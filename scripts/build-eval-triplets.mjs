@@ -92,19 +92,38 @@ if (labelEntries.length === 0) {
   process.exit(1);
 }
 
-// ── Group ─────────────────────────────────────────────────────────────────────
+// ── Normalise + group ─────────────────────────────────────────────────────────
+//
+// The admin tool writes multi-label files (objectID → string[]) from v2
+// onwards, but we also keep compat with v1 single-label downloads (objectID
+// → string). Coerce everything to arrays before grouping.
 
-/** @type {Map<string, string[]>} aesthetic → objectIDs */
+/** @type {Map<string, string[]>} objectID → aesthetic keys the item carries */
+const tagsById = new Map();
+for (const [objectID, raw] of labelEntries) {
+  if (typeof objectID !== "string") continue;
+  const tags = Array.isArray(raw)
+    ? raw.filter((k) => typeof k === "string")
+    : typeof raw === "string" && raw.length > 0
+      ? [raw]
+      : [];
+  if (tags.length > 0) tagsById.set(objectID, tags);
+}
+
+/** @type {Map<string, string[]>} aesthetic → objectIDs tagged with it */
 const byAesthetic = new Map();
-for (const [objectID, aesthetic] of labelEntries) {
-  if (typeof objectID !== "string" || typeof aesthetic !== "string") continue;
-  if (!byAesthetic.has(aesthetic)) byAesthetic.set(aesthetic, []);
-  byAesthetic.get(aesthetic).push(objectID);
+for (const [objectID, tags] of tagsById) {
+  for (const aesthetic of tags) {
+    if (!byAesthetic.has(aesthetic)) byAesthetic.set(aesthetic, []);
+    byAesthetic.get(aesthetic).push(objectID);
+  }
 }
 
 // ── Report ────────────────────────────────────────────────────────────────────
 
-console.log(`Loaded ${labelEntries.length} labels across ${byAesthetic.size} aesthetics.\n`);
+const totalTags  = [...tagsById.values()].reduce((n, arr) => n + arr.length, 0);
+const uniqueItems = tagsById.size;
+console.log(`Loaded ${totalTags} tags across ${uniqueItems} unique items in ${byAesthetic.size} aesthetics.\n`);
 let anyUnder = false;
 const sortedAesthetics = [...byAesthetic.entries()].sort((a, b) => b[1].length - a[1].length);
 for (const [aesthetic, ids] of sortedAesthetics) {
@@ -125,12 +144,16 @@ const now = new Date().toISOString();
 
 const lines = [];
 for (const [aesthetic, keptIds] of byAesthetic) {
-  // Cross-aesthetic negatives: every other labeled item gets used as a negative.
-  // train-taste-head.mjs will sample down to maxPerRun per row, so it's fine to
-  // pass the full pool; the sampler caps it.
+  // Cross-aesthetic negatives: every labeled item NOT tagged with this
+  // aesthetic gets used as a negative. An item tagged with both 25-32
+  // and 32-40 is in the kept set for both buckets and the rejected set
+  // for 13-18 / 18-25 / 40-60 — correct contrastive structure.
+  // train-taste-head.mjs samples down to maxPerRun per row, so passing
+  // the full pool is fine; the sampler caps it.
   const rejectedIds = [];
   for (const id of allLabeledIds) {
-    if (labels[id] !== aesthetic) rejectedIds.push(id);
+    const tags = tagsById.get(id) ?? [];
+    if (!tags.includes(aesthetic)) rejectedIds.push(id);
   }
 
   lines.push(JSON.stringify({

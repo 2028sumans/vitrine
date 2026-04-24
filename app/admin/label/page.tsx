@@ -67,8 +67,11 @@ const AESTHETICS: readonly Aesthetic[] = [
 /** Target items per aesthetic. Progress bar fills to this. */
 const TARGET_PER_AESTHETIC = 40;
 
-/** localStorage key. Bump the version suffix if the schema below changes. */
-const STORAGE_KEY = "muse-eval-labels-v1";
+/** localStorage key. v2 = multi-label: each product can belong to multiple
+ *  age buckets (e.g., 13-18 AND 18-25). v1 data (single-label) is migrated
+ *  on first load and the v1 key is deleted. */
+const STORAGE_KEY    = "muse-eval-labels-v2";
+const LEGACY_KEY_V1  = "muse-eval-labels-v1";
 
 /** Category filter options. null = no filter. Mirror shop category scopes. */
 const CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string | null }> = [
@@ -94,8 +97,10 @@ interface Product {
 
 interface LabelStore {
   version:   number;
-  /** objectID → aesthetic key. One aesthetic per product (single-label). */
-  labels:    Record<string, string>;
+  /** objectID → array of aesthetic keys. An item tagged with multiple age
+   *  buckets counts toward each bucket's progress and ends up in each
+   *  bucket's kept-set when the converter runs. */
+  labels:    Record<string, string[]>;
   /** Product metadata we've seen, so the export includes title/brand/image. */
   products:  Record<string, { title: string; brand: string; image_url: string; category?: string }>;
   updatedAt: string;
@@ -104,18 +109,64 @@ interface LabelStore {
 // ── Persistence ───────────────────────────────────────────────────────────────
 
 function emptyStore(): LabelStore {
-  return { version: 1, labels: {}, products: {}, updatedAt: new Date().toISOString() };
+  return { version: 2, labels: {}, products: {}, updatedAt: new Date().toISOString() };
 }
 
+/**
+ * Load the current store. Handles three cases:
+ *   1. v2 data present under STORAGE_KEY → return as-is.
+ *   2. v1 data present under LEGACY_KEY_V1 (single-label: id → string) →
+ *      migrate each value into a single-element array, write to v2 key,
+ *      delete the legacy key.
+ *   3. Neither → empty store.
+ */
 function loadStore(): LabelStore {
   if (typeof window === "undefined") return emptyStore();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyStore();
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && parsed.labels && parsed.products) {
-      return parsed as LabelStore;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && parsed.labels) {
+        // Defensive normalisation — if any value isn't an array of strings,
+        // coerce it so the UI never sees a malformed entry.
+        const labels: Record<string, string[]> = {};
+        for (const [id, v] of Object.entries(parsed.labels as Record<string, unknown>)) {
+          if (Array.isArray(v)) {
+            labels[id] = v.filter((k): k is string => typeof k === "string");
+          } else if (typeof v === "string" && v.length > 0) {
+            labels[id] = [v];
+          }
+        }
+        return {
+          version:   2,
+          labels,
+          products:  (parsed.products ?? {}) as LabelStore["products"],
+          updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
+        };
+      }
     }
+
+    // v1 migration path. Preserves any single-label data from the previous
+    // taxonomy (or previous tool version) as single-element arrays.
+    const legacyRaw = localStorage.getItem(LEGACY_KEY_V1);
+    if (legacyRaw) {
+      const parsed = JSON.parse(legacyRaw);
+      const labels: Record<string, string[]> = {};
+      for (const [id, v] of Object.entries((parsed?.labels ?? {}) as Record<string, unknown>)) {
+        if (typeof v === "string" && v.length > 0) labels[id] = [v];
+        else if (Array.isArray(v))                  labels[id] = v.filter((k): k is string => typeof k === "string");
+      }
+      const migrated: LabelStore = {
+        version:   2,
+        labels,
+        products:  (parsed?.products ?? {}) as LabelStore["products"],
+        updatedAt: new Date().toISOString(),
+      };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)); } catch { /* quota */ }
+      try { localStorage.removeItem(LEGACY_KEY_V1); } catch { /* ignore */ }
+      return migrated;
+    }
+
     return emptyStore();
   } catch {
     return emptyStore();
@@ -198,8 +249,10 @@ export default function LabelPage() {
     }
   }, [products.length, hasMore, loading, loadMore]);
 
-  // Tag / untag a product with an aesthetic.
-  // Clicking the already-active pill untags. Clicking another pill retags.
+  // Toggle a single aesthetic on a product. Each tile can carry multiple
+  // active aesthetics at once — clicking a pill adds it if absent, removes
+  // it if present. When the last pill is removed, the item is forgotten
+  // entirely (the empty array gets cleared so localStorage stays tidy).
   const toggleLabel = useCallback((product: Product, aestheticKey: string) => {
     setStore((prev) => {
       const next: LabelStore = {
@@ -207,11 +260,20 @@ export default function LabelPage() {
         labels:   { ...prev.labels },
         products: { ...prev.products },
       };
-      const current = next.labels[product.objectID];
-      if (current === aestheticKey) {
+      const current = next.labels[product.objectID] ?? [];
+      const hasIt   = current.includes(aestheticKey);
+
+      const nextArr = hasIt
+        ? current.filter((k) => k !== aestheticKey)
+        : [...current, aestheticKey];
+
+      if (nextArr.length === 0) {
         delete next.labels[product.objectID];
+        // Keep the product metadata around — we might re-tag it later
+        // without having to re-fetch. The export strips products that
+        // aren't labeled so unused metadata doesn't end up in the JSON.
       } else {
-        next.labels[product.objectID] = aestheticKey;
+        next.labels[product.objectID] = nextArr;
         next.products[product.objectID] = {
           title:     product.title,
           brand:     product.brand,
@@ -225,32 +287,41 @@ export default function LabelPage() {
     });
   }, []);
 
-  // Counts per aesthetic for the progress bars.
+  // Counts per aesthetic for the progress bars. One item can live in
+  // multiple buckets simultaneously, so these counts sum to ≥ the unique
+  // item count, not ==.
   const counts = useMemo(() => {
     const m: Record<string, number> = {};
     for (const a of AESTHETICS) m[a.key] = 0;
-    for (const k of Object.values(store.labels)) {
-      if (m[k] != null) m[k]++;
+    for (const arr of Object.values(store.labels)) {
+      for (const k of arr) {
+        if (m[k] != null) m[k]++;
+      }
     }
     return m;
   }, [store.labels]);
 
-  // Total = labels whose aesthetic is still in the current taxonomy. If you
-  // rename / remove an aesthetic (changing its `key`), previously-tagged items
-  // stay in localStorage but don't count here — avoids a misleading "2/200"
-  // where one of those 2 is actually orphaned. Orphan labels are dropped on
-  // export by the converter too (it only groups by whatever keys it finds in
-  // the labels map, so orphaned keys become their own no-downstream-effect
-  // group — still worth filtering here for UI honesty).
+  // Total = sum of per-bucket counts (tracks total labelling effort, not
+  // unique items). Orphan aesthetic keys from a past taxonomy get excluded
+  // so the counter doesn't inflate with dead data.
   const activeKeys = useMemo(() => new Set(AESTHETICS.map((a) => a.key)), []);
-  const total      = Object.values(store.labels).filter((k) => activeKeys.has(k)).length;
+  const total      = Object.values(store.labels).reduce(
+    (n, arr) => n + arr.filter((k) => activeKeys.has(k)).length,
+    0,
+  );
   const target     = AESTHETICS.length * TARGET_PER_AESTHETIC;
 
-  // Optionally filter out already-tagged tiles so the user can focus on fresh
-  // inventory once a run is underway.
+  // "Tagged" for the hide-tagged toggle = labeled with at least one
+  // currently-active aesthetic. Items whose only labels are orphans from
+  // an older taxonomy stay visible so the user can re-tag them.
   const visibleProducts = useMemo(
-    () => (hideTagged ? products.filter((p) => !store.labels[p.objectID]) : products),
-    [products, hideTagged, store.labels],
+    () => hideTagged
+      ? products.filter((p) => {
+          const arr = store.labels[p.objectID] ?? [];
+          return !arr.some((k) => activeKeys.has(k));
+        })
+      : products,
+    [products, hideTagged, store.labels, activeKeys],
   );
 
   // Export current store to a JSON file the user can drop into
@@ -333,6 +404,13 @@ export default function LabelPage() {
               );
             })}
           </div>
+
+          {/* Multi-label hint — kept small so it doesn't compete with the
+              progress bars above, but visible enough that a first-time
+              labeler doesn't assume it's one-per-item like most UIs. */}
+          <p className="mt-3 font-sans text-[10px] text-muted italic">
+            Tap as many ranges as apply — one item can live in multiple buckets.
+          </p>
         </div>
       </header>
 
@@ -381,13 +459,18 @@ export default function LabelPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {visibleProducts.map((p) => {
-            const tagged = store.labels[p.objectID];
-            const aesthetic = AESTHETICS.find((a) => a.key === tagged);
+            const tagged = store.labels[p.objectID] ?? [];
+            // Border color = tint of the FIRST active aesthetic (in
+            // AESTHETICS order — youngest bucket first). With multi-label
+            // we could do a two-tone / gradient border but it's visual
+            // noise for a 2-hour internal tool. Any active aesthetic is
+            // enough of a "tagged" signal; specific colors matter less.
+            const primaryAesthetic = AESTHETICS.find((a) => tagged.includes(a.key));
             return (
               <div
                 key={p.objectID}
                 className={`flex flex-col border-2 transition-colors ${
-                  aesthetic ? aesthetic.tint.split(" ")[0] : "border-transparent"
+                  primaryAesthetic ? primaryAesthetic.tint.split(" ")[0] : "border-transparent"
                 }`}
               >
                 {/* Image */}
@@ -412,10 +495,10 @@ export default function LabelPage() {
                   </p>
                 </div>
 
-                {/* Aesthetic pills */}
+                {/* Aesthetic pills — multiple can be active at once */}
                 <div className="flex flex-wrap gap-1 p-1">
                   {AESTHETICS.map((a) => {
-                    const active = tagged === a.key;
+                    const active = tagged.includes(a.key);
                     return (
                       <button
                         key={a.key}
