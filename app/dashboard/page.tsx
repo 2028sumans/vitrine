@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
@@ -9,6 +9,14 @@ import { displayTitle, type AlgoliaProduct, type CategoryCandidates } from "@/li
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
 import { addSaved, removeSaved, isSaved, getShortlistSummary } from "@/lib/saved";
+import {
+  rankCards,
+  type ScoringSignals,
+  type ScoringCard,
+  type ClickSignalLike,
+} from "@/lib/scoring";
+import { fastParseSteerText } from "@/lib/steer-fast-parse";
+import type { SteerInterpretation as SteerInterp } from "@/lib/steer-interpret";
 import { PriceFilterBar, useFilteredByPrice, type PriceTier } from "@/components/price-filter";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1138,6 +1146,19 @@ export default function DashboardPage() {
   // subsequent /api/shop-all pages and to persist to taste memory.
   const [sessionLikedIds, setSessionLikedIds] = useState<Set<string>>(new Set());
 
+  // Per-session click + dislike signals for live re-ranking of the LOADED
+  // picks. Mirrors the pattern in /shop. Likes append to clickHistory; the
+  // sortedProducts memo below feeds these into rankCards so the preloaded
+  // batch adapts as the user reacts to it — without waiting for the user
+  // to scroll past the preload and trigger /api/shop-all bias-shaped
+  // pagination. Same refs power the steer flow: when handleSayMore mutates
+  // `aesthetic`, the memo recomputes against the new aesthetic too.
+  const clickHistoryRef    = useRef<ClickSignalLike[]>([]);
+  const dislikedSignalsRef = useRef<ClickSignalLike[]>([]);
+  // Tick bumped on every signal change — refs don't trigger React re-renders
+  // on their own, so this counter forces useMemo to re-evaluate sortedProducts.
+  const [signalsTick, setSignalsTick] = useState(0);
+
   // Multi-context blocks (up to 4, each independently typed)
   interface ContextBlock {
     id:            string;
@@ -1159,6 +1180,10 @@ export default function DashboardPage() {
   // top of it. "all" means no constraint.
   const [intakePriceTier, setIntakePriceTier] = useState<PriceTier>("all");
   const [isRefining, setIsRefining]         = useState(false);
+  // Active steer — set by handleSayMore, forwarded on every /api/shop-all
+  // page call so the full catalog walk stays scoped to aesthetic ∩ steer
+  // as the user infinite-scrolls. Cleared on reset to boards.
+  const [steerInterp, setSteerInterp]       = useState<SteerInterp | null>(null);
 
   // If the user arrived from /shop via the Steer button, their comment
   // comes in as ?describe=… — pre-fill the first text block. Reading via
@@ -1401,51 +1426,115 @@ export default function DashboardPage() {
 
   // ── Session feedback: "say more" ──────────────────────────────────────────
 
-  // Refine the aesthetic via /api/refine and merge the new candidates into
-  // the shopping grid. The server returns an updated StyleDNA + a fresh
-  // per-category candidate pool; we union those in so the grid re-renders
-  // with the refined direction while keeping already-seen items.
+  // New flow — reset the feed and pull a fresh pool from the full catalog
+  // that satisfies aesthetic ∩ steer. Infinite scroll then continues under
+  // the same steer, so the user is always browsing the full catalog slice
+  // that matches both their board/query AND their steer — never just the
+  // preloaded candidates.
+  //
+  // Fast path: fastParseSteerText handles "in black", "cheaper", "no florals"
+  // etc. in 0 ms. That becomes the steerInterp we send to /api/shop-all.
+  // For abstract phrases ("edgier", "more minimalist") we still call Claude
+  // in the background and re-kick the fetch once its richer parse lands.
+  //
+  // /api/refine (aesthetic-refinement) stays in place for long-lived style
+  // drift ("I want to lean more 90s"), but fires non-blocking so it doesn't
+  // gate the visible feed.
   const handleSayMore = useCallback(async (comment: string) => {
-    if (!aesthetic || isRefining) return;
-    setIsRefining(true);
-    try {
-      const res = await fetch("/api/refine", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          comment,
-          upcomingProductIds: [],
-          currentAesthetic:   aesthetic,
-          userToken,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        console.warn("[refine] non-ok:", res.status, body);
-        return;
-      }
-      const data = await res.json();
-      console.log(`[refine] intent="${data.intent ?? ""}" newCandidates=${data.candidates ? Object.values(data.candidates).reduce((s: number, arr) => s + (arr as unknown[]).length, 0) : 0}`);
+    const trimmed = comment.trim();
+    if (!trimmed) return;
+    if (!aesthetic) return;
 
-      if (data.aesthetic) setAesthetic(data.aesthetic);
+    // 0. Fast-parse the steer — this is what we'll ship to /api/shop-all.
+    const fast = fastParseSteerText(trimmed);
+    const initialInterp: SteerInterp | null = fast.isConcrete
+      ? {
+          search_terms: fast.search_terms,
+          avoid_terms:  fast.avoid_terms,
+          price_range:  fast.price_range,
+          categories:   fast.categories,
+          colors:       fast.colors,
+          style_axes:   fast.style_axes,
+          intent:       fast.intent,
+        }
+      : null;
+    setSteerInterp(initialInterp);
 
-      const newCandidates = data.candidates;
-      if (newCandidates) {
-        setCandidates((prev) => {
-          if (!prev) return newCandidates;
-          const seenIds = new Set(CATEGORIES.flatMap((c) => prev[c].map((p) => p.objectID)));
-          const merged = { ...prev };
-          for (const cat of CATEGORIES) {
-            const newItems = (newCandidates[cat] ?? []).filter((p: { objectID: string }) => !seenIds.has(p.objectID));
-            merged[cat] = [...prev[cat], ...newItems];
-          }
-          return merged;
+    // 1. Blow away the current feed so the scroll view drops into its
+    //    "Finding more…" state while the fresh pool loads.
+    setCandidates((prev) => {
+      if (!prev) return prev;
+      const empty: CategoryCandidates = { dress: [], top: [], bottom: [], jacket: [], shoes: [], bag: [] };
+      return empty;
+    });
+    setExtraProducts([]);
+    setExtraPage(1);
+    setExtraHasMore(true);
+    seenExtraIdsRef.current.clear();
+
+    // 2. If fast-parse was concrete, fire an immediate /api/shop-all fetch
+    //    for page 1 with aesthetic + steer combined. Loaded into extras so
+    //    the scroll view fills from the full catalog.
+    if (initialInterp) {
+      void refetchWithSteer(initialInterp);
+    }
+
+    // 3. Kick off Claude in parallel to upgrade the steer with style_axes /
+    //    nuance on abstract inputs. When it returns, swap the steerInterp
+    //    and re-fetch page 1 if it added meaningful signal.
+    if (!fast.isConcrete || fast.isAbstract) {
+      try {
+        const res = await fetch("/api/steer-interpret", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ text: trimmed }),
         });
+        if (res.ok) {
+          const rich = (await res.json()) as SteerInterp;
+          const hasRich = (rich.categories?.length ?? 0) > 0
+            || (rich.colors?.length ?? 0) > 0
+            || (rich.avoid_terms?.length ?? 0) > 0
+            || (rich.search_terms?.length ?? 0) > 0
+            || rich.price_range != null
+            || Object.keys(rich.style_axes ?? {}).length > 0;
+          if (hasRich) {
+            setSteerInterp(rich);
+            setExtraProducts([]);
+            setExtraPage(1);
+            setExtraHasMore(true);
+            seenExtraIdsRef.current.clear();
+            void refetchWithSteer(rich);
+          }
+        }
+      } catch (err) {
+        console.warn("[handleSayMore] steer-interpret failed:", err);
       }
-    } catch (err) {
-      console.warn("[handleSayMore] failed:", err);
-    } finally {
-      setIsRefining(false);
+    }
+
+    // 4. Non-blocking aesthetic refine — updates the StyleDNA so subsequent
+    //    pagination bakes the steer into Claude's retrieval phrases too.
+    if (!isRefining) {
+      setIsRefining(true);
+      try {
+        const res = await fetch("/api/refine", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            comment: trimmed,
+            upcomingProductIds: [],
+            currentAesthetic:   aesthetic,
+            userToken,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.aesthetic) setAesthetic(data.aesthetic);
+        }
+      } catch (err) {
+        console.warn("[handleSayMore] refine failed:", err);
+      } finally {
+        setIsRefining(false);
+      }
     }
   }, [aesthetic, userToken, isRefining]);
 
@@ -1457,66 +1546,89 @@ export default function DashboardPage() {
   // the full inventory of their actual interest (all shoes for a shoes
   // board, all dresses for a dresses board, etc.). Session likes flow back
   // as bias so each page reflects what they've been engaging with.
-  const loadMoreExtras = useCallback(async () => {
-    if (loadingMoreExtra || !extraHasMore || !aesthetic) return;
-    setLoadingMoreExtra(true);
+  // Shared /api/shop-all fetch. Both infinite-scroll pagination and the
+  // "refetch after steer" path use it. The caller decides the page + which
+  // steer to forward (current state for pagination; explicit for refetch).
+  const fetchShopAllPage = useCallback(async (
+    page:   number,
+    interp: SteerInterp | null,
+  ): Promise<{ products: AlgoliaProduct[]; hasMore: boolean } | null> => {
+    if (!aesthetic) return null;
+
+    const focusCat = aesthetic.focus_categories?.[0];
+    const categoryFilter = focusCat ? FOCUS_TO_CATEGORY_LABEL[focusCat] ?? "" : "";
+
+    // Compose the Algolia free-text query. Order matters — user steer terms
+    // go FIRST so Algolia's ranker reads them as the most salient intent.
+    const interpTerms = interp
+      ? [
+          ...(interp.search_terms ?? []),
+          ...(interp.colors       ?? []),
+          ...(interp.categories   ?? []),
+        ]
+      : [];
+    const steerQuery = [
+      ...interpTerms,
+      ...(aesthetic.style_keywords ?? []).slice(0, 6),
+      ...(aesthetic.color_palette  ?? []).slice(0, 3).map((c) => c.split(" ").pop() ?? c),
+    ].filter((t) => t && t.length > 2).join(" ");
+
+    const likedProducts = [
+      ...CATEGORIES.flatMap((c) => (candidates?.[c] ?? [])),
+      ...extraProducts,
+    ].filter((p) => sessionLikedIds.has(p.objectID));
+    const byKey = (key: "brand" | "category" | "color", max: number): string[] => {
+      const counts = new Map<string, number>();
+      for (const p of likedProducts) {
+        const v = String((p as unknown as Record<string, unknown>)[key] ?? "").trim();
+        if (!v) continue;
+        counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, max).map(([v]) => v);
+    };
+    const bias = {
+      likedBrands:     byKey("brand",    5),
+      likedCategories: byKey("category", 4),
+      likedColors:     byKey("color",    3),
+    };
+
     try {
-      // Scope: prefer the focus category when Claude flagged one (shoes
-      // board -> "Shoes"). Otherwise leave empty so /api/shop-all runs
-      // unscoped bias+steer search across the whole catalog.
-      const focusCat = aesthetic.focus_categories?.[0];
-      const categoryFilter = focusCat ? FOCUS_TO_CATEGORY_LABEL[focusCat] ?? "" : "";
-
-      // Steer query — the aesthetic's searchable keywords. Algolia folds
-      // these in as optionalWords, so each term ranks-boosts rather than
-      // hard-filters. Cap length because the underlying Algolia index has
-      // a max query length.
-      const steerQuery = [
-        ...(aesthetic.style_keywords ?? []).slice(0, 6),
-        ...(aesthetic.color_palette  ?? []).slice(0, 3).map((c) => c.split(" ").pop() ?? c),
-      ].filter((t) => t && t.length > 2).join(" ");
-
-      // Bias — derive from session likes. Pull each liked product's brand /
-      // category / color out of the feed we already have so the server's
-      // buildQueryFromBias can rank-boost matching items on the next page.
-      const likedProducts = [
-        ...CATEGORIES.flatMap((c) => (candidates?.[c] ?? [])),
-        ...extraProducts,
-      ].filter((p) => sessionLikedIds.has(p.objectID));
-      const byKey = (key: "brand" | "category" | "color", max: number): string[] => {
-        const counts = new Map<string, number>();
-        for (const p of likedProducts) {
-          const v = String((p as unknown as Record<string, unknown>)[key] ?? "").trim();
-          if (!v) continue;
-          counts.set(v, (counts.get(v) ?? 0) + 1);
-        }
-        return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, max).map(([v]) => v);
-      };
-      const bias = {
-        likedBrands:     byKey("brand",    5),
-        likedCategories: byKey("category", 4),
-        likedColors:     byKey("color",    3),
-      };
-
       const res = await fetch("/api/shop-all", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
-          page:            extraPage,
+          page,
           bias,
           likedProductIds: Array.from(sessionLikedIds),
           categoryFilter,
           steerQuery,
+          // Structured steer — server applies price_range / avoid_terms as
+          // post-filters and uses style_axes to re-rank inside Pinecone.
+          steerInterp: interp ?? undefined,
         }),
       });
-      if (!res.ok) { setExtraHasMore(false); return; }
+      if (!res.ok) return null;
       const data = await res.json();
-      const fresh = (data.products ?? []) as AlgoliaProduct[];
+      return {
+        products: (data.products ?? []) as AlgoliaProduct[],
+        hasMore:  Boolean(data.hasMore),
+      };
+    } catch (err) {
+      console.warn("[fetchShopAllPage] failed:", err);
+      return null;
+    }
+  }, [aesthetic, candidates, extraProducts, sessionLikedIds]);
 
-      // Dedup against everything already shown (initial candidates + prior extras pages)
+  const loadMoreExtras = useCallback(async () => {
+    if (loadingMoreExtra || !extraHasMore || !aesthetic) return;
+    setLoadingMoreExtra(true);
+    try {
+      const result = await fetchShopAllPage(extraPage, steerInterp);
+      if (!result) { setExtraHasMore(false); return; }
+
       const seen = seenExtraIdsRef.current;
       const batch: AlgoliaProduct[] = [];
-      for (const p of fresh) {
+      for (const p of result.products) {
         if (seen.has(p.objectID)) continue;
         seen.add(p.objectID);
         batch.push(p);
@@ -1524,13 +1636,30 @@ export default function DashboardPage() {
 
       setExtraProducts((prev) => [...prev, ...batch]);
       setExtraPage((p) => p + 1);
-      if (!data.hasMore || batch.length === 0) setExtraHasMore(false);
-    } catch (err) {
-      console.warn("[loadMoreExtras] failed:", err);
+      if (!result.hasMore || batch.length === 0) setExtraHasMore(false);
     } finally {
       setLoadingMoreExtra(false);
     }
-  }, [aesthetic, candidates, extraProducts, extraPage, extraHasMore, loadingMoreExtra, sessionLikedIds]);
+  }, [aesthetic, extraPage, extraHasMore, loadingMoreExtra, steerInterp, fetchShopAllPage]);
+
+  // Triggered by handleSayMore — blow away the feed and refill page 1 with
+  // the new steer applied against the full catalog.
+  const refetchWithSteer = useCallback(async (interp: SteerInterp | null) => {
+    if (!aesthetic) return;
+    setLoadingMoreExtra(true);
+    try {
+      const result = await fetchShopAllPage(1, interp);
+      if (!result) return;
+      const seen = seenExtraIdsRef.current;
+      seen.clear();
+      for (const p of result.products) seen.add(p.objectID);
+      setExtraProducts(result.products);
+      setExtraPage(2);
+      setExtraHasMore(result.hasMore);
+    } finally {
+      setLoadingMoreExtra(false);
+    }
+  }, [aesthetic, fetchShopAllPage]);
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -1549,6 +1678,7 @@ export default function DashboardPage() {
     setExtraPage(1);
     setExtraHasMore(true);
     setSessionLikedIds(new Set());
+    setSteerInterp(null);
     seenExtraIdsRef.current.clear();
   };
 

@@ -12,6 +12,7 @@ import {
   type ScoringCard,
 } from "@/lib/scoring";
 import type { SteerInterpretation } from "@/lib/steer-interpret";
+import { fastParseSteerText, mergeSteerResults } from "@/lib/steer-fast-parse";
 import { addSaved, removeSaved, readSaved, getShortlistSignals } from "@/lib/saved";
 import {
   loadSessionSignals,
@@ -693,23 +694,60 @@ function ShopPageContent() {
       return;
     }
 
+    // ── Fast path: parse client-side and apply immediately ────────────────
+    // "in black", "cheaper", "no florals", "show me bags" — all handled by
+    // a 0-ms regex pass. Triggers the refetch-via-useEffect the instant the
+    // user hits enter, no network round-trip to Claude required.
+    const fast = fastParseSteerText(trimmed);
+    setSteerQuery(trimmed);
+
+    if (fast.isConcrete && !fast.isAbstract) {
+      // Concrete-only steer — skip Claude entirely.
+      setSteerInterp(fast);
+      return;
+    }
+
+    // Apply whatever concrete bits we have NOW so the feed updates
+    // immediately, then fire Claude to pick up style_axes / nuance.
+    if (fast.isConcrete) setSteerInterp(fast);
+
     setInterpretingSteer(true);
-    let interp: SteerInterpretation | null = null;
+    let rich: SteerInterpretation | null = null;
     try {
       const res = await fetch("/api/steer-interpret", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ text: trimmed }),
       });
-      if (res.ok) interp = (await res.json()) as SteerInterpretation;
+      if (res.ok) rich = (await res.json()) as SteerInterpretation;
     } catch (err) {
       console.warn("[shop] steer interpret failed:", err);
     }
-
-    // Commit interp + raw text + unset interpreting in one batch.
     setInterpretingSteer(false);
-    setSteerInterp(interp);
-    setSteerQuery(trimmed);
+
+    // If Claude adds style_axes or new concrete fields that the fast parse
+    // missed, merge + re-apply. Otherwise leave the fast result in place so
+    // we don't trigger a second refetch for nothing.
+    if (rich) {
+      const merged = mergeSteerResults(fast, rich);
+      const addedAxes = Object.keys(rich.style_axes ?? {}).length > 0;
+      const addedFields =
+        merged.colors.length      > fast.colors.length      ||
+        merged.categories.length  > fast.categories.length  ||
+        merged.search_terms.length> fast.search_terms.length||
+        merged.avoid_terms.length > fast.avoid_terms.length ||
+        (rich.price_range != null && rich.price_range !== fast.price_range);
+      if (!fast.isConcrete || addedAxes || addedFields) {
+        setSteerInterp(merged);
+      }
+    } else if (!fast.isConcrete) {
+      // Claude failed AND fast had nothing — at least drop to a search-term
+      // fallback so the user isn't staring at an empty grid forever.
+      setSteerInterp({
+        ...fast,
+        search_terms: trimmed.split(/\s+/).filter(Boolean),
+      });
+    }
   }, []);
 
   // Grid view no longer auto-loads via IntersectionObserver. Pagination is
