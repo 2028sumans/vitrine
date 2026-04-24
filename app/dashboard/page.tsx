@@ -1655,8 +1655,18 @@ export default function DashboardPage() {
     try {
       const result = await fetchShopAllPage(1, interp);
       if (!result) return;
+      // Re-seed the seen set from the ground up: initial candidates (still
+      // rendered above the extras) + new fresh batch. Previously we cleared
+      // seen and seeded only with the fresh batch, which dropped the initial
+      // candidate IDs — next loadMoreExtras could then re-fetch them and
+      // duplicate the render.
       const seen = seenExtraIdsRef.current;
       seen.clear();
+      if (candidates) {
+        for (const cat of CATEGORIES) {
+          for (const p of candidates[cat] ?? []) seen.add(p.objectID);
+        }
+      }
       for (const p of result.products) seen.add(p.objectID);
       setExtraProducts(result.products);
       setExtraPage(2);
@@ -1664,7 +1674,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingMoreExtra(false);
     }
-  }, [aesthetic, fetchShopAllPage]);
+  }, [aesthetic, candidates, fetchShopAllPage]);
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -1894,10 +1904,22 @@ export default function DashboardPage() {
           ].map((t) => t.toLowerCase());
           void terms;
 
-          const allProducts = [
+          // Render-time dedup: the seenExtraIdsRef guard catches most cases at
+          // fetch time, but if an upstream bug ever leaks the same objectID
+          // into `candidates` and `extraProducts` (or into two category
+          // buckets of `candidates`), we filter it out here as a last line
+          // of defense. First occurrence wins so the original rank position
+          // is preserved; later occurrences silently drop.
+          const seenRender = new Set<string>();
+          const allProducts: AlgoliaProduct[] = [];
+          for (const p of [
             ...CATEGORIES.flatMap((cat) => candidates[cat]),
             ...extraProducts,
-          ];
+          ]) {
+            if (seenRender.has(p.objectID)) continue;
+            seenRender.add(p.objectID);
+            allProducts.push(p);
+          }
 
           // rankCards is the same scorer /shop uses in its scroll view — it
           // boosts items whose brand/category/color match the user's likes
