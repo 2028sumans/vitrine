@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface MenuLink {
   href:  string;
@@ -40,6 +41,10 @@ export function MobileMenu({
   brand?:   string;
 }) {
   const [open, setOpen] = useState(false);
+  // Only render the portal after mount — server-render and first client
+  // render would both fail on `document.body` otherwise.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Lock body scroll + bind Escape while the menu is open.
   useEffect(() => {
@@ -55,6 +60,55 @@ export function MobileMenu({
   }, [open]);
 
   const barColor = variant === "olive" ? OLIVE_CREAM : OLIVE_DARK;
+
+  // Overlay is rendered via a portal to document.body so it escapes any
+  // ancestor that establishes a containing block for `position: fixed`.
+  // The page header uses `backdrop-blur-sm` (a `backdrop-filter` property),
+  // which does exactly that — without the portal the overlay was being
+  // clipped to the header's bounds and the rest of the page bled through.
+  const overlay = (
+    <div
+      className="sm:hidden fixed inset-0 z-[9999] flex flex-col overflow-y-auto"
+      style={{ backgroundColor: "#FAFAF5", color: OLIVE_DARK }}
+    >
+      <div className="px-8 py-2.5 flex items-center justify-between">
+        <Link
+          href="/"
+          onClick={() => setOpen(false)}
+          className="font-display font-light text-base tracking-[0.22em] hover:opacity-80 transition-opacity"
+          style={{ color: OLIVE_DARK }}
+        >
+          {brand}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="Close menu"
+          className="w-9 h-9 -mr-2 flex items-center justify-center"
+          style={{ color: OLIVE_DARK }}
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="6" y1="6" x2="18" y2="18" />
+            <line x1="18" y1="6" x2="6" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <nav className="flex-1 flex flex-col items-center justify-center gap-9 px-8 pb-24">
+        {links.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            onClick={() => setOpen(false)}
+            className="font-display font-light text-4xl hover:opacity-80 transition-opacity"
+            style={{ color: OLIVE_DARK }}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
 
   return (
     <>
@@ -73,51 +127,8 @@ export function MobileMenu({
         <span className="block w-5 h-[1.2px] rounded-full" style={{ backgroundColor: barColor }} />
       </button>
 
-      {/* Full-screen overlay — cream bg, olive type. sm:hidden again so if the
-          viewport grows past the breakpoint mid-open the overlay tears down. */}
-      {open && (
-        <div
-          className="sm:hidden fixed inset-0 z-[70] flex flex-col"
-          style={{ backgroundColor: "#FAFAF5", color: OLIVE_DARK }}
-        >
-          <div className="px-8 py-2.5 flex items-center justify-between">
-            <Link
-              href="/"
-              onClick={() => setOpen(false)}
-              className="font-display font-light text-base tracking-[0.22em] hover:opacity-80 transition-opacity"
-              style={{ color: OLIVE_DARK }}
-            >
-              {brand}
-            </Link>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close menu"
-              className="w-9 h-9 -mr-2 flex items-center justify-center"
-              style={{ color: OLIVE_DARK }}
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="6" x2="18" y2="18" />
-                <line x1="18" y1="6" x2="6" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          <nav className="flex-1 flex flex-col items-center justify-center gap-9 px-8 pb-24">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="font-display font-light text-4xl hover:opacity-80 transition-opacity"
-                style={{ color: OLIVE_DARK }}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      )}
+      {/* Overlay is portaled to document.body — see comment on `overlay`. */}
+      {open && mounted && createPortal(overlay, document.body)}
     </>
   );
 }
