@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 import { getEditBySlug, listEdits } from "@/lib/edits";
 import { getProductsByIds } from "@/lib/algolia";
 import { MobileMenu } from "../../_components/MobileMenu";
-import EditSaveTile from "./EditSaveTile";
+import EditInfiniteGrid from "./EditInfiniteGrid";
 
 // Pre-render all edits at build time.
 export async function generateStaticParams() {
@@ -93,35 +93,26 @@ export default async function EditDetailPage({ params }: { params: Promise<{ slu
           </p>
         </section>
 
-        {/* Product grid */}
+        {/* Product grid — curated seed + infinite-scroll tail pulled from the
+            full 100K catalog, steered by the edit's title + subtitle. */}
         <section className="px-8 pb-24 max-w-7xl mx-auto">
-          {products.length === 0 ? (
-            <div className="border-t border-border-mid py-16 flex flex-col items-center text-center">
-              <p className="font-display italic text-2xl text-muted-strong">
-                This edit is empty right now.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 border-t border-border-mid pt-10">
-              {products.map((p) => (
-                <EditSaveTile
-                  key={p.objectID}
-                  product={{
-                    objectID:    p.objectID,
-                    title:       p.title,
-                    brand:       p.brand,
-                    retailer:    p.retailer,
-                    price:       p.price,
-                    image_url:   p.image_url,
-                    product_url: p.product_url,
-                    // Pass through the English back-fill so non-English
-                    // brand titles render in English on the edit page too.
-                    title_en:    p.title_en,
-                  }}
-                />
-              ))}
-            </div>
-          )}
+          <EditInfiniteGrid
+            editTitle={edit.title}
+            editSubtitle={edit.subtitle}
+            initial={products.map((p) => ({
+              objectID:    p.objectID,
+              title:       p.title,
+              brand:       p.brand,
+              retailer:    p.retailer,
+              price:       p.price,
+              image_url:   p.image_url,
+              product_url: p.product_url,
+              category:    p.category,
+              color:       p.color,
+              price_range: p.price_range,
+              title_en:    p.title_en,
+            }))}
+          />
         </section>
       </main>
 
