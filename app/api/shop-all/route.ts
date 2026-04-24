@@ -145,6 +145,76 @@ function interleaveByBrand<T extends Record<string, unknown>>(products: T[]): T[
   return out;
 }
 
+/**
+ * Spread items so the same brand never appears within `cooldown` slots of
+ * itself — when possible. When one brand dominates the remaining pool
+ * (common on category pages where a few labels have hundreds of items each)
+ * the classic nested round-robin eventually drains smaller brands and
+ * leaves a long mono-brand tail. This pass uses the "task scheduler"
+ * greedy: always emit from the brand with the most remaining items that
+ * isn't on cooldown; when every eligible brand is on cooldown, take the
+ * first one off cooldown (keeps the output length = input length, never
+ * drops items).
+ *
+ * O(n × b) where b = number of distinct brands — trivial for n ≤ 500 and
+ * b ≤ 50, which is the realistic shape of a scoped page.
+ *
+ * cooldown = 4 empirically gave max same-brand run == 1 on a Tops page
+ * dominated by 4 brands with 50+ items each (previously max-run = 4 at
+ * the tail as smaller brands drained).
+ */
+function spreadByBrand<T extends Record<string, unknown>>(
+  products: T[],
+  cooldown = 4,
+): T[] {
+  if (products.length <= 1) return products;
+
+  const byBrand = new Map<string, T[]>();
+  for (const p of products) {
+    const k = pickBrandKey(p);
+    const bucket = byBrand.get(k);
+    if (bucket) bucket.push(p);
+    else byBrand.set(k, [p]);
+  }
+
+  const out:       T[]       = [];
+  const cooldownQ: string[]  = []; // FIFO of recently-emitted brands
+
+  while (out.length < products.length) {
+    // Best = brand with most remaining items, NOT in cooldownQ.
+    let bestBrand: string | null = null;
+    let bestCount  = 0;
+    for (const [brand, list] of Array.from(byBrand.entries())) {
+      if (list.length === 0) continue;
+      if (cooldownQ.includes(brand)) continue;
+      if (list.length > bestCount) {
+        bestBrand = brand;
+        bestCount = list.length;
+      }
+    }
+
+    // Every remaining brand is on cooldown — release the oldest that still
+    // has items. Guarantees forward progress; no items ever get dropped.
+    if (!bestBrand) {
+      for (const b of cooldownQ) {
+        const list = byBrand.get(b);
+        if (list && list.length > 0) { bestBrand = b; break; }
+      }
+    }
+    if (!bestBrand) break; // unreachable given the invariants, defensive.
+
+    out.push(byBrand.get(bestBrand)!.shift()!);
+
+    // Refresh cooldown queue.
+    const prev = cooldownQ.indexOf(bestBrand);
+    if (prev !== -1) cooldownQ.splice(prev, 1);
+    cooldownQ.push(bestBrand);
+    if (cooldownQ.length > cooldown) cooldownQ.shift();
+  }
+
+  return out;
+}
+
 // Aesthetic buckets mirror the AESTHETIC_MAP keys in scripts/upload-to-algolia.mjs.
 // Anything not matching one of these lands in the __unknown__ bucket.
 const KNOWN_AESTHETICS = new Set([
@@ -604,6 +674,14 @@ export async function POST(request: Request) {
       // elicitation: each like/dislike narrows the feed across multiple
       // axes at once instead of reinforcing a single clump.
       clean = interleaveByAestheticAndBrand(clean);
+
+      // Enforce brand-spread after the aesthetic×brand round-robin. The
+      // nested round-robin is great at the head but naturally leaves long
+      // mono-brand tails as smaller brands drain; this pass keeps the same
+      // brand ≥4 slots apart wherever possible. Skipped in brand-filter
+      // mode (entire pool is one brand by definition — would be a no-op
+      // anyway but the cooldown loop degenerates to a single pass).
+      if (!brandFilterQuery) clean = spreadByBrand(clean, 4);
 
       // CLIP-similarity boost — after interleaving, pull the top-N visually
       // most-similar items (to the user's liked centroid) to the lead of

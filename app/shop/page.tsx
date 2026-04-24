@@ -521,9 +521,14 @@ function ShopPageContent() {
     }
   }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds]);
 
-  // Toggle-save handler. On a new save we also fire the toast. Unlike
-  // handleLike, save does NOT feed the scoring algorithm — "saving" is a
-  // bookmark action, not a taste signal.
+  // Toggle-save handler. Saves are now also a soft taste signal: they
+  // contribute to the shortlist-derived bias on future fetches (already
+  // wired via getShortlistSignals in buildBias), and they re-rank the
+  // upcoming preloaded pool client-side so a new save nudges the next few
+  // cards toward similar pieces without waiting for a refetch. We
+  // deliberately do NOT fire refreshBiasedAhead on save — that's reserved
+  // for the stronger "like" signal; a save is opt-in curation, not a
+  // swipe-speed preference declaration.
   const handleSave = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
     if (!product) return;
@@ -552,7 +557,24 @@ function ShopPageContent() {
     });
     setSavedIds((prev) => new Set(prev).add(productId));
     setToast("saved to your shortlist");
-  }, [products, savedIds]);
+
+    // Feed the saved product's attributes into the upcoming-rank signal
+    // so cards ahead of the user's position reshuffle toward brand /
+    // color / category matches. Capped at 30 like clickHistory so one
+    // heavy shortlist session doesn't drown recent likes.
+    const signal = productToSignal(product);
+    clickHistoryRef.current = [signal, ...clickHistoryRef.current].slice(0, 30);
+    setProducts((prev) => {
+      const signals: ScoringSignals = {
+        likedProductIds: new Set([...Array.from(likedIds), productId]),
+        clickHistory:    clickHistoryRef.current,
+        dislikedSignals: dislikedSignalsRef.current,
+        dwellTimes,
+        aestheticPrice:  "mid",
+      };
+      return reRankUpcomingProducts(prev, activeScrollIdxRef.current, signals);
+    });
+  }, [products, savedIds, likedIds, dwellTimes, reRankUpcomingProducts]);
 
   const handleLike = useCallback((productId: string) => {
     const product = products.find((p) => p.objectID === productId);
