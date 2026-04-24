@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { createPortal } from "react-dom";
 
 export interface MenuLink {
@@ -45,6 +46,12 @@ export function MobileMenu({
   // render would both fail on `document.body` otherwise.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Auth state — drives the Sign out row at the bottom of the overlay.
+  // "loading" is treated the same as "unauthenticated" so signed-out users
+  // never see a Sign out option flash in.
+  const { status: authStatus } = useSession();
+  const isAuthed = authStatus === "authenticated";
 
   // Lock body scroll + bind Escape while the menu is open.
   useEffect(() => {
@@ -106,6 +113,25 @@ export function MobileMenu({
             {l.label}
           </Link>
         ))}
+
+        {/* Sign out — rendered at the bottom of the stack, visually distinct
+            (smaller, uppercase, bordered) so it reads as an action and not
+            just another nav link. Only shown for authenticated sessions —
+            when signed out, the "Get started →" / sign-in path belongs to
+            each page's own CTA rather than the hamburger. */}
+        {isAuthed && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              signOut({ callbackUrl: "/" });
+            }}
+            className="mt-4 px-6 py-3 font-sans text-[10px] tracking-widest uppercase border hover:bg-[rgba(42,51,22,0.06)] transition-colors"
+            style={{ color: OLIVE_DARK, borderColor: `${OLIVE_DARK}4d` }}
+          >
+            Sign out
+          </button>
+        )}
       </nav>
     </div>
   );
