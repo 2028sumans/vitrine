@@ -284,6 +284,31 @@ export default function OnboardingPage() {
     }
   }, [canSubmit, draft, userToken, router]);
 
+  // Skip the upload step. Keeps the age they already picked but stores
+  // no upload centroid — ranking falls back to just the age prior. Same
+  // endpoint, `skip: true` flag routes it down the no-embed path.
+  const skipUploads = useCallback(async () => {
+    if (!canAdvanceFromAge || !userToken || submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/onboarding/save", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ userToken, ageRange: draft.ageRange, skip: true }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `skip failed (${res.status})`);
+      }
+      clearDraft();
+      router.replace("/shop");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't skip. Try again?");
+      setSubmitting(false);
+    }
+  }, [canAdvanceFromAge, draft.ageRange, userToken, submitting, router]);
+
   // ── Render ──────────────────────────────────────────────────────────────
 
   // Pre-session / pre-status-check: render nothing to avoid flash.
@@ -344,6 +369,7 @@ export default function OnboardingPage() {
             totalImages={totalImages}
             onBack={() => setStep(1)}
             onSubmit={submit}
+            onSkip={skipUploads}
             canSubmit={canSubmit}
             submitting={submitting}
             error={error}
@@ -413,6 +439,9 @@ function StepUploads(props: {
   totalImages: number;
   onBack:      () => void;
   onSubmit:    () => void;
+  /** Keeps the age they picked on step 1, skips the uploads. Taste ranking
+   *  falls back to just the age centroid. */
+  onSkip:      () => void;
   canSubmit:   boolean;
   submitting:  boolean;
   error:       string | null;
@@ -451,7 +480,7 @@ function StepUploads(props: {
         </p>
       )}
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <button
           onClick={props.onBack}
           disabled={props.submitting}
@@ -469,6 +498,25 @@ function StepUploads(props: {
         <span className="ml-auto font-sans text-[10px] tracking-widest uppercase text-muted">
           {props.totalImages} uploaded
         </span>
+      </div>
+
+      {/* Skip — small, secondary, visually de-emphasised. Sits below the
+          primary action row so it reads as a deliberate escape hatch, not
+          a competing CTA. Leaves the age prior in place; the feed just
+          won't have a personal upload signal to lean on. */}
+      <div className="mt-8 pt-6 border-t border-border-mid">
+        <button
+          type="button"
+          onClick={props.onSkip}
+          disabled={props.submitting}
+          className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {props.submitting ? "…" : "Skip for now — I'll upload later"}
+        </button>
+        <p className="mt-3 font-sans text-xs text-muted leading-relaxed max-w-xl">
+          We&apos;ll build your feed from your age range and what you interact with.
+          Your personal uploads help it get sharper — you can add them anytime from settings.
+        </p>
       </div>
     </section>
   );

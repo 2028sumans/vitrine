@@ -1,37 +1,32 @@
 /**
  * POST /api/onboarding/save
  *
- * One-shot submission of the onboarding quiz answers.
+ * One-shot submission of the onboarding quiz answers. Two paths:
+ *
+ *   A. Full completion  — user uploaded 1+ outfit photos on the upload step.
+ *      We FashionCLIP-embed each, average into a centroid, persist with
+ *      skipped=false.
+ *
+ *   B. Skip-at-upload   — user picked an age but hit "Skip for now" on the
+ *      upload step. No images to embed, no centroid. We still write a row
+ *      (age_range populated, upload_centroid=null, skipped=true) so the
+ *      onboarding gate sees them as "already dealt with this" and doesn't
+ *      re-prompt on every login. Taste ranking falls back to just the age
+ *      centroid (and later, any session signals).
  *
  * Request body
  * ------------
- *   {
- *     userToken: string,              // session.user.id from next-auth
- *     ageRange:  "age-13-18" | ...,   // must be in AGE_RANGE_KEYS
- *     images: [{ base64, mimeType }, ...],  // up to ~16 uploads, client-side already
- *                                           // capped to 1-2 per of 4 categories.
- *                                           // Category metadata isn't sent — with
- *                                           // the "one centroid" design (user's
- *                                           // Q3 answer), we just average everything.
- *   }
+ *   { userToken, ageRange, images: [...] }               → path A
+ *   { userToken, ageRange, skip: true }                  → path B (images optional / ignored)
  *
  * Response
  * --------
- *   200 { ok: true, centroidDim: 512, embedded: <count> }
+ *   200 { ok: true, skipped: boolean, centroidDim?: number, embedded?: number }
  *   400 { error: "..." }  on validation failure
  *   401 { error: "auth required" }  if userToken missing/anon
  *   500 { error: "..." }  on embed / DB failure
  *
- * Flow
- * ----
- *   1. Validate userToken, ageRange, images[].
- *   2. FashionCLIP-embed each image in parallel (lib/embeddings.embedBase64Images).
- *   3. Average into a 512-dim centroid (lib/taste-profile.averageVectors).
- *   4. Upsert {age_range, upload_centroid, upload_vectors, completed_at} into
- *      user_onboarding (lib/onboarding-memory.saveOnboarding).
- *
- * Keep the route idempotent — `upsert` means re-submitting the quiz overwrites
- * the previous answer cleanly. We don't treat that as a special case.
+ * Idempotent — `upsert` means re-submitting overwrites the previous row cleanly.
  */
 
 import { NextResponse } from "next/server";
@@ -63,6 +58,7 @@ export async function POST(request: Request) {
   const userToken: string    = typeof b.userToken === "string" ? b.userToken.trim() : "";
   const ageRangeRaw: unknown = b.ageRange;
   const imagesRaw: unknown   = b.images;
+  const skip:      boolean   = b.skip === true;
 
   if (!userToken || userToken === "anon") {
     return NextResponse.json({ error: "auth required" }, { status: 401 });
@@ -72,11 +68,31 @@ export async function POST(request: Request) {
   }
   const ageRange: AgeRangeKey = ageRangeRaw;
 
+  // ── Path B: skip at the upload step ───────────────────────────────────
+  // Accept the age but skip the embed + centroid work. The row lands with
+  // upload_centroid=null and skipped=true so the gate recognises them as
+  // onboarded (no re-prompt) while the taste-profile lib knows there's no
+  // personal upload signal.
+  if (skip) {
+    await saveOnboarding({
+      userToken,
+      ageRange,
+      uploadCentroid: null,
+      uploadVectors:  [],
+      skipped:        true,
+    });
+    return NextResponse.json({ ok: true, skipped: true, ageRange });
+  }
+
+  // ── Path A: full completion ───────────────────────────────────────────
   if (!Array.isArray(imagesRaw)) {
     return NextResponse.json({ error: "images must be an array" }, { status: 400 });
   }
   if (imagesRaw.length === 0) {
-    return NextResponse.json({ error: "At least one image is required" }, { status: 400 });
+    // Not a skip (client didn't set the flag) AND no images — treat as a
+    // validation miss. The UI should always set `skip: true` when sending
+    // an empty array, so this only fires on malformed clients.
+    return NextResponse.json({ error: "At least one image is required (or pass skip: true)" }, { status: 400 });
   }
   if (imagesRaw.length > MAX_IMAGES) {
     return NextResponse.json({ error: `Too many images (max ${MAX_IMAGES})` }, { status: 400 });
@@ -127,10 +143,12 @@ export async function POST(request: Request) {
     ageRange,
     uploadCentroid: centroid,
     uploadVectors:  goodVectors,
+    skipped:        false,
   });
 
   return NextResponse.json({
     ok:          true,
+    skipped:     false,
     centroidDim: centroid.length,
     embedded:    goodVectors.length,
     ageRange,

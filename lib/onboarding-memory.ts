@@ -30,23 +30,38 @@ export type AgeRangeKey = typeof AGE_RANGE_KEYS[number];
 
 export interface OnboardingRecord {
   userToken:       string;
-  ageRange:        AgeRangeKey;
+  /** Null when the user skipped the age step entirely. Currently the
+   *  onboarding UI requires an age before advancing to the upload step,
+   *  but the schema allows null for forward-compat (future "skip
+   *  everything" option, imports from older datasets, etc.). */
+  ageRange:        AgeRangeKey | null;
   uploadCentroid:  number[] | null;
   uploadVectors:   number[][];
+  /** True when the user chose "Skip for now" on the upload step rather
+   *  than finishing the flow. A skipped row still counts as "onboarded"
+   *  for the gate (hasCompletedOnboarding), but the taste-profile lib
+   *  won't have an upload centroid to blend — it falls back to the age
+   *  centroid (if one exists) plus session signals. */
+  skipped:         boolean;
   completedAt:     string; // ISO timestamp
 }
 
 /**
  * Upsert a user's onboarding answers. Overwrites any previous row for the
  * same user_token (quiz is one-shot, so in practice this only runs once).
+ *
+ * Two call shapes:
+ *   1. Full completion — { ageRange, uploadCentroid, uploadVectors }
+ *   2. Skip after age   — { ageRange, uploadCentroid: null, skipped: true }
  */
 export async function saveOnboarding(args: {
   userToken:       string;
-  ageRange:        AgeRangeKey;
+  ageRange:        AgeRangeKey | null;
   uploadCentroid:  number[] | null;
   uploadVectors:   number[][];
+  skipped?:        boolean;
 }): Promise<void> {
-  const { userToken, ageRange, uploadCentroid, uploadVectors } = args;
+  const { userToken, ageRange, uploadCentroid, uploadVectors, skipped } = args;
   if (!userToken || userToken === "anon") return;
   try {
     const sb = getServiceSupabase();
@@ -57,6 +72,7 @@ export async function saveOnboarding(args: {
         age_range:        ageRange,
         upload_centroid:  uploadCentroid,
         upload_vectors:   uploadVectors,
+        skipped:          !!skipped,
         completed_at:     now,
         updated_at:       now,
       },
@@ -83,15 +99,16 @@ export async function getOnboarding(userToken: string): Promise<OnboardingRecord
     const sb = getServiceSupabase();
     const { data, error } = await sb
       .from("user_onboarding")
-      .select("user_token, age_range, upload_centroid, upload_vectors, completed_at")
+      .select("user_token, age_range, upload_centroid, upload_vectors, skipped, completed_at")
       .eq("user_token", userToken)
       .maybeSingle();
     if (error || !data) return null;
     return {
       userToken:      data.user_token as string,
-      ageRange:       data.age_range  as AgeRangeKey,
+      ageRange:       (data.age_range as AgeRangeKey | null) ?? null,
       uploadCentroid: (data.upload_centroid as number[] | null) ?? null,
       uploadVectors:  (data.upload_vectors  as number[][]    | null) ?? [],
+      skipped:        Boolean(data.skipped),
       completedAt:    data.completed_at as string,
     };
   } catch {
