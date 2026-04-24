@@ -381,17 +381,31 @@ const EDITS = [
     title:               "Old Money",
     subtitle:            "Polo shirts, pleated skirts, loafers, pearls",
     filter:              "",
+    // Strict Old Money: only the recognisable classics. Bare "cardigan",
+    // "blazer", "loafer", "ballet flat", "tennis" are too permissive — a
+    // "Perlie Woven Ballet Flat" read boho, not Upper East Side. Positive
+    // signals now require a material or style qualifier.
     match: (p) => {
       const t = (p.title ?? "").toLowerCase();
-      if (!/\b(polo|pleated\s*(?:skirt|trouser|pant)|pearl|cable[-\s]?knit|argyle|boat[-\s]?neck|button[-\s]?down|blazer|loafer|ballet\s*flat|camel\s*coat|cardigan|tennis|tartan|houndstooth|twin[-\s]?set)\b/.test(t)) return false;
-      // No streetwear crossover
-      if (/\b(hoodie|graphic\s*tee|cargo|baggy|track\s*pant|jogger|sweatshirt|sweatpant)\b/.test(t)) return false;
-      // Drop housewares + kids/pet
+
+      // Hard rejects first — trendy / boho / streetwear / resort / housewares / kids
+      if (/\b(woven|boho|bohemian|hippie|harem|beaded|bead\b|fringe|sequin|crochet|raffia|tie[-\s]?dye|neon|fluoro|distressed|ripped|ombre|rhinestone|embellished|mesh|sheer|lace\s*trim|coated)\b/.test(t)) return false;
+      if (/\b(hoodie|graphic\s*tee|graphic\s*t-shirt|cargo|baggy|track\s*pant|jogger|sweatshirt|sweatpant|mule\b|clog|platform|stiletto|wedge)\b/.test(t)) return false;
+      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|kaftan|caftan|sarong|pareo|sundress|cover[-\s]?up)\b/.test(t)) return false;
       if (/\b(washcloth|dishcloth|napkin|placemat|towel|doormat|soap|candle|blanket|pillow|throw|curtain)\b/.test(t)) return false;
-      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
-      // Not swim / resort
-      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|kaftan|caftan|sarong|pareo)\b/.test(t)) return false;
-      return true;
+      if (/\b(baby|infant|toddler|kids|children|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
+
+      // Positive signals — must hit one of these tight classes.
+      const TOPS    = /\b(polo\b|polo\s*(?:shirt|dress|sweater|neck)|argyle|cable[-\s]?knit|cable\s*(?:cardigan|sweater)|twin[-\s]?set|boat[-\s]?neck|oxford\s*shirt|poplin\s*shirt|fair\s*isle|crew\s*cashmere|cashmere\s*(?:cardigan|sweater|crew|turtleneck))\b/;
+      const OUTER   = /\b((?:wool|tweed|cashmere|linen|navy|tailored|classic|double[-\s]?breasted|single[-\s]?breasted)\s*blazer|tweed\s*jacket|camel\s*coat|camel\s*hair\s*coat|pea\s*coat|peacoat|barbour|waxed\s*jacket|riding\s*jacket|cashmere\s*coat)\b/;
+      const BOTTOMS = /\b(pleated\s*(?:skirt|trouser|pant|kilt)|tartan\s*(?:skirt|kilt|trouser|pant)|tennis\s*(?:skirt|skort|dress)|plisse\s*skirt|a[-\s]?line\s*skirt|kilt\b|jodhpur|riding\s*pant|wool\s*trouser|wool\s*pant)\b/;
+      const SHOES   = /\b(penny\s*loafer|horsebit\s*loafer|tassel\s*loafer|classic\s*loafer|leather\s*loafer|loafer\s+(?:shoe|flat)|riding\s*boot|boat\s*shoe|moccasin|oxford\s*shoe|equestrian\s*boot)\b/;
+      const JEWELRY = /\b(pearl\s*(?:earring|necklace|bracelet|drop|stud|hoop|choker|strand|collar)|signet\s*ring|gold\s*signet)\b/;
+      const PATTERN = /\b(argyle|houndstooth|herringbone|glen\s*plaid|tattersall|nordic|cable\s*stitch)\b/;
+      const ACCESS  = /\b(silk\s*scarf|tweed\s*bag|saddle\s*bag|kelly\s*bag)\b/;
+
+      return TOPS.test(t) || OUTER.test(t) || BOTTOMS.test(t)
+          || SHOES.test(t) || JEWELRY.test(t) || PATTERN.test(t) || ACCESS.test(t);
     },
   },
 
