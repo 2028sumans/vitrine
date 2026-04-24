@@ -151,11 +151,12 @@ export default function HomePage() {
             Your shortlist
           </Link>
 
-          {/* Sign out — shown only when authenticated. Bordered pill to
-              distinguish it from the plain-text nav links (it's an action,
-              not navigation). Hidden entirely for signed-out visitors; the
-              "Get started →" link upstream is the entry point for them. */}
-          {isAuthed && (
+          {/* Auth pill — swaps between Sign in (signed-out) and Sign out
+              (signed-in). Bordered pill style so it reads as an action,
+              not another nav link. We render NOTHING while `authStatus`
+              is still "loading" — avoids flashing the wrong label for
+              ~100 ms after first paint on signed-in users. */}
+          {authStatus === "authenticated" && (
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               className="font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border hover:bg-[rgba(237,229,208,0.1)] transition-colors duration-200"
@@ -166,6 +167,18 @@ export default function HomePage() {
             >
               Sign out
             </button>
+          )}
+          {authStatus === "unauthenticated" && (
+            <Link
+              href="/login"
+              className="font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border hover:bg-[rgba(237,229,208,0.1)] transition-colors duration-200"
+              style={{
+                color:       HERO_TEXT,
+                borderColor: `${HERO_TEXT}66` /* ~40% alpha */,
+              }}
+            >
+              Sign in
+            </Link>
           )}
         </div>
 

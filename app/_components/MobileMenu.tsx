@@ -47,11 +47,10 @@ export function MobileMenu({
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Auth state — drives the Sign out row at the bottom of the overlay.
-  // "loading" is treated the same as "unauthenticated" so signed-out users
-  // never see a Sign out option flash in.
+  // Auth state — drives the Sign in / Sign out row at the bottom of the
+  // overlay. "loading" is kept as its own case so neither label flashes
+  // before the session resolves.
   const { status: authStatus } = useSession();
-  const isAuthed = authStatus === "authenticated";
 
   // Lock body scroll + bind Escape while the menu is open.
   useEffect(() => {
@@ -114,12 +113,12 @@ export function MobileMenu({
           </Link>
         ))}
 
-        {/* Sign out — rendered at the bottom of the stack, visually distinct
-            (smaller, uppercase, bordered) so it reads as an action and not
-            just another nav link. Only shown for authenticated sessions —
-            when signed out, the "Get started →" / sign-in path belongs to
-            each page's own CTA rather than the hamburger. */}
-        {isAuthed && (
+        {/* Auth row — Sign in (signed-out) OR Sign out (signed-in).
+            Bordered, uppercase, visually distinct from the display-italic
+            nav links so it reads as an action. We intentionally render
+            nothing during the `loading` state to avoid a split-second
+            flicker of the wrong label on first open. */}
+        {authStatus === "authenticated" && (
           <button
             type="button"
             onClick={() => {
@@ -131,6 +130,16 @@ export function MobileMenu({
           >
             Sign out
           </button>
+        )}
+        {authStatus === "unauthenticated" && (
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="mt-4 px-6 py-3 font-sans text-[10px] tracking-widest uppercase border hover:bg-[rgba(42,51,22,0.06)] transition-colors"
+            style={{ color: OLIVE_DARK, borderColor: `${OLIVE_DARK}4d` }}
+          >
+            Sign in
+          </Link>
         )}
       </nav>
     </div>
