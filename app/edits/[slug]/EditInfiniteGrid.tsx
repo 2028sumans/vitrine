@@ -44,9 +44,18 @@ interface Props {
   editTitle:    string;
   editSubtitle: string;
   initial:      GridProduct[];
+  // Optional hard-scope filter forwarded to /api/shop-all on each paginated
+  // tail fetch. When set, the tail stays inside the specified category /
+  // brand / price band instead of drifting across the full 100K catalog
+  // on soft steer alone.
+  filter?: {
+    categoryFilter?: string;
+    priceMax?:       number | null;
+    brandFilter?:    string;
+  };
 }
 
-export default function EditInfiniteGrid({ editTitle, editSubtitle, initial }: Props) {
+export default function EditInfiniteGrid({ editTitle, editSubtitle, initial, filter }: Props) {
   const [extras,  setExtras]  = useState<GridProduct[]>([]);
   const [page,    setPage]    = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -85,10 +94,14 @@ export default function EditInfiniteGrid({ editTitle, editSubtitle, initial }: P
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           page,
-          bias:         {},    // No session bias yet — add on a future pass
+          bias: {},            // session bias deliberately off — edits are curated
           steerQuery,
-          // Omit categoryFilter / brandFilter entirely so we search the
-          // whole catalog; the steer is what keeps results on-brief.
+          // Hard-scope filter from the edit JSON. When unset, the tail
+          // runs open-catalog with only the soft steer keeping things
+          // on-brief; when set, /api/shop-all scopes the search.
+          categoryFilter: filter?.categoryFilter ?? "",
+          brandFilter:    filter?.brandFilter    ?? "",
+          priceMax:       filter?.priceMax       ?? null,
         }),
       });
       if (!res.ok) { setHasMore(false); return; }
@@ -115,7 +128,7 @@ export default function EditInfiniteGrid({ editTitle, editSubtitle, initial }: P
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, [page, hasMore, steerQuery]);
+  }, [page, hasMore, steerQuery, filter]);
 
   // IntersectionObserver fires loadMore whenever the sentinel scrolls into
   // view. Rearms every time `loading` / `hasMore` / `loadMore` identity

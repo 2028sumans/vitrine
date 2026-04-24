@@ -94,11 +94,16 @@ export default async function EditDetailPage({ params }: { params: Promise<{ slu
         </section>
 
         {/* Product grid — curated seed + infinite-scroll tail pulled from the
-            full 100K catalog, steered by the edit's title + subtitle. */}
+            full 100K catalog. The steer (edit title + subtitle) rank-boosts
+            on-brief products in optional-words space; the optional `filter`
+            block on the edit JSON hard-scopes the tail when it needs to stay
+            tight (e.g. a Swimwear edit pins categoryFilter to "Tops" so the
+            pagination can't drift into denim or cashmere). */}
         <section className="px-8 pb-24 max-w-7xl mx-auto">
           <EditInfiniteGrid
             editTitle={edit.title}
             editSubtitle={edit.subtitle}
+            filter={edit.filter}
             initial={products.map((p) => ({
               objectID:    p.objectID,
               title:       p.title,

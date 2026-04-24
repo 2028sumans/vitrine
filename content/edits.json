@@ -135,7 +135,10 @@
       "shpfy-becandbridgecom-7185212211255"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-24",
+    "filter": {
+      "categoryFilter": "Dresses"
+    }
   },
   {
     "slug": "white-shirt",
@@ -181,7 +184,10 @@
       "shpfy-beareparkcom-9102579237107"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-24",
+    "filter": {
+      "categoryFilter": "Tops"
+    }
   },
   {
     "slug": "trench",
@@ -227,7 +233,10 @@
       "shpfy-boyycom-7449680052302"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-24",
+    "filter": {
+      "categoryFilter": "Outerwear"
+    }
   },
   {
     "slug": "slip-dress",
@@ -273,7 +282,10 @@
       "shpfy-dhruvkapoorcom-9884205842714"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-24",
+    "filter": {
+      "categoryFilter": "Dresses"
+    }
   },
   {
     "slug": "cashmere",
@@ -319,7 +331,10 @@
       "shpfy-ec2ndstreetusacom-7954335006829"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-24",
+    "filter": {
+      "categoryFilter": "Knits"
+    }
   },
   {
     "slug": "wide-leg-jeans",
@@ -365,12 +380,15 @@
       "shpfy-farmriocom-7654642712669"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-24",
+    "filter": {
+      "categoryFilter": "Bottoms"
+    }
   },
   {
     "slug": "wedding-guest",
     "title": "Wedding Guest",
-    "subtitle": "Silk, satin, chiffon, gowns — midi to maxi",
+    "subtitle": "Silk, satin, chiffon, gowns \u2014 midi to maxi",
     "hero_image_url": "https://cdn.shopify.com/s/files/1/0248/2202/2224/files/24SS5300_RCH-MGNTA_8.jpg?v=1721630772",
     "product_ids": [
       "shpfy-ajeworldcom-6917001773136",
@@ -600,7 +618,7 @@
   {
     "slug": "coastal",
     "title": "Coastal",
-    "subtitle": "Stripes, linen, raffia, rope — everywhere but the water",
+    "subtitle": "Stripes, linen, raffia, rope \u2014 everywhere but the water",
     "hero_image_url": "https://cdn11.bigcommerce.com/s-c4qgcy99jk/images/stencil/500x659/products/2620/29718/J24356YX_YX22_studio_S25__88029.1740092599.jpg?c=1",
     "product_ids": [
       "html-aventuraclothingcom-j24356yx",
