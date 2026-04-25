@@ -284,7 +284,7 @@ export async function getProductsByIds(objectIDs: string[]): Promise<AlgoliaProd
       objectIDs.map((id) =>
         client
           .getObject({ indexName: INDEX_NAME, objectID: id, attributesToRetrieve: ATTRS })
-          .then((p) => p as AlgoliaProduct),
+          .then((p) => p as unknown as AlgoliaProduct),
       ),
     );
     raw = settled.map((s) => (s.status === "fulfilled" ? s.value : null));
