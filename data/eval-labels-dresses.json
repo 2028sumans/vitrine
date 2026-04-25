@@ -1,0 +1,1499 @@
+{
+  "version": 1,
+  "labels": {
+    "shpfy-retrofetecom-6824020869171": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-astrthelabelcom-7728473374896": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-becandbridgecom-7309450379319": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-anniesibizacom-6653970317430": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-cultgaiacom-7401588621386": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-tigermistcom-8024057381003": [
+      "age-18-25"
+    ],
+    "shpfy-disshcom-15067925479792": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-faithfullthebrandcom-7193253937216": [
+      "age-18-25",
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-railscom-8842766844073": [
+      "age-32-plus"
+    ],
+    "shpfy-oakandfortcom-9177614352623": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-nordicpoetrycom-10016574341419": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-staudclothing-8232286453933": [
+      "age-25-32",
+      "age-32-plus",
+      "age-18-25"
+    ],
+    "shpfy-jwpeicom-8208937582626": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-delavalicom-9239581655365": [
+      "age-18-25"
+    ],
+    "shpfy-shonajoycom-7837867475028": [
+      "age-18-25"
+    ],
+    "shpfy-marcellanyccom-7883740676175": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-stjohnknitscom-10168406802720": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-moderncitizencom-7622724976703": [
+      "age-32-plus"
+    ],
+    "shpfy-arcinaoricom-10207889948836": [
+      "age-18-25"
+    ],
+    "shpfy-siedrescom-9162048930048": [
+      "age-18-25"
+    ],
+    "shpfy-khaitecom-7997488496703": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-beareparkcom-9388690800883": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-amrheacom-10019030958355": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-lesetcom-9125064999143": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-hennecomau-8611203547285": [
+      "age-32-plus"
+    ],
+    "shpfy-cuyanacom-14692216799598": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-motionalmusecom-8965818351804": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-elioucom-10273248641341": [
+      "age-18-25",
+      "age-25-32",
+      "age-13-18"
+    ],
+    "shpfy-colomascom-9841489215835": [
+      "age-18-25"
+    ],
+    "shpfy-coucouintimatescom-7460040245426": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-lavantathelabelcom-9730228420904": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-indigolunastore-7148564250695": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-byebambicom-7591709048937": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-flore-florecom-9076208501065": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-cybersweetiecouk-10124471599423": [
+      "age-25-32"
+    ],
+    "shpfy-littleyarncomau-10022424314169": [
+      "age-18-25"
+    ],
+    "shpfy-imnotamorningpersonstore-8266062790829": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-prodnet-10888337817759": [
+      "age-18-25"
+    ],
+    "shpfy-peachydencouk-15750946750851": [
+      "age-18-25"
+    ],
+    "shpfy-igdalyahcom-10232500289717": [
+      "age-18-25"
+    ],
+    "shpfy-eministorecom-9352414888179": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-dl1961com-7956393885795": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-diemattirecom-9844348125470": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-atyrstudiocom-8191712821363": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-enapellycom-7311448965299": [
+      "age-25-32"
+    ],
+    "shpfy-chalaystore-7776766460006": [
+      "age-18-25"
+    ],
+    "shpfy-becandbridgecom-7311630336055": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-ajeworldcom-7211454005328": [
+      "age-25-32"
+    ],
+    "shpfy-tigermistcom-7965451026571": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-oakandfortcom-9335058628847": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-railscom-7886282981545": [
+      "age-32-plus"
+    ],
+    "shpfy-faithfullthebrandcom-7163835121728": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-jwpeicom-8208936501282": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-baobabstorecom-7688476786753": [
+      "age-18-25"
+    ],
+    "shpfy-shonajoycom-7458121416788": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-marcellanyccom-7744092700751": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-hansenandgretelcom-9059367092480": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-manningcartellcom-6837428093043": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-baumundpferdgartencom-10026481910055": [
+      "age-32-plus"
+    ],
+    "shpfy-moderncitizencom-7779042099263": [
+      "age-32-plus"
+    ],
+    "shpfy-totemestudiocom-14746157482354": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-arcinaoricom-10181666668708": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-gimaguascom-15431507804486": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-beareparkcom-9388690145523": [
+      "age-25-32"
+    ],
+    "shpfy-amrheacom-10018877210899": [
+      "age-18-25"
+    ],
+    "shpfy-intogaiacouk-15836930244981": [
+      "age-18-25"
+    ],
+    "shpfy-motionalmusecom-8965818253500": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-loveandnostalgiacom-8138035232802": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-aninebingcom-6992709812296": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-par-moicom-7742622826538": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-indigolunastore-7203476537415": [
+      "age-18-25"
+    ],
+    "shpfy-coucouintimatescom-8715119394994": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-imnotamorningpersonstore-8544461455533": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-lamariecomau-10050451079466": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-littleyarncomau-10022422675769": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-prodnet-10888338604191": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-eministorecom-9398304669939": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "html-casparthelabelcouk-the-salt-box-multiwear-dress-caspar-the-label": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32"
+    ],
+    "shpfy-atyrstudiocom-7886928085107": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32"
+    ],
+    "shpfy-charlotteameliaco-9854285087041": [
+      "age-18-25"
+    ],
+    "shpfy-minkadinklondoncom-15215736258944": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-nobodyschildcom-15261333258625": [
+      "age-32-plus"
+    ],
+    "shpfy-ava-becom-15957208990031": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-retrofetecom-6824021360691": [
+      "age-18-25"
+    ],
+    "shpfy-high-sportcom-7591108608067": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-tigermistcom-7924084834443": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-antikbatikcom-9305162645781": [
+      "age-25-32"
+    ],
+    "shpfy-jwpeicom-7975413186594": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-elioucom-10274563227965": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-aroomlondoncom-15328970408285": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-cultgaiacom-7790464794698": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-minkadinklondoncom-15215803531648": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-lamajounicom-10083735896371": [
+      "age-18-25"
+    ],
+    "shpfy-elioucom-10108597338429": [
+      "age-18-25",
+      "age-25-32",
+      "age-13-18"
+    ],
+    "shpfy-coucouintimatescom-8405225308338": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-prodnet-10888339423391": [
+      "age-18-25"
+    ],
+    "shpfy-maemdiskocom-8226977874115": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-showpocom-10612129890614": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-nobodyschildcom-15302692667777": [
+      "age-18-25"
+    ],
+    "shpfy-tigermistcom-8045120127115": [
+      "age-25-32"
+    ],
+    "shpfy-oakandfortcom-9239878369519": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-faithfullthebrandcom-7193255739456": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-shonajoycom-7458094973012": [
+      "age-18-25"
+    ],
+    "shpfy-stjohnknitscom-10080239190304": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-manningcartellcom-7557841387635": [
+      "age-32-plus"
+    ],
+    "shpfy-baumundpferdgartencom-9821953622311": [
+      "age-32-plus"
+    ],
+    "shpfy-stagnicom-7515712356434": [
+      "age-32-plus"
+    ],
+    "shpfy-mariadelaordencom-8593536614729": [
+      "age-32-plus"
+    ],
+    "shpfy-moderncitizencom-7958415114303": [
+      "age-32-plus"
+    ],
+    "shpfy-ronnykobocom-10490053951793": [
+      "age-25-32"
+    ],
+    "shpfy-spelldesignscom-15463863451721": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-datchoicecom-7687619510425": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-atoircom-9773905772866": [
+      "age-32-plus",
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-beareparkcom-9388449792243": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "html-tl180com-4506": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-onemilethelabelcom-9291475976448": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-motionalmusecom-9032998551740": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-elioucom-10273111966013": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-coucouintimatescom-8393335472306": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-cultgaiacom-7774805721162": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-staudclothing-7492520542381": [
+      "age-18-25"
+    ],
+    "shpfy-shonajoycom-7534383071316": [
+      "age-18-25"
+    ],
+    "shpfy-hennecomau-14761761997163": [
+      "age-25-32"
+    ],
+    "shpfy-bohemiabychlocom-10340145856787": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-modemischiefstudioscom-8731667333288": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-maisonessentielecom-7119674867806": [
+      "age-32-plus"
+    ],
+    "shpfy-lamariecomau-9500952428842": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-imnotamorningpersonstore-8507426209965": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-blonditacom-10239247450405": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-showpocom-10215714652470": [
+      "age-18-25"
+    ],
+    "shpfy-cultgaiacom-7894424911946": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-disshcom-15067925447024": [
+      "age-32-plus",
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-staudclothing-7252822851757": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-kookaicom-7976809562182": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-stjohnknitscom-10080236667168": [
+      "age-32-plus"
+    ],
+    "shpfy-stagnicom-7491085598802": [
+      "age-32-plus"
+    ],
+    "shpfy-insisshop-7732096270441": [
+      "age-32-plus"
+    ],
+    "shpfy-deijistudioscom-10319509455140": [
+      "age-32-plus"
+    ],
+    "shpfy-huongboutiquecom-10052078502195": [
+      "age-25-32",
+      "age-18-25",
+      "age-32-plus"
+    ],
+    "shpfy-kallmeyernyc-10306248311096": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-amrheacom-10233242812691": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-loveandnostalgiacom-8341506850850": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-elioucom-10274555986237": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-aninebingcom-7013641060424": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-byebambicom-7633094148201": [
+      "age-13-18"
+    ],
+    "shpfy-imnotamorningpersonstore-8507424374957": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-maisonessentielecom-7310170652766": [
+      "age-18-25"
+    ],
+    "shpfy-peachydencouk-15367634321795": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-eministorecom-9352437989619": [
+      "age-18-25"
+    ],
+    "shpfy-tigermistcom-6910103224459": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-disshcom-15053632471408": [
+      "age-32-plus"
+    ]
+  },
+  "products": {
+    "shpfy-retrofetecom-6824020869171": {
+      "title": "Gemma Dress",
+      "brand": "Retrofete",
+      "image_url": "https://cdn.shopify.com/s/files/1/0024/5936/9523/products/Ecommerce_Crop-RF_eComm_220920_SHOT_30_5797_dd959b50-0c59-450c-8482-0f31bbec1aa5.jpg?v=1666705235",
+      "category": "dress"
+    },
+    "shpfy-astrthelabelcom-7728473374896": {
+      "title": "Tenna Floral Lace Bustier Midi Dress",
+      "brand": "ASTR the Label",
+      "image_url": "https://cdn.shopify.com/s/files/1/2483/6632/files/ACDR102644_WHITE_6.jpg?v=1738775870",
+      "category": "dress"
+    },
+    "shpfy-becandbridgecom-7309450379319": {
+      "title": "BENNET COWL GOWN - WHITE",
+      "brand": "Bec + Bridge",
+      "image_url": "https://cdn.shopify.com/s/files/1/2994/5224/files/BecBridge-BM-13318-WHITE_1775_92c865a1-ee07-465e-8e71-8a5b0d5ab41e.jpg?v=1775625938",
+      "category": "dress"
+    },
+    "shpfy-anniesibizacom-6653970317430": {
+      "title": "Spring Summer 1969 Paco Rabanne Bronze Metal Discs Couture Evening Gown",
+      "brand": "Annie's Ibiza",
+      "image_url": "https://cdn.shopify.com/s/files/1/0033/9640/3318/files/20240723_Annies-Ibiza-Ecomm14350.jpg?v=1749725677",
+      "category": "dress"
+    },
+    "shpfy-cultgaiacom-7401588621386": {
+      "title": "SITA GOWN - MALACHITE",
+      "brand": "Cult Gaia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0336/7793/files/230821_DR_CULT_GAIA_S24_LOOKBOOK_LOOK_29_0007_WEB_44f1ff25-796b-4f8b-96cd-44c319213ceb.jpg?v=1772582184",
+      "category": "dress"
+    },
+    "shpfy-tigermistcom-8024057381003": {
+      "title": "EOS SEQUIN TUBE MAXI DRESS - CINNAMON CHOCOLATE",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/IMG_9586.png?v=1768954377",
+      "category": "dress"
+    },
+    "shpfy-disshcom-15067925479792": {
+      "title": "MILA DUSTY BLUE SILK MIDI DRESS",
+      "brand": "Dissh",
+      "image_url": "https://cdn.shopify.com/s/files/1/0265/5590/8132/files/DNP11494DBL.462.jpg?v=1775693000",
+      "category": "dress"
+    },
+    "shpfy-faithfullthebrandcom-7193253937216": {
+      "title": "Murano Midi Dress Giardino",
+      "brand": "Faithfull The Brand",
+      "image_url": "https://cdn.shopify.com/s/files/1/1130/9504/files/S60-FF4746-GDO-25703-FaithfullTheBrand-D3-2860.jpg?v=1769050714",
+      "category": "dress"
+    },
+    "shpfy-railscom-8842766844073": {
+      "title": "FELICIA DRESS - MIDNIGHT SILHOUETTE FLORAL",
+      "brand": "Rails",
+      "image_url": "https://cdn.shopify.com/s/files/1/0167/1180/files/FELICIA-MIDNIGHT-SILHOUETTE-FLORAL_1_508A-114G-8605.jpg?v=1776148113",
+      "category": "dress"
+    },
+    "shpfy-oakandfortcom-9177614352623": {
+      "title": "BARREL TUBE TOP DRESS",
+      "brand": "Oak + Fort",
+      "image_url": "https://cdn.shopify.com/s/files/1/0697/9102/3343/files/Dress-15339_Black-1.jpg?v=1766194999",
+      "category": "dress"
+    },
+    "shpfy-nordicpoetrycom-10016574341419": {
+      "title": "Vintage Versace S/S 2005 Couture Embellished Denim Dress",
+      "brand": "Nordic Poetry",
+      "image_url": "https://cdn.shopify.com/s/files/1/0738/4694/8139/files/Nordic241.jpg?v=1752940883",
+      "category": "dress"
+    },
+    "shpfy-staudclothing-8232286453933": {
+      "title": "PHARE LEATHER DRESS | TRUFFLE",
+      "brand": "STAUD",
+      "image_url": "https://cdn.shopify.com/s/files/1/1689/2633/files/80-PHARE_LEATHER_DRESS_TRUF_2117_web.jpg?v=1751512183",
+      "category": "dress"
+    },
+    "shpfy-jwpeicom-8208937582626": {
+      "title": "Orchid Embroidered Dress - Yellow",
+      "brand": "Jw Pei",
+      "image_url": "https://cdn.shopify.com/s/files/1/0150/6292/5412/files/DS1185-8.jpg?v=1772788209",
+      "category": "dress"
+    },
+    "shpfy-delavalicom-9239581655365": {
+      "title": "MATISSE MIDI DRESS IN IVORY SILK SATIN",
+      "brand": "De La Vali",
+      "image_url": "https://cdn.shopify.com/s/files/1/0867/5583/6229/files/LOOK_4_564.jpg?v=1753960427",
+      "category": "dress"
+    },
+    "shpfy-shonajoycom-7837867475028": {
+      "title": "ELYSIAN HAND CRAFTED STRAPLESS LACE GOWN",
+      "brand": "Shona Joy",
+      "image_url": "https://cdn.shopify.com/s/files/1/2158/0979/files/119_Elysian_Strapless_Lace_Gown_1261595_IVORY_1R.jpg?v=1766374891",
+      "category": "dress"
+    },
+    "shpfy-marcellanyccom-7883740676175": {
+      "title": "Petite Monroe Dress",
+      "brand": "Marcella NYC",
+      "image_url": "https://cdn.shopify.com/s/files/1/0930/7312/files/HERO1_MD2416-BLACK_PDP_2694.jpg?v=1720194225",
+      "category": "dress"
+    },
+    "shpfy-stjohnknitscom-10168406802720": {
+      "title": "Collette Gown in Hand Beaded Fluid Stretch Crepe",
+      "brand": "St. John",
+      "image_url": "https://cdn.shopify.com/s/files/1/0884/4155/3184/files/K12PC21-BK00-644.jpg?v=1770762858",
+      "category": "dress"
+    },
+    "shpfy-moderncitizencom-7622724976703": {
+      "title": "Addison Foldover Scarf-Neck Dress",
+      "brand": "Modern Citizen",
+      "image_url": "https://cdn.shopify.com/s/files/1/0272/6277/files/addison-foldover-scarf-neck-dress-olive-brown-0_07152f47-cf55-4518-b652-bf68fe074e2b.jpg?v=1753165416",
+      "category": "dress"
+    },
+    "shpfy-arcinaoricom-10207889948836": {
+      "title": "FLORENCE DRESS RED",
+      "brand": "Arcina Ori",
+      "image_url": "https://cdn.shopify.com/s/files/1/0004/8863/6475/files/5.7-FLORENCE-RED-23.jpg?v=1762236001",
+      "category": "dress"
+    },
+    "shpfy-siedrescom-9162048930048": {
+      "title": "ELVIRA - Crocheted halterneck maxi dress with ruffles",
+      "brand": "Siedrés",
+      "image_url": "https://cdn.shopify.com/s/files/1/0330/8624/2952/files/ELVIRA_WSS26DR25-01.jpg?v=1773235120",
+      "category": "dress"
+    },
+    "shpfy-khaitecom-7997488496703": {
+      "title": "Dan Dress in Black",
+      "brand": "Khaite",
+      "image_url": "https://cdn.shopify.com/s/files/1/1519/7996/files/DAN-DRESS_BLACK-DOUBLEFACE_56234114-200_GHOST.jpg?v=1768486003",
+      "category": "dress"
+    },
+    "shpfy-beareparkcom-9388690800883": {
+      "title": "Frances Gown",
+      "brand": "Beare Park",
+      "image_url": "https://cdn.shopify.com/s/files/1/0602/1300/2483/files/S8-FRANCESGOWN_BLK-26101-BearePark-0132_4f10692a-f824-4612-98b0-60ee24a36178.jpg?v=1772076013",
+      "category": "dress"
+    },
+    "shpfy-amrheacom-10019030958355": {
+      "title": "ORYA DRESS",
+      "brand": "Amrhea",
+      "image_url": "https://cdn.shopify.com/s/files/1/0753/3471/3619/files/Amrhea_260525_4954_copy.jpg?v=1749903220",
+      "category": "dress"
+    },
+    "shpfy-lesetcom-9125064999143": {
+      "title": "Ari Scoop Neck Maxi Dress",
+      "brand": "Leset",
+      "image_url": "https://cdn.shopify.com/s/files/1/1286/8573/files/LESET_ARIELLE_ARIELLESCOOPNECKMAXIDRESS_BLACK_ONMODEL_1.jpg?v=1740604951",
+      "category": "dress"
+    },
+    "shpfy-hennecomau-8611203547285": {
+      "title": "Soraia Dress",
+      "brand": "Henne",
+      "image_url": "https://cdn.shopify.com/s/files/1/0483/8778/4853/files/SORAIA-DRESS-BLACK_2.jpg?v=1749790866",
+      "category": "dress"
+    },
+    "shpfy-cuyanacom-14692216799598": {
+      "title": "Silk Cut out Dress",
+      "brand": "Cuyana",
+      "image_url": "https://cdn.shopify.com/s/files/1/0712/5054/2907/files/PDP_1080x1350_250318_LP_CUYANA_16_3058.jpg?v=1747346484",
+      "category": "dress"
+    },
+    "shpfy-motionalmusecom-8965818351804": {
+      "title": "Sienna Dress",
+      "brand": "Motional Muse",
+      "image_url": "https://cdn.shopify.com/s/files/1/0622/7610/8476/files/SiennaDressBlack.jpg?v=1756509594",
+      "category": "dress"
+    },
+    "shpfy-elioucom-10273248641341": {
+      "title": "Paula Dress",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/nm_n.jpg?v=1775849007",
+      "category": "dress"
+    },
+    "shpfy-colomascom-9841489215835": {
+      "title": "Alma Dress - Pink",
+      "brand": "Colomas",
+      "image_url": "https://cdn.shopify.com/s/files/1/0821/5268/5915/files/LOOK10_1.jpg?v=1754005599",
+      "category": "dress"
+    },
+    "shpfy-coucouintimatescom-7460040245426": {
+      "title": "The Picot Dress: 2-Pack",
+      "brand": "Cou Cou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0539/8924/5106/products/PICOTDRESSBLK_8.png?v=1666647187",
+      "category": "dress"
+    },
+    "shpfy-lavantathelabelcom-9730228420904": {
+      "title": "Ada Dress in Blue Floral",
+      "brand": "Lavantathelabel",
+      "image_url": "https://cdn.shopify.com/s/files/1/0780/0897/5656/files/595_Original.jpg?v=1754947000",
+      "category": "dress"
+    },
+    "shpfy-indigolunastore-7148564250695": {
+      "title": "Dove Dress Off White",
+      "brand": "Indigo Luna",
+      "image_url": "https://cdn.shopify.com/s/files/1/1963/6793/files/Dove-Dress-Outdoor-Film-3.jpg?v=1740037822",
+      "category": "dress"
+    },
+    "shpfy-byebambicom-7591709048937": {
+      "title": "MADISON MINI DRESS 2.0 - BLACK",
+      "brand": "Bye Bambi",
+      "image_url": "https://cdn.shopify.com/s/files/1/0028/0713/6345/files/1_c4eb89a6-447b-44c6-913b-e83420a986a1.png?v=1756631075",
+      "category": "dress"
+    },
+    "shpfy-flore-florecom-9076208501065": {
+      "title": "BIBI MIDI DRESS | Black",
+      "brand": "Flore Flore",
+      "image_url": "https://cdn.shopify.com/s/files/1/0574/1474/6297/files/240526_FLORE_FLORE_E-Comm__BIBI_MIDI_DRESS_BLACK_CODE_FLORE_FLORE_2619_04_bdc8385e-53c2-45d0-b653-84c84dcb4bf4.jpg?v=1747838316",
+      "category": "dress"
+    },
+    "shpfy-cybersweetiecouk-10124471599423": {
+      "title": "The Enchanted Ivy Gown - 100% silk hand beaded floor length dress with shawl",
+      "brand": "Cybersweetie",
+      "image_url": "https://cdn.shopify.com/s/files/1/0751/8391/5327/files/A50E82AB-7532-4349-B3B3-8EA829AA3492.jpg?v=1765993021",
+      "category": "dress"
+    },
+    "shpfy-littleyarncomau-10022424314169": {
+      "title": "Belle Mesh Polka Dress",
+      "brand": "Little Yarn",
+      "image_url": "https://cdn.shopify.com/s/files/1/0770/1132/1145/files/E1ABDF39-09D1-4E90-86F7-3E69EB6C37DC.jpg?v=1761632846",
+      "category": "dress"
+    },
+    "shpfy-imnotamorningpersonstore-8266062790829": {
+      "title": "The Bare maxi dress - sunset",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/S2-062.jpg?v=1753806946",
+      "category": "dress"
+    },
+    "shpfy-prodnet-10888337817759": {
+      "title": "Adrian Maxi Dress",
+      "brand": "Prod",
+      "image_url": "https://cdn.shopify.com/s/files/1/2803/9880/files/prod-khaki-xs-in-stock-adrian-maxi-dress-1223723651.jpg?v=1771999628",
+      "category": "dress"
+    },
+    "shpfy-peachydencouk-15750946750851": {
+      "title": "The Romy Dress, Black",
+      "brand": "Peachy Den",
+      "image_url": "https://cdn.shopify.com/s/files/1/0570/3503/0699/files/IMG_0382.jpg?v=1773318928",
+      "category": "dress"
+    },
+    "shpfy-igdalyahcom-10232500289717": {
+      "title": "Mona's Looped Denim Dress",
+      "brand": "Igdalyah",
+      "image_url": "https://cdn.shopify.com/s/files/1/0416/4055/8748/files/IgdalyahMonaLoopedDenimDressFront.jpg?v=1758298492",
+      "category": "dress"
+    },
+    "shpfy-eministorecom-9352414888179": {
+      "title": "Ivory Muse Corset Dress",
+      "brand": "Emini.store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0806/1901/2339/files/IvoryMuseCorsetDress1_resize_1600x2048_218ae7f1-1e1e-4f67-ae6d-d2cc6d9395fe.jpg?v=1768386260",
+      "category": "dress"
+    },
+    "shpfy-dl1961com-7956393885795": {
+      "title": "Trucker Dress | Poolside",
+      "brand": "Dl1961",
+      "image_url": "https://cdn.shopify.com/s/files/1/2397/3099/files/27428_TRUCKER_DRESS_POOLSIDE.jpg?v=1770155491",
+      "category": "dress"
+    },
+    "shpfy-diemattirecom-9844348125470": {
+      "title": "NATALIE DRESS",
+      "brand": "Diem Attire",
+      "image_url": "https://cdn.shopify.com/s/files/1/0897/8713/8334/files/DSC_0286-ig-portrait-1080-1350.jpg?v=1757030414",
+      "category": "dress"
+    },
+    "shpfy-atyrstudiocom-8191712821363": {
+      "title": "DRAPED DRESS",
+      "brand": "Atyrstudio",
+      "image_url": "https://cdn.shopify.com/s/files/1/0633/3730/0083/files/8_40e1c554-71be-443d-a678-cf8fa36aa1a8.jpg?v=1775049751",
+      "category": "dress"
+    },
+    "shpfy-enapellycom-7311448965299": {
+      "title": "Sofia Leather Dress - Snake",
+      "brand": "Ena Pelly",
+      "image_url": "https://cdn.shopify.com/s/files/1/0540/0680/8755/products/b9cd502aab244e749d0fba647de1f47b.jpg?v=1668733661",
+      "category": "dress"
+    },
+    "shpfy-chalaystore-7776766460006": {
+      "title": "Hathai (Long dress)",
+      "brand": "Chalay",
+      "image_url": "https://cdn.shopify.com/s/files/1/0584/9130/6086/files/9C49B2EF-1530-4CA1-81AA-43152E83780B.jpg?v=1762869653",
+      "category": "dress"
+    },
+    "shpfy-inyourtwentiescom-10279984267558": {
+      "title": "the mira dress in aquamarine",
+      "brand": "In Your Twenties",
+      "image_url": "https://cdn.shopify.com/s/files/1/0833/9429/8150/files/683E2AA5-A037-4D29-8947-1ADBA2C1F6F7.jpg?v=1768019548",
+      "category": "dress"
+    },
+    "shpfy-becandbridgecom-7311630336055": {
+      "title": "ANIA HALTER MAXI DRESS - IVORY",
+      "brand": "Bec + Bridge",
+      "image_url": "https://cdn.shopify.com/s/files/1/2994/5224/files/H25-13144-CREAM_2442_2fe17fa6-301e-4618-b1c4-b65656608fa5.jpg?v=1753842885",
+      "category": "dress"
+    },
+    "shpfy-ajeworldcom-7211454005328": {
+      "title": "Halo Midi Sequin Dress",
+      "brand": "Aje",
+      "image_url": "https://cdn.shopify.com/s/files/1/0248/2202/2224/files/26SU5268_CHOC_1.jpg?v=1774405006",
+      "category": "dress"
+    },
+    "shpfy-tigermistcom-7965451026571": {
+      "title": "RAINEY MAXI DRESS - BUTTER YELLOW",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/TMDP4849_RAINEY_MAXIDRESS_YELLOW_3.png?v=1764798309",
+      "category": "dress"
+    },
+    "shpfy-oakandfortcom-9335058628847": {
+      "title": "LINEN MIDI DRESS",
+      "brand": "Oak + Fort",
+      "image_url": "https://cdn.shopify.com/s/files/1/0697/9102/3343/files/Dress-15628_Celestial_Blue-1.jpg?v=1775176563",
+      "category": "dress"
+    },
+    "shpfy-railscom-7886282981545": {
+      "title": "ESMERALDA DRESS - Black",
+      "brand": "Rails",
+      "image_url": "https://cdn.shopify.com/s/files/1/0167/1180/files/ESMERELDA-BLACK_1_639A-166D-001.jpg?v=1776148150",
+      "category": "dress"
+    },
+    "shpfy-faithfullthebrandcom-7163835121728": {
+      "title": "Yolina Maxi Dress Barragan Stripe Dusty Mauve",
+      "brand": "Faithfull The Brand",
+      "image_url": "https://cdn.shopify.com/s/files/1/1130/9504/files/S44-FF4381-BDM-25413-FaithfullTheBrand-D2-2343.webp?v=1758698672",
+      "category": "dress"
+    },
+    "shpfy-jwpeicom-8208936501282": {
+      "title": "Orchid Embroidered Dress - Light Blue",
+      "brand": "Jw Pei",
+      "image_url": "https://cdn.shopify.com/s/files/1/0150/6292/5412/files/1773992096056-saap7667c7e.jpg?v=1773995498",
+      "category": "dress"
+    },
+    "shpfy-baobabstorecom-7688476786753": {
+      "title": "Rena Maxi Dress",
+      "brand": "Baobab Store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0634/8701/7025/files/BAOBAB-Octubre25-nataliagw-61.webp?v=1762293855",
+      "category": "dress"
+    },
+    "shpfy-shonajoycom-7458121416788": {
+      "title": "LA LUNE CUMULUS SILK STRAPLESS CORSET GOWN - IVORY",
+      "brand": "Shona Joy",
+      "image_url": "https://cdn.shopify.com/s/files/1/2158/0979/files/177_Cumulus_Silk_Strapless_Draped_Corset_Maxi_Dress_1.jpg?v=1759797576",
+      "category": "dress"
+    },
+    "shpfy-marcellanyccom-7744092700751": {
+      "title": "Grace Multi-Way Dress",
+      "brand": "Marcella NYC",
+      "image_url": "https://cdn.shopify.com/s/files/1/0930/7312/files/HERO2_MD2692-R-001-BLACK_PDP_0118.jpg?v=1762816393",
+      "category": "dress"
+    },
+    "shpfy-hansenandgretelcom-9059367092480": {
+      "title": "Maja Beaded Maxi Dress Silver Veil",
+      "brand": "Hansen & Gretel",
+      "image_url": "https://cdn.shopify.com/s/files/1/0640/9371/6736/files/MAJADRESS_HANSENANDGRETEL_1.jpg?v=1757553510",
+      "category": "dress"
+    },
+    "shpfy-manningcartellcom-6837428093043": {
+      "title": "Supreme Extreme Strapless Gown",
+      "brand": "Manning Cartell",
+      "image_url": "https://cdn.shopify.com/s/files/1/0044/1250/6227/files/1374-RESHOOT-SUPREME-EXTREME-GOWN-BLACK_L.jpg?v=1752641861",
+      "category": "dress"
+    },
+    "shpfy-baumundpferdgartencom-10026481910055": {
+      "title": "ADIYA DRESS | Black",
+      "brand": "Baum Und Pferdgarten",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/7030/1735/files/24814_9999_1.jpg?v=1768289204",
+      "category": "dress"
+    },
+    "shpfy-moderncitizencom-7779042099263": {
+      "title": "Babba Shirred Scarf-Neck Dress",
+      "brand": "Modern Citizen",
+      "image_url": "https://cdn.shopify.com/s/files/1/0272/6277/files/babba-shirred-scarf-neck-dress-white-0_911211a8-3563-4a2d-b3ed-7da38e3e6c26.jpg?v=1768948062",
+      "category": "dress"
+    },
+    "shpfy-totemestudiocom-14746157482354": {
+      "title": "Leather tee dress black",
+      "brand": "Totême",
+      "image_url": "https://cdn.shopify.com/s/files/1/0452/1374/5316/files/TOTEME_ECOM_FW_DRESS_GARDEROB_254-WRD0259-LE0056_LEATHER_TEE_DRESS_BLACK_036_A.jpg?v=1756214556",
+      "category": "dress"
+    },
+    "shpfy-arcinaoricom-10181666668708": {
+      "title": "FLORENCE DRESS BLACK",
+      "brand": "Arcina Ori",
+      "image_url": "https://cdn.shopify.com/s/files/1/0004/8863/6475/files/5.7-FLORENCE-BLACK-6.jpg?v=1762236021",
+      "category": "dress"
+    },
+    "shpfy-gimaguascom-15431507804486": {
+      "title": "Valentina Dress",
+      "brand": "Gimaguas",
+      "image_url": "https://cdn.shopify.com/s/files/1/0616/2225/5787/files/valentina-mini-dress_white_01_a3ba36b9-b27b-4c5b-9878-5d48c25cc4ce.jpg?v=1776331608",
+      "category": "dress"
+    },
+    "shpfy-beareparkcom-9388690145523": {
+      "title": "Frances Gown",
+      "brand": "Beare Park",
+      "image_url": "https://cdn.shopify.com/s/files/1/0602/1300/2483/files/S9-FRANCESGOWN_IVY-26101-BearePark-0148_741c5c32-307b-419b-a454-91aeba2fc17e.jpg?v=1771896375",
+      "category": "dress"
+    },
+    "shpfy-amrheacom-10018877210899": {
+      "title": "LIRA DRESS",
+      "brand": "Amrhea",
+      "image_url": "https://cdn.shopify.com/s/files/1/0753/3471/3619/files/Amrhea_260525_3914_copy.jpg?v=1749219565",
+      "category": "dress"
+    },
+    "shpfy-nefsfindscom-9253117427941": {
+      "title": "BUTTERCUP DRESS",
+      "brand": "Nefsfinds",
+      "image_url": "https://cdn.shopify.com/s/files/1/0622/2679/2677/files/52_e6a5ba45-89f0-4af6-8ccf-46cae39ca0c6.webp?v=1756471769",
+      "category": "dress"
+    },
+    "shpfy-intogaiacouk-15836930244981": {
+      "title": "La Ophelia Dress",
+      "brand": "Into Gaia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0741/4654/5971/files/000052.jpg?v=1774523605",
+      "category": "dress"
+    },
+    "shpfy-motionalmusecom-8965818253500": {
+      "title": "Sienna Dress",
+      "brand": "Motional Muse",
+      "image_url": "https://cdn.shopify.com/s/files/1/0622/7610/8476/files/SiennaDressPink.jpg?v=1756509215",
+      "category": "dress"
+    },
+    "shpfy-loveandnostalgiacom-8138035232802": {
+      "title": "Gabby Ballet Tee Dress - Lemon Yellow",
+      "brand": "Love And Nostalgia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0046/5020/5218/files/JoelleParisotto_L_N_2025_84.jpg?v=1763953051",
+      "category": "dress"
+    },
+    "shpfy-aninebingcom-6992709812296": {
+      "title": "Laurel Dress - Deep Brown",
+      "brand": "Anine Bing",
+      "image_url": "https://cdn.shopify.com/s/files/1/0150/1528/files/AB_LAUREL_DRESS_-_DEEP_BROWNA-02-11285-BWN43_041.jpg?v=1761761165",
+      "category": "dress"
+    },
+    "shpfy-par-moicom-7742622826538": {
+      "title": "Albee Dress - XS, S",
+      "brand": "Par Moi",
+      "image_url": "https://cdn.shopify.com/s/files/1/0121/3300/7460/files/IMG_3310.jpg?v=1763089752",
+      "category": "dress"
+    },
+    "shpfy-indigolunastore-7203476537415": {
+      "title": "Olivia Dress Cloud Cream",
+      "brand": "Indigo Luna",
+      "image_url": "https://cdn.shopify.com/s/files/1/1963/6793/files/OLIVIADRESSCLOUDCREAM-18.jpg?v=1759196751",
+      "category": "dress"
+    },
+    "shpfy-coucouintimatescom-8715119394994": {
+      "title": "The Rina Dress: Cotton Jersey Black",
+      "brand": "Cou Cou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0539/8924/5106/files/BLACK-1_8b3815b2-edf8-49cd-a2b6-5fca62ff0387.jpg?v=1774955353",
+      "category": "dress"
+    },
+    "shpfy-imnotamorningpersonstore-8544461455533": {
+      "title": "LONG SLEEVE MINI DRESS - PASTEL PINK",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/imnotamorningperson_18.jpg?v=1775238583",
+      "category": "dress"
+    },
+    "shpfy-lamariecomau-10050451079466": {
+      "title": "VANESSA DRESS",
+      "brand": "Lamarie",
+      "image_url": "https://cdn.shopify.com/s/files/1/0895/3344/8490/files/1242CD61-0F9F-4F20-91B6-AC5F4C62BC76.jpg?v=1772115028",
+      "category": "dress"
+    },
+    "shpfy-littleyarncomau-10022422675769": {
+      "title": "Maxie Lace Mini Dress",
+      "brand": "Little Yarn",
+      "image_url": "https://cdn.shopify.com/s/files/1/0770/1132/1145/files/IMG_7675.jpg?v=1768885401",
+      "category": "dress"
+    },
+    "shpfy-prodnet-10888338604191": {
+      "title": "Aurora Halter Maxi Dress with Gems",
+      "brand": "Prod",
+      "image_url": "https://cdn.shopify.com/s/files/1/2803/9880/files/prod-aurora-halter-maxi-dress-with-gems-1224351224.jpg?v=1772184913",
+      "category": "dress"
+    },
+    "shpfy-eministorecom-9398304669939": {
+      "title": "White Allure Dress",
+      "brand": "Emini.store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0806/1901/2339/files/623559121_18392676136195378_2804984394279857917_n_1.jpg?v=1772077409",
+      "category": "dress"
+    },
+    "html-casparthelabelcouk-the-salt-box-multiwear-dress-caspar-the-label": {
+      "title": "The Salt Box Multiwear Dress — Caspar The Label",
+      "brand": "Casper the Label",
+      "image_url": "http://static1.squarespace.com/static/627e83c45d82d12fd2a5524e/627e86ffc6738e4b6b9576e0/685931ac22419c70c6505c5c/1750675887423/6660CE1E-3E3B-404F-9231-DCDB6AC4B6D0.jpeg?format=1500w",
+      "category": "dress"
+    },
+    "shpfy-atyrstudiocom-7886928085107": {
+      "title": "THE JASMIN DRESS",
+      "brand": "Atyrstudio",
+      "image_url": "https://cdn.shopify.com/s/files/1/0633/3730/0083/files/Jasmin.jpg?v=1755681874",
+      "category": "dress"
+    },
+    "shpfy-charlotteameliaco-9854285087041": {
+      "title": "The Celeste Dress",
+      "brand": "Charlotteamelia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0910/7354/4513/files/2.jpg?v=1746436315",
+      "category": "dress"
+    },
+    "shpfy-minkadinklondoncom-15215736258944": {
+      "title": "Marnie Dress - Buttercup",
+      "brand": "Minka Dink London",
+      "image_url": "https://cdn.shopify.com/s/files/1/0534/0784/2488/files/IMG_2900.jpg?v=1755332542",
+      "category": "dress"
+    },
+    "shpfy-nobodyschildcom-15261333258625": {
+      "title": "Bridal Ivory Crepe Cross Back Antonia Midi Dress",
+      "brand": "Nobody's Child",
+      "image_url": "https://cdn.shopify.com/s/files/1/0640/7005/8155/files/2614106001_4.jpg?v=1766057874",
+      "category": "dress"
+    },
+    "shpfy-ava-becom-15957208990031": {
+      "title": "Robe Paige",
+      "brand": "Ava Be",
+      "image_url": "https://cdn.shopify.com/s/files/1/0496/2621/8653/files/834985BD-CDA4-4D0B-AC8B-E5C749B71D22.jpg?v=1771453254",
+      "category": "dress"
+    },
+    "shpfy-retrofetecom-6824021360691": {
+      "title": "Quartz Dress",
+      "brand": "Retrofete",
+      "image_url": "https://cdn.shopify.com/s/files/1/0024/5936/9523/products/Ecommerce_Crop-Retrofete_eComm_220920-Set2_SHOT_28_3317copy.jpg?v=1666655609",
+      "category": "dress"
+    },
+    "shpfy-high-sportcom-7591108608067": {
+      "title": "Stella Dress in Black Big Dot",
+      "brand": "High Sport",
+      "image_url": "https://cdn.shopify.com/s/files/1/0056/4330/5027/files/BIG-DOT-STELLA-DRESS_BLACK_1969.jpg?v=1773698494",
+      "category": "dress"
+    },
+    "shpfy-tigermistcom-7924084834443": {
+      "title": "CL - GEM MINI DRESS",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/GIA17545_GEM_MINIDRESS_BROWNPOLKA_1.png?v=1759208924",
+      "category": "dress"
+    },
+    "shpfy-antikbatikcom-9305162645781": {
+      "title": "Robe cut-out brodée Mila",
+      "brand": "Antik Batik",
+      "image_url": "https://cdn.shopify.com/s/files/1/0799/3828/9941/files/mila1kdr-cream-1.jpg?v=1753970236",
+      "category": "dress"
+    },
+    "shpfy-jwpeicom-7975413186594": {
+      "title": "Orchid Embroidered Dress - Pink",
+      "brand": "Jw Pei",
+      "image_url": "https://cdn.shopify.com/s/files/1/0150/6292/5412/files/1773992046951-iv80egbeh7s.jpg?v=1773995468",
+      "category": "dress"
+    },
+    "shpfy-elioucom-10274563227965": {
+      "title": "Romi Dress",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/romi_dress.jpg?v=1775847174",
+      "category": "dress"
+    },
+    "shpfy-aroomlondoncom-15328970408285": {
+      "title": "Lise Knit Mini Dress | Barely Pink",
+      "brand": "A Room London",
+      "image_url": "https://cdn.shopify.com/s/files/1/0885/1023/4973/files/2025.26.03_ARoomLondon_213_Edited.jpg?v=1756417748",
+      "category": "dress"
+    },
+    "shpfy-cultgaiacom-7790464794698": {
+      "title": "ALBA GOWN - CEDAR MULTI",
+      "brand": "Cult Gaia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0336/7793/files/Look_57_ALBA_3364.jpg?v=1755630353",
+      "category": "dress"
+    },
+    "shpfy-minkadinklondoncom-15215803531648": {
+      "title": "Marnie Dress - White",
+      "brand": "Minka Dink London",
+      "image_url": "https://cdn.shopify.com/s/files/1/0534/0784/2488/files/P1120840.jpg?v=1755332882",
+      "category": "dress"
+    },
+    "shpfy-lamajounicom-10083735896371": {
+      "title": "CONTOUR TUBE DRESS",
+      "brand": "Lamajouni",
+      "image_url": "https://cdn.shopify.com/s/files/1/2592/3128/files/LamaJouniF26002b.jpg?v=1774879856",
+      "category": "dress"
+    },
+    "shpfy-elioucom-10108597338429": {
+      "title": "Paula Dress",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/25467.jpg?v=1761083041",
+      "category": "dress"
+    },
+    "shpfy-coucouintimatescom-8405225308338": {
+      "title": "The Balconette Dress White",
+      "brand": "Cou Cou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0539/8924/5106/files/PDP275_28244b96-acc1-4d8d-9c34-d4a35dc50577.jpg?v=1776177679",
+      "category": "dress"
+    },
+    "shpfy-prodnet-10888339423391": {
+      "title": "CHAINED Maxi Dress",
+      "brand": "Prod",
+      "image_url": "https://cdn.shopify.com/s/files/1/2803/9880/files/prod-chained-maxi-dress-1219560906.heic?v=1770495691",
+      "category": "dress"
+    },
+    "shpfy-maemdiskocom-8226977874115": {
+      "title": "Ladybug Dress - Bamboo PREORDER",
+      "brand": "Maem Disko",
+      "image_url": "https://cdn.shopify.com/s/files/1/0551/2452/5251/files/IMG_7297_1.jpg?v=1772086682",
+      "category": "dress"
+    },
+    "shpfy-showpocom-10612129890614": {
+      "title": "Sienna Maxi Dress - 3D Floral Strapless Column Dress in Wine",
+      "brand": "Showpo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0917/0154/3222/files/Sienna_Maxi_Dress_-_3D_Floral_Strapless_Column_Dress_in_Wine.png?v=1772774106",
+      "category": "dress"
+    },
+    "shpfy-nobodyschildcom-15302692667777": {
+      "title": "Blue Bandeau Ophelia Maxi Dress",
+      "brand": "Nobody's Child",
+      "image_url": "https://cdn.shopify.com/s/files/1/0640/7005/8155/files/NC_HIRES_2614678001.jpg?v=1774882682",
+      "category": "dress"
+    },
+    "shpfy-tigermistcom-8045120127115": {
+      "title": "MIDORI MIDI BANDAGE DRESS - BLACK",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/TM18819_MIDORIMIDI_BANDAGEDRESS_BLACK_1.png?v=1772595857",
+      "category": "dress"
+    },
+    "shpfy-oakandfortcom-9239878369519": {
+      "title": "TUBE MAXI DRESS WITH CONTRAST SKIRT AND SCARF",
+      "brand": "Oak + Fort",
+      "image_url": "https://cdn.shopify.com/s/files/1/0697/9102/3343/files/Dress-15348_Flan-1.jpg?v=1775771140",
+      "category": "dress"
+    },
+    "shpfy-faithfullthebrandcom-7193255739456": {
+      "title": "Clara Maxi Dress Murano Amber",
+      "brand": "Faithfull The Brand",
+      "image_url": "https://cdn.shopify.com/s/files/1/1130/9504/files/S15-FF4681-MUA-25703-FaithfullTheBrand-D3-1053.jpg?v=1768542562",
+      "category": "dress"
+    },
+    "shpfy-shonajoycom-7458094973012": {
+      "title": "JAMILA LACE HIGH NECK MAXI DRESS - BLACK",
+      "brand": "Shona Joy",
+      "image_url": "https://cdn.shopify.com/s/files/1/2158/0979/files/235_JAMILLA_Lace_High_Neck_Maxi_Dress_1245102_BLACK_1925.jpg?v=1758247535",
+      "category": "dress"
+    },
+    "shpfy-stjohnknitscom-10080239190304": {
+      "title": "Alina Gown In Santa Roma Knit",
+      "brand": "St. John",
+      "image_url": "https://cdn.shopify.com/s/files/1/0884/4155/3184/files/k12n0b1-bkgd-black-dress-re26-1-CROP.jpg?v=1763056350",
+      "category": "dress"
+    },
+    "shpfy-iamgiacom-8641760657579": {
+      "title": "BROOKE MAXI DRESS - BLACK",
+      "brand": "I AM GIA",
+      "image_url": "https://cdn.shopify.com/s/files/1/0130/3137/4906/files/Brooke-Maxi-Dress-AMB-FF.jpg?v=1773799572",
+      "category": "dress"
+    },
+    "shpfy-manningcartellcom-7557841387635": {
+      "title": "Grand Illusion Maxi Gown",
+      "brand": "Manning Cartell",
+      "image_url": "https://cdn.shopify.com/s/files/1/0044/1250/6227/files/52417-GRAND-ILLUSION-MAXI-GOWN-NAVYMC-04_L.jpg?v=1773373234",
+      "category": "dress"
+    },
+    "shpfy-baumundpferdgartencom-9821953622311": {
+      "title": "AMILIE DRESS | Grey Sequins Flower",
+      "brand": "Baum Und Pferdgarten",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/7030/1735/files/24626_9174_1.jpg?v=1768289158",
+      "category": "dress"
+    },
+    "shpfy-stagnicom-7515712356434": {
+      "title": "Textured Weave Halter Dress - Black",
+      "brand": "St. Agni",
+      "image_url": "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_108_S26-28126BLK_4568copy.jpg?v=1775530548",
+      "category": "dress"
+    },
+    "shpfy-mariadelaordencom-8593536614729": {
+      "title": "Désirée Dress",
+      "brand": "Maria de la Orden",
+      "image_url": "https://cdn.shopify.com/s/files/1/0407/1872/9372/files/desiree-dress-4056657.jpg?v=1764320613",
+      "category": "dress"
+    },
+    "shpfy-moderncitizencom-7958415114303": {
+      "title": "Holland Drop-Waist Denim Dress",
+      "brand": "Modern Citizen",
+      "image_url": "https://cdn.shopify.com/s/files/1/0272/6277/files/holland-drop-waist-denim-dress-dark-indigo-0.jpg?v=1769207895",
+      "category": "dress"
+    },
+    "shpfy-ronnykobocom-10490053951793": {
+      "title": "Bia Dress",
+      "brand": "Ronny Kobo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0058/5413/4332/files/BIADRESS_IVORY_FRONT_91a05243-483e-422e-b9f8-a8157b0ecff6.jpg?v=1767888709",
+      "category": "dress"
+    },
+    "shpfy-spelldesignscom-15463863451721": {
+      "title": "Glastonbury Lace Dress",
+      "brand": "Spell",
+      "image_url": "https://cdn.shopify.com/s/files/1/0216/3104/files/GlastonburyLaceDress-White03a.jpg?v=1771286100",
+      "category": "dress"
+    },
+    "shpfy-datchoicecom-7687619510425": {
+      "title": "Bella Dress - Formal Dress For Summer Party",
+      "brand": "Dat'choice",
+      "image_url": "https://cdn.shopify.com/s/files/1/0610/6791/9513/files/a3f0432cab416a169370c215e693d2ec3x4.jpg?v=1689232227",
+      "category": "dress"
+    },
+    "shpfy-atoircom-9773905772866": {
+      "title": "Veda Dress",
+      "brand": "Atoir",
+      "image_url": "https://cdn.shopify.com/s/files/1/0620/0862/3289/files/veda-midi-front-atoir.jpg?v=1771225487",
+      "category": "dress"
+    },
+    "shpfy-beareparkcom-9388449792243": {
+      "title": "Presley Gown",
+      "brand": "Beare Park",
+      "image_url": "https://cdn.shopify.com/s/files/1/0602/1300/2483/files/S15-PRESLEYGOWN_BLK-26101-BearePark-0284_b0364138-fbfb-4eb9-8bfc-83511b300be6.jpg?v=1771896874",
+      "category": "dress"
+    },
+    "html-tl180com-4506": {
+      "title": "Irene Mini Knitted Dress Rosa And Rosso",
+      "brand": "TL 180",
+      "image_url": "https://www.tl-180.com/wp-content/uploads/2020/08/TL180-Knitwear-Irene-mini-knitted-dress-rosa-and-rosso-01-scaled.jpg",
+      "category": "dress"
+    },
+    "shpfy-onemilethelabelcom-9291475976448": {
+      "title": "Suri Wrap Maxi Dress Light Blue",
+      "brand": "One Mile The Label",
+      "image_url": "https://cdn.shopify.com/s/files/1/0334/8171/9945/files/Artboard122_9a9c391d-1057-46c8-9bb8-fd7211b2d057.jpg?v=1768776844",
+      "category": "dress"
+    },
+    "shpfy-motionalmusecom-9032998551740": {
+      "title": "Gina Multiway Dress",
+      "brand": "Motional Muse",
+      "image_url": "https://cdn.shopify.com/s/files/1/0622/7610/8476/files/GinaDress_9b0b9679-a7a4-48d4-aea1-78322ca64567.jpg?v=1765499573",
+      "category": "dress"
+    },
+    "shpfy-elioucom-10273111966013": {
+      "title": "Paloma Dress",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/ghfh.jpg?v=1775848803",
+      "category": "dress"
+    },
+    "shpfy-coucouintimatescom-8393335472306": {
+      "title": "The Balconette Dress Cherry Red",
+      "brand": "Cou Cou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0539/8924/5106/files/PDP267_1132b379-00a8-42a8-8ddf-5d5e1f67f230.jpg?v=1776177572",
+      "category": "dress"
+    },
+    "shpfy-cultgaiacom-7774805721162": {
+      "title": "VANYA DRESS - MERLOT",
+      "brand": "Cult Gaia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0336/7793/files/260121_DR_CG_SP_HS26_RESHT_141_VANYA_DRESS_RED_0010_WEBBED.jpg?v=1769652247",
+      "category": "dress"
+    },
+    "shpfy-staudclothing-7492520542381": {
+      "title": "LE SABLE DRESS | IVORY",
+      "brand": "STAUD",
+      "image_url": "https://cdn.shopify.com/s/files/1/1689/2633/files/27-R24S2188BM_IVY_1910_web.jpg?v=1706315328",
+      "category": "dress"
+    },
+    "shpfy-shonajoycom-7534383071316": {
+      "title": "IRIDESCENT LONG SLEEVE MINI DRESS",
+      "brand": "Shona Joy",
+      "image_url": "https://cdn.shopify.com/s/files/1/2158/0979/files/48_Iridescent_Long_Sleeve_Mini_Dress_IVY_9251527_1-1_R.jpg?v=1734299359",
+      "category": "dress"
+    },
+    "shpfy-hennecomau-14761761997163": {
+      "title": "Velina Maxi Dress",
+      "brand": "Henne",
+      "image_url": "https://cdn.shopify.com/s/files/1/0483/8778/4853/files/HE-1378-VELINA-DRESS-JUTE_1.jpg?v=1766542473",
+      "category": "dress"
+    },
+    "shpfy-bohemiabychlocom-10340145856787": {
+      "title": "Diamond Cutwork Dress",
+      "brand": "Bohemia By Chlo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0838/1831/6051/files/IMG_3811.jpg?v=1773343378",
+      "category": "dress"
+    },
+    "shpfy-modemischiefstudioscom-8731667333288": {
+      "title": "ZIP MINI DRESS",
+      "brand": "Mode Mischief Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/0592/4959/0440/files/35160019.jpg?v=1747296903",
+      "category": "dress"
+    },
+    "shpfy-maisonessentielecom-7119674867806": {
+      "title": "Buckle Dress",
+      "brand": "Maison Essentiele",
+      "image_url": "https://cdn.shopify.com/s/files/1/0002/0624/1819/files/MAISON-ESSENTIELE-BUCKLE-DRESS-BLACK_0710.jpg?v=1740613740",
+      "category": "dress"
+    },
+    "shpfy-lamariecomau-9500952428842": {
+      "title": "NADIA DRESS BLACK",
+      "brand": "Lamarie",
+      "image_url": "https://cdn.shopify.com/s/files/1/0895/3344/8490/files/IMG_2167.heic?v=1758764615",
+      "category": "dress"
+    },
+    "shpfy-imnotamorningpersonstore-8507426209965": {
+      "title": "THE CLASSIC REVERSIBLE MINI DRESS - BLACK",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/IMG_3348.jpg?v=1772445891",
+      "category": "dress"
+    },
+    "shpfy-blonditacom-10239247450405": {
+      "title": "Janis Dress Noir",
+      "brand": "Blondita",
+      "image_url": "https://cdn.shopify.com/s/files/1/0783/9134/5445/files/Screenshot2026-02-21at12.36.54PM.png?v=1771706245",
+      "category": "dress"
+    },
+    "shpfy-showpocom-10215714652470": {
+      "title": "Sienna Maxi Dress - 3D Floral Strapless Column Dress in White",
+      "brand": "Showpo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0917/0154/3222/files/Sienna_Maxi_Dress_-_3D_Floral_Strapless_Column_Dress_in_White_5.jpg?v=1749012217",
+      "category": "dress"
+    },
+    "shpfy-cultgaiacom-7894424911946": {
+      "title": "BLYTHE DRESS - OFF WHITE",
+      "brand": "Cult Gaia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0336/7793/files/260120_DR_CG_SP_HS26_RESHT_04_BLYTHE_DRESS_WHT_0010_WEBBED.jpg?v=1769043190",
+      "category": "dress"
+    },
+    "shpfy-disshcom-15067925447024": {
+      "title": "ANDREA SANDSTONE CUPRO MIDI DRESS",
+      "brand": "Dissh",
+      "image_url": "https://cdn.shopify.com/s/files/1/0265/5590/8132/files/DNP11475SAND.164_10.jpg?v=1776133136",
+      "category": "dress"
+    },
+    "shpfy-staudclothing-7252822851757": {
+      "title": "LE SABLE DRESS | BLUE TOILE",
+      "brand": "STAUD",
+      "image_url": "https://cdn.shopify.com/s/files/1/1689/2633/files/215-LE_SABLE_BLUE_TOILE_0380_web.jpg?v=1750453283",
+      "category": "dress"
+    },
+    "shpfy-kookaicom-7976809562182": {
+      "title": "Serenity Cross Back Dress",
+      "brand": "Kookai",
+      "image_url": "https://cdn.shopify.com/s/files/1/0915/5382/files/sampleserenitycrossback_2044.jpg?v=1771116287",
+      "category": "dress"
+    },
+    "shpfy-stjohnknitscom-10080236667168": {
+      "title": "Rosalie Gown In Satin Abstract Burnout",
+      "brand": "St. John",
+      "image_url": "https://cdn.shopify.com/s/files/1/0884/4155/3184/files/k12nc71-bk00-black-dress-re26-1_Updated.jpg?v=1768035266",
+      "category": "dress"
+    },
+    "shpfy-stagnicom-7491085598802": {
+      "title": "Silk Twill Relaxed Slip Dress - Brick",
+      "brand": "St. Agni",
+      "image_url": "https://cdn.shopify.com/s/files/1/1139/4362/files/20250409_StAgni_R26_SH_9_R26-905BRK_446.jpg?v=1759120490",
+      "category": "dress"
+    },
+    "shpfy-insisshop-7732096270441": {
+      "title": "Crinkled Sleeveless Dress",
+      "brand": "Insis",
+      "image_url": "https://cdn.shopify.com/s/files/1/0601/6981/4121/files/FN2621405119_1.webp?v=1774062983",
+      "category": "dress"
+    },
+    "shpfy-deijistudioscom-10319509455140": {
+      "title": "Crossed Dress - Black",
+      "brand": "Deiji Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/1287/7907/files/250820_DEIJI_DAY01_07_0521_ea888f15-b86a-493c-81b5-9493c9e2c42d.jpg?v=1769565406",
+      "category": "dress"
+    },
+    "shpfy-huongboutiquecom-10052078502195": {
+      "title": "Wave Pearl Dress",
+      "brand": "Huong Boutique",
+      "image_url": "https://cdn.shopify.com/s/files/1/0937/8696/4275/files/WavePearlDress_2.jpg?v=1768359459",
+      "category": "dress"
+    },
+    "shpfy-kallmeyernyc-10306248311096": {
+      "title": "Lizzy Dress in Basket Weave",
+      "brand": "Kallmeyer",
+      "image_url": "https://cdn.shopify.com/s/files/1/0743/5708/0376/files/SS26_ECOM-DKSS262016LIZZYDRESS_BLACK-8481.jpg?v=1769723116",
+      "category": "dress"
+    },
+    "shpfy-amrheacom-10233242812691": {
+      "title": "CARMELLA DRESS",
+      "brand": "Amrhea",
+      "image_url": "https://cdn.shopify.com/s/files/1/0753/3471/3619/files/Amrheastudio3340.jpg?v=1765884052",
+      "category": "dress"
+    },
+    "shpfy-loveandnostalgiacom-8341506850850": {
+      "title": "Little Tramp Dress",
+      "brand": "Love And Nostalgia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0046/5020/5218/files/AC_7391_bbcc949d-28f0-4693-a71e-57e80dd40377.jpg?v=1774935201",
+      "category": "dress"
+    },
+    "shpfy-elioucom-10274555986237": {
+      "title": "Laso Dress",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/31003.jpg?v=1775786696",
+      "category": "dress"
+    },
+    "shpfy-aninebingcom-7013641060424": {
+      "title": "Alix Dress - Black",
+      "brand": "Anine Bing",
+      "image_url": "https://cdn.shopify.com/s/files/1/0150/1528/files/AB-ALIX_DRESS_-_BLACK_A-02-12049-BLK26_006.jpg?v=1770766011",
+      "category": "dress"
+    },
+    "shpfy-byebambicom-7633094148201": {
+      "title": "CLEO MINI DRESS - BLACK",
+      "brand": "Bye Bambi",
+      "image_url": "https://cdn.shopify.com/s/files/1/0028/0713/6345/files/CLEOMINIBLACKFRONTMID.jpg?v=1762060374",
+      "category": "dress"
+    },
+    "shpfy-imnotamorningpersonstore-8507424374957": {
+      "title": "THE CLASSIC REVERSIBLE MINI DRESS - WHITE",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/IMG_2950.jpg?v=1772445846",
+      "category": "dress"
+    },
+    "shpfy-maisonessentielecom-7310170652766": {
+      "title": "Buckle Mini Dress",
+      "brand": "Maison Essentiele",
+      "image_url": "https://cdn.shopify.com/s/files/1/0002/0624/1819/files/MAISON-ESSENTIELE-BUCKLE-MINI-DRESS-CHOCOLATE_0525.jpg?v=1740614276",
+      "category": "dress"
+    },
+    "shpfy-peachydencouk-15367634321795": {
+      "title": "The Bardot Dress, Lead",
+      "brand": "Peachy Den",
+      "image_url": "https://cdn.shopify.com/s/files/1/0570/3503/0699/files/PDAW25-Shot8-1200_e1826c37-074e-4f44-9b0f-579478505942.jpg?v=1758554360",
+      "category": "dress"
+    },
+    "shpfy-eministorecom-9352437989619": {
+      "title": "Black Rose Bustiet Dress",
+      "brand": "Emini.store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0806/1901/2339/files/Blackrosebustietdress7_resize_1600x2048_4975ccad-ca84-4b6c-b3a0-0b28e05d1597.jpg?v=1768385943",
+      "category": "dress"
+    },
+    "shpfy-tigermistcom-6910103224459": {
+      "title": "MACAULEY DRESS - WHITE : CREAM",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/products/5780492D-C0EB-4389-80AF-6BE6A0F9D656.jpg?v=1660608161",
+      "category": "dress"
+    },
+    "shpfy-disshcom-15053632471408": {
+      "title": "ANDREA BLACK CUPRO MIDI DRESS",
+      "brand": "Dissh",
+      "image_url": "https://cdn.shopify.com/s/files/1/0265/5590/8132/files/DNP11475BK.600_10.jpg?v=1775798664",
+      "category": "dress"
+    }
+  },
+  "updatedAt": "2026-04-25T02:06:41.896Z",
+  "category": "dresses"
+}
