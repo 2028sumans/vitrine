@@ -48,70 +48,26 @@ export async function GET() {
   const checks:    Record<string, unknown> = {};
   const failures:  string[] = [];
 
-  // ── 0. Direct import + model load — captures the actual exception that
-  //       getTextModel() swallows with `console.error + return null`. If
-  //       embedTextQuery is returning [], it's because one of these threw.
-  //       We unwrap the failure here so the JSON response shows it.
+  // ── 0. Import @xenova/transformers — confirm the package itself loads.
+  //       NB: we deliberately don't call from_pretrained here. The prod
+  //       path runs warmupEmbeddingModels() at module load, which fires
+  //       getTextModel() / getVisionModel() in the background and caches
+  //       their _modelPromise. Any concurrent direct from_pretrained call
+  //       from this handler would race the warmup and fail with
+  //       "Can't create a session" — a synthetic failure nothing in prod
+  //       triggers. Step 1 below uses embedTextQuery, which awaits the
+  //       cached warmup promise. That's what actually measures whether
+  //       the model is loaded.
   try {
     const t0 = Date.now();
     const transformers = await import(/* webpackIgnore: true */ "@xenova/transformers");
     const importMs = Date.now() - t0;
-
     const exports = Object.keys(transformers).filter((k) => !k.startsWith("_")).slice(0, 12);
     checks.import_transformers = {
       ok:           true,
       duration_ms:  importMs,
       exports_seen: exports,
     };
-
-    // Try to actually instantiate the tokenizer + text model.
-    try {
-      const { env, AutoTokenizer, CLIPTextModelWithProjection } = transformers;
-      env.allowLocalModels = false;
-      env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
-
-      // Mirror the prod path's WASM configuration. Without this, the
-      // threaded-WASM session-create path fails on Vercel (no Cross-
-      // Origin Isolation) and Step 0 reports a misleading 'Can't create
-      // a session' even though getTextModel — which DOES apply this
-      // patch — succeeds in subsequent steps. Forcing single-threaded
-      // here lines the debug check up with what production actually
-      // runs.
-      const wasmCfg = env?.backends?.onnx?.wasm;
-      if (wasmCfg) {
-        wasmCfg.numThreads = 1;
-        wasmCfg.proxy      = false;
-      }
-
-      const t1 = Date.now();
-      const tokenizer = await AutoTokenizer.from_pretrained("ff13/fashion-clip");
-      const tokenizerMs = Date.now() - t1;
-      checks.tokenizer_load = {
-        ok:          !!tokenizer,
-        duration_ms: tokenizerMs,
-      };
-
-      const t2 = Date.now();
-      const model = await CLIPTextModelWithProjection.from_pretrained(
-        "ff13/fashion-clip",
-        { quantized: true },
-      );
-      const modelMs = Date.now() - t2;
-      checks.text_model_load = {
-        ok:          !!model,
-        duration_ms: modelMs,
-      };
-      if (!model) failures.push("text_model_load returned null/undefined");
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      checks.tokenizer_or_model_load = {
-        ok:    false,
-        error: err.message,
-        name:  err.name,
-        stack: err.stack?.split("\n").slice(0, 8),
-      };
-      failures.push(`model load threw: ${err.message}`);
-    }
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     checks.import_transformers = {
@@ -121,9 +77,9 @@ export async function GET() {
       stack: err.stack?.split("\n").slice(0, 8),
       hint:
         err.message.includes("Cannot find module")
-          ? "Package isn't in the function bundle. Check next.config.js → experimental.serverComponentsExternalPackages includes '@xenova/transformers' AND 'onnxruntime-node'."
+          ? "Package isn't in the function bundle. Check next.config.js → experimental.serverComponentsExternalPackages includes '@xenova/transformers'."
           : err.message.includes("ENOENT") || err.message.includes("not found")
-            ? "A dependency file is missing. Likely the ONNX runtime native binary wasn't traced into the deployment."
+            ? "A dependency file is missing. Likely a WASM binary wasn't traced into the deployment."
             : "Read the stack — top frame names the failing module.",
     };
     failures.push(`import @xenova/transformers threw: ${err.message}`);
