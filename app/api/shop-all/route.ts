@@ -693,69 +693,101 @@ export async function POST(request: Request) {
           }
         }
       } else if (diversify) {
-        // Multi-offset spread for the labeling tool. The default single
-        // hitsPerPage=384 fetch returns the top of desc(price) within the
-        // category — naturally clumps into 3-5 luxury brands. Splitting
-        // into 4 parallel queries at evenly-spaced offsets walks the entire
-        // price range in one batch, surfacing far more brand variety. The
-        // 1000-offset Algolia cap is respected (last offset is 750 + 96 = 846).
-        const NUM_DIVERSE_SLICES = 4;
-        const PER_SLICE          = Math.ceil(SCOPED_FETCH / NUM_DIVERSE_SLICES);
-        const MAX_OFFSET         = 1000 - PER_SLICE; // headroom against Algolia's 1000 cap
+        // Maximum brand variety for the labeling tool. Two-stage pull:
+        //
+        // 1. FACET QUERY — enumerate every brand that appears in this
+        //    category (up to 1000 distinct values). Single Algolia call,
+        //    no products fetched. Cheap.
+        //
+        // 2. PER-BRAND QUERIES — fire parallel hitsPerPage=8 queries scoped
+        //    to each brand. ~80 queries per page-load for a typical
+        //    category. Each query returns up to 8 items from that brand.
+        //
+        // 3. ROUND-ROBIN — first item of each brand, then second of each,
+        //    etc. The first N items of the output are N distinct brands
+        //    (capped at the brand count). For a category with 80 brands
+        //    in the catalog, the first 80 visible products show 80
+        //    different brands — full coverage from the start.
+        //
+        // The previous single-1000-hit approach hit Algolia's price-desc
+        // ranking ceiling: only 51 of 2747 shoes' brands could fit in the
+        // top-1000 by price, so 51 was the hard ceiling per page. This
+        // approach has no such ceiling.
 
-        // Probe nbHits first so we don't issue queries past the actual
-        // catalog depth (a niche category might have <1000 items total).
-        const probe = await client.searchSingleIndex({
+        // Step 1 — facet query.
+        const facetRes = await client.searchSingleIndex({
           indexName: INDEX_NAME,
           searchParams: {
-            query:       q,
+            query:                q,
             ...(optionalWords ? { optionalWords } : {}),
             ...(filters ? { filters } : {}),
-            hitsPerPage: 1,
-            page:        0,
-            attributesToRetrieve: ["objectID"],
+            hitsPerPage:          0,
+            facets:               ["brand"],
+            maxValuesPerFacet:    1000,
           },
         });
-        nbHits = probe.nbHits ?? 0;
+        nbHits = facetRes.nbHits ?? 0;
 
-        const usableHits = Math.min(nbHits, MAX_OFFSET);
-        const stride     = Math.max(PER_SLICE, Math.floor(usableHits / NUM_DIVERSE_SLICES));
-        const pageOffset = page * PER_SLICE;
+        const brandCounts: Record<string, number> = (facetRes.facets?.brand ?? {}) as Record<string, number>;
+        // Sort brands by item count descending — common brands first means
+        // the round-robin head is dominated by brands that have plenty of
+        // inventory, with rarer brands (1-2 items) trailing. Slightly
+        // better UX than alphabetical (which would put "8rb4" before
+        // "Khaite") and slightly better recall than ascending (no point
+        // putting 1-item brands at the very top of the head).
+        const brandNames = Object.entries(brandCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([brand]) => brand);
 
-        const slices = await Promise.all(
-          Array.from({ length: NUM_DIVERSE_SLICES }, async (_, i) => {
-            const sliceOffset = Math.min(i * stride + pageOffset, MAX_OFFSET);
-            if (sliceOffset >= usableHits) return [] as Array<Record<string, unknown>>;
+        // Step 2 — parallel per-brand queries. PER_BRAND=8 gives us enough
+        // depth to fill multiple pages from a single fetch (8 brands worth
+        // each "Load more" turn).
+        const PER_BRAND = 8;
+        const scopeFilter = brandFilterQuery || categoryScope?.filters || "";
+        const brandHits = await Promise.all(
+          brandNames.map(async (brand) => {
             try {
+              const escaped = brand.replace(/"/g, '\\"');
+              const perBrandFilters = scopeFilter
+                ? `(${scopeFilter}) AND brand:"${escaped}"`
+                : `brand:"${escaped}"`;
               const r = await client.searchSingleIndex({
                 indexName: INDEX_NAME,
                 searchParams: {
                   query:       q,
                   ...(optionalWords ? { optionalWords } : {}),
-                  ...(filters ? { filters } : {}),
-                  offset:  sliceOffset,
-                  length:  PER_SLICE,
+                  filters:     perBrandFilters,
+                  hitsPerPage: PER_BRAND,
+                  page:        0,
                   attributesToRetrieve,
                 },
               });
               return (r.hits ?? []) as Array<Record<string, unknown>>;
             } catch (e) {
-              console.warn(`[shop-all] diversify slice failed (offset=${sliceOffset}):`, e instanceof Error ? e.message : e);
+              console.warn(`[shop-all] diversify per-brand query failed for "${brand}":`, e instanceof Error ? e.message : e);
               return [] as Array<Record<string, unknown>>;
             }
           }),
         );
 
-        // Round-robin interleave across slices — first item of each slice,
-        // then second of each, and so on. Mixes products from different
-        // price tiers (and therefore different brand cohorts) up front.
-        products = [];
-        for (let i = 0; i < PER_SLICE; i++) {
-          for (let j = 0; j < NUM_DIVERSE_SLICES; j++) {
-            const hit = slices[j]?.[i];
-            if (hit) products.push(hit);
+        // Step 3 — round-robin. First pass takes one from each brand,
+        // second pass another from each brand, etc. Brands that run out
+        // early (only 1-2 items) drop from the rotation; brands with deep
+        // inventory keep contributing.
+        const buckets = brandHits.map((arr) => arr.slice());
+        const interleaved: Array<Record<string, unknown>> = [];
+        let anyLeft = true;
+        while (anyLeft) {
+          anyLeft = false;
+          for (const bucket of buckets) {
+            const item = bucket.shift();
+            if (item) { interleaved.push(item); anyLeft = true; }
           }
         }
+
+        // Slice for the requested page.
+        const start = page * SCOPED_FETCH;
+        products = interleaved.slice(start, start + SCOPED_FETCH);
       } else {
         const res = await client.searchSingleIndex({
           indexName: INDEX_NAME,
@@ -810,15 +842,17 @@ export async function POST(request: Request) {
       // many style dimensions as the pool has. Speeds up preference
       // elicitation: each like/dislike narrows the feed across multiple
       // axes at once instead of reinforcing a single clump.
-      clean = interleaveByAestheticAndBrand(clean);
-
-      // Enforce brand-spread after the aesthetic×brand round-robin. The
-      // nested round-robin is great at the head but naturally leaves long
-      // mono-brand tails as smaller brands drain; this pass keeps the same
-      // brand ≥4 slots apart wherever possible. Skipped in brand-filter
-      // mode (entire pool is one brand by definition — would be a no-op
-      // anyway but the cooldown loop degenerates to a single pass).
-      if (!brandFilterQuery) clean = spreadByBrand(clean, 4);
+      //
+      // SKIPPED when `diversify: true` — the labeling tool already ran a
+      // pure brand round-robin over a 1000-item Algolia max, which puts
+      // maximum brand variety in the first N slots. interleaveByAesthetic
+      // would re-group by aesthetic (clumping minimalist brands together)
+      // and undo that work. Same reason we skip spreadByBrand: the round-
+      // robin already places the same brand >50 slots apart on average.
+      if (!diversify) {
+        clean = interleaveByAestheticAndBrand(clean);
+        if (!brandFilterQuery) clean = spreadByBrand(clean, 4);
+      }
 
       // Similarity boost — merged liked-products + onboarding-taste ranking.
       // boostByClipSimilarity's historical `likedCount >= 2` floor was about
