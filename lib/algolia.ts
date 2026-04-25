@@ -248,28 +248,51 @@ export async function searchByCategory(
   };
 }
 
-// Fetch full product records by objectID (used after Pinecone visual search)
+// Fetch full product records by objectID (used after Pinecone visual search,
+// and by /edits/[slug] to hydrate editorial product_ids).
+//
+// Algolia v5's getObjects throws ObjectNotFound on any missing id, which
+// at build time crashes the whole `next build` of /edits/[slug]/page when
+// an edit's product_ids drift out of sync with the live catalog (e.g.
+// after a brand or price purge). Degrades to per-id fetches via
+// Promise.allSettled so misses are silently dropped instead of taking
+// down the whole list.
 export async function getProductsByIds(objectIDs: string[]): Promise<AlgoliaProduct[]> {
   if (!objectIDs.length) return [];
   const client = getClient();
 
-  // Algolia getObjects returns results in same order as requested IDs
-  const res = await client.getObjects({
-    requests: objectIDs.map((id) => ({
-      indexName:            INDEX_NAME,
-      objectID:             id,
-      attributesToRetrieve: [
-        "objectID", "title", "brand", "price", "price_range",
-        "color", "material", "description", "image_url", "images",
-        "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
-        // English back-fills (see scripts/translate-non-english.mjs).
-        "title_en", "description_en", "original_language",
-      ],
-    })),
-  });
+  const ATTRS = [
+    "objectID", "title", "brand", "price", "price_range",
+    "color", "material", "description", "image_url", "images",
+    "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
+    // English back-fills (see scripts/translate-non-english.mjs).
+    "title_en", "description_en", "original_language",
+  ];
 
-  return (res.results as AlgoliaProduct[]).filter(
-    (p) => p?.objectID && p.image_url?.startsWith("http") && !p.image_url.includes("placeholder")
+  let raw: (AlgoliaProduct | null)[] = [];
+  try {
+    const res = await client.getObjects({
+      requests: objectIDs.map((id) => ({
+        indexName:            INDEX_NAME,
+        objectID:             id,
+        attributesToRetrieve: ATTRS,
+      })),
+    });
+    raw = res.results as (AlgoliaProduct | null)[];
+  } catch {
+    const settled = await Promise.allSettled(
+      objectIDs.map((id) =>
+        client
+          .getObject({ indexName: INDEX_NAME, objectID: id, attributesToRetrieve: ATTRS })
+          .then((p) => p as AlgoliaProduct),
+      ),
+    );
+    raw = settled.map((s) => (s.status === "fulfilled" ? s.value : null));
+  }
+
+  return raw.filter(
+    (p): p is AlgoliaProduct =>
+      !!p?.objectID && p.image_url?.startsWith("http") === true && !p.image_url.includes("placeholder"),
   );
 }
 
