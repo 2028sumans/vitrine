@@ -26,6 +26,16 @@ const nextConfig = {
       "/api/**/*": [
         "./node_modules/@xenova/transformers/dist/*.wasm",
         "./node_modules/@xenova/transformers/dist/*.mjs",
+        // Belt-and-suspenders: even with serverComponentsExternalPackages,
+        // Vercel's tracer occasionally drops dynamic-imported packages.
+        // Glob the entire Pinecone SDK (~1.5 MB) to guarantee inclusion.
+        "./node_modules/@pinecone-database/pinecone/**",
+        // onnxruntime-node ships a Linux-x64 .node binary @xenova/transformers
+        // auto-detects in preference to onnxruntime-web (WASM). Trace it
+        // explicitly because the .node file is loaded via require() which
+        // Vercel sometimes misses.
+        "./node_modules/onnxruntime-node/bin/napi-v3/linux/x64/*.node",
+        "./node_modules/onnxruntime-node/dist/**",
       ],
     },
   },

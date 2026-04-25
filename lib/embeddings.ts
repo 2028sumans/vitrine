@@ -380,9 +380,18 @@ export async function embedTextQuery(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _pinecone: any = null;
 
+// `webpackIgnore: true` was historically here to keep webpack from
+// trying to bundle the package (it has dynamic requires that break).
+// But the comment also hides the import from Vercel's file tracer, so
+// the package wasn't getting deployed — every Pinecone search failed
+// with "Cannot find package '@pinecone-database/pinecone'" at runtime.
+// With `serverComponentsExternalPackages: ["@pinecone-database/pinecone"]`
+// in next.config.js (added in 8115d60), webpack already keeps the import
+// external — so we no longer need webpackIgnore. Vercel can trace and
+// deploy the package normally.
 async function getPinecone() {
   if (!_pinecone) {
-    const { Pinecone } = await import(/* webpackIgnore: true */ "@pinecone-database/pinecone");
+    const { Pinecone } = await import("@pinecone-database/pinecone");
     _pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
   }
   return _pinecone;

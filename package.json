@@ -19,6 +19,7 @@
     "bcryptjs": "^3.0.3",
     "next": "14.2.35",
     "next-auth": "^4.24.13",
+    "onnxruntime-node": "^1.24.3",
     "posthog-js": "^1.364.7",
     "react": "^18",
     "react-dom": "^18",
