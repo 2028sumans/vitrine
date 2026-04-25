@@ -364,15 +364,17 @@ function mergeRankedIds(a: string[], b: string[]): string[] {
 // Boost products whose objectID appears in `clipIds` to the front of the
 // list, ordered by CLIP rank. Cap at `topN` so the tail keeps Algolia's
 // interleaved diversity — we're ordering the lead of the feed, not replacing
-// it. Skip the boost entirely when the user has fewer than 2 liked items
-// (not enough signal to trust centroid search).
+// it. Fires from the first like: the user wants their taste to start
+// pulling similar items immediately, not after a "warmup" of two clicks.
+// topN = 24 (was 12) so half of a 48-item page is taste-driven after a
+// like — a visibly stronger nudge.
 function boostByClipSimilarity<T extends Record<string, unknown>>(
   products:     T[],
   clipIds:      string[],
   likedCount:   number,
-  topN = 12,
+  topN = 24,
 ): T[] {
-  if (clipIds.length === 0 || likedCount < 2) return products;
+  if (clipIds.length === 0 || likedCount < 1) return products;
   const rank = new Map<string, number>();
   clipIds.forEach((id, i) => rank.set(id, i));
   const boosted: T[] = [];
@@ -869,7 +871,7 @@ export async function POST(request: Request) {
       clean = boostByClipSimilarity(
         clean,
         boostIds,
-        Math.max(likedProductIds.length, taste.hasVector ? 2 : 0),
+        Math.max(likedProductIds.length, taste.hasVector ? 1 : 0),
       );
 
       // Brand-age affinity demote — pushes products from brands whose curated
@@ -880,10 +882,16 @@ export async function POST(request: Request) {
         clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
       }
 
+      // hasMore from total catalog count, not per-page hit count. The earlier
+      // `products.length >= SCOPED_FETCH / 2` (192) was fragile: aggressive
+      // post-filters (steer, price-cap bands, category enforce) regularly
+      // trimmed a 384-item fetch below 192 — and pagination terminated even
+      // though the index had thousands more matching items.
+      const consumed = (page + 1) * SCOPED_FETCH;
       return NextResponse.json({
         products: clean,
         page,
-        hasMore:  products.length >= SCOPED_FETCH / 2, // pages of ≥50% fill keep paginating
+        hasMore:  nbHits > 0 ? consumed < nbHits : products.length >= SCOPED_FETCH / 4,
         mode:     brandFilterQuery ? "brand" : "category",
         brand:    brandFilter    || undefined,
         category: categoryFilter || undefined,
@@ -942,56 +950,96 @@ export async function POST(request: Request) {
       clean = boostByClipSimilarity(
         clean,
         boostIds,
-        Math.max(likedProductIds.length, taste.hasVector ? 2 : 0),
+        Math.max(likedProductIds.length, taste.hasVector ? 1 : 0),
       );
       clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
 
+      // hasMore from total catalog count — Algolia's nbHits is authoritative
+      // here and lets us paginate even when the per-page hit count drops
+      // below HITS_PER_PAGE due to post-filters or the customRanking tail.
+      const queryNbHits = res.nbHits ?? 0;
+      const queryConsumed = (page + 1) * HITS_PER_PAGE;
       return NextResponse.json({
         products: clean,
         page,
-        hasMore: (res.hits?.length ?? 0) >= HITS_PER_PAGE,
+        hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= HITS_PER_PAGE / 2,
         mode:    steerQuery ? (hasLikedSignals(bias) ? "steered+biased" : "steered") : "biased",
         query:   q,
       });
     }
 
-    // ── Default path: simple paginated catalog walk ──────────────────────
+    // ── Default path: 8-slice catalog walk ──────────────────────────────
     //
-    // Previously this lane used an 8-slice interleave that fired parallel
-    // queries at offsets across the catalog (0, 15k, 30k, …). That broke
-    // against Algolia's `paginationLimitedTo` (1000 hits) — 7 of the 8
-    // slices asked for offsets > 1000 and silently got zero hits, which
-    // tripped the `hasMore` check on page 0 and pinned the result set at
-    // ~42 items total.
+    // For Shop All without bias / steer, we want catalog-wide diversity, not
+    // 96 consecutive items by desc(price) (the index's customRanking). Fire 8
+    // parallel queries at evenly-spaced offsets across the catalog and round-
+    // robin interleave the hits — page 0 lands a mix from price-tier 0/8
+    // through price-tier 7/8 instead of just the most-expensive 96.
     //
-    // No live surface uses this mode on top of the multi-slice guarantee —
-    // /shop always sends a brand or category filter, so the scoped path
-    // upstream handles pagination. The only consumer is /admin/label, which
-    // wants a big raw pool to cherry-pick a gold eval set from. Straight
-    // Algolia pagination at a generous page size is the right shape:
-    // gets ~1000 items across 10 pages, which is plenty for labeling.
+    // The earlier comment claimed paginationLimitedTo=1000 broke this; that
+    // was true at one point but it's now 200,000, so all 8 slice offsets
+    // resolve cleanly. Each slice walks forward by 1 page per Load-More;
+    // SLICE_SPAN_PAGES is calibrated so the slices don't overlap until ~1000
+    // load-mores, which the user will never reach.
     const FLAT_HITS_PER_PAGE = 96;
-    const res = await client.searchSingleIndex({
+    const SLICES             = 8;
+    const PER_SLICE          = FLAT_HITS_PER_PAGE / SLICES; // 12
+    // Sized off the actual catalog (~98.7K) so slices land at 0%, 12.5%,
+    // 25%, … 87.5% of the index. nbHits is fetched cheaply via a 0-hit
+    // count query (no result transfer) so we don't hardcode a stale total.
+    const totalRes = await client.searchSingleIndex({
       indexName: INDEX_NAME,
-      searchParams: {
-        query:       "",
-        hitsPerPage: FLAT_HITS_PER_PAGE,
-        page,
-        attributesToRetrieve,
-      },
+      searchParams: { query: "", hitsPerPage: 0, page: 0, attributesToRetrieve: [] },
     });
-    const products = ((res.hits ?? []) as Array<Record<string, unknown>>).filter((h) => {
+    const totalCatalog = totalRes.nbHits ?? 100_000;
+    const SLICE_SPAN_PAGES = Math.max(1, Math.floor(totalCatalog / (SLICES * PER_SLICE)));
+
+    const sliceResults = await Promise.all(
+      Array.from({ length: SLICES }, (_, sliceIdx) =>
+        client
+          .searchSingleIndex({
+            indexName: INDEX_NAME,
+            searchParams: {
+              query:       "",
+              hitsPerPage: PER_SLICE,
+              page:        sliceIdx * SLICE_SPAN_PAGES + page,
+              attributesToRetrieve,
+            },
+          })
+          .catch(() => ({ hits: [] as Array<Record<string, unknown>>, nbHits: 0 })),
+      ),
+    );
+
+    // Round-robin interleave so the result spans all 8 slices.
+    const interleaved: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < PER_SLICE; i++) {
+      for (let s = 0; s < SLICES; s++) {
+        const hit = sliceResults[s].hits?.[i] as Record<string, unknown> | undefined;
+        if (hit) interleaved.push(hit);
+      }
+    }
+
+    let products = interleaved.filter((h) => {
       const u = h.image_url;
       return typeof u === "string" && u.startsWith("http");
     });
-    const hasMore = (res.hits?.length ?? 0) >= FLAT_HITS_PER_PAGE;
+    products = interleaveByAestheticAndBrand(products);
+    products = spreadByBrand(products, 4);
+
+    // hasMore is true as long as the deepest slice still has items left — i.e.
+    // the user hasn't walked past the catalog ceiling. nbHits is consistent
+    // across slices (same query, just different page) so we can read it from
+    // any slice that returned a number.
+    const totalHits = sliceResults.find((r) => (r.nbHits ?? 0) > 0)?.nbHits ?? totalCatalog;
+    const consumed  = (page + 1) * FLAT_HITS_PER_PAGE;
+    const hasMore   = consumed < totalHits;
 
     return NextResponse.json({
       products,
       page,
       hasMore,
       mode:  "flat",
-      total: res.nbHits ?? null,
+      total: totalHits,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
