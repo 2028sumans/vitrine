@@ -130,13 +130,6 @@ export default function HomePage() {
             Brands
           </Link>
           <Link
-            href="/twin"
-            className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
-            style={{ color: `${HERO_TEXT}b3` }}
-          >
-            TwinFinder
-          </Link>
-          <Link
             href="/edit"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` }}
@@ -182,7 +175,6 @@ export default function HomePage() {
           links={[
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/twin",      label: "TwinFinder" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
         />

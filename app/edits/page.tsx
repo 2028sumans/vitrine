@@ -26,7 +26,6 @@ export default function EditsIndexPage() {
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
           <Link href="/shop"   className="text-muted hover:text-foreground transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
-          <Link href="/twin"   className="text-muted hover:text-foreground transition-colors">TwinFinder</Link>
           <Link href="/edit"   className="text-muted hover:text-foreground transition-colors">Your shortlist</Link>
         </div>
         <MobileMenu
@@ -34,7 +33,6 @@ export default function EditsIndexPage() {
           links={[
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
-            { href: "/twin",      label: "TwinFinder" },
             { href: "/edit",      label: "Your shortlist" },
           ]}
         />
