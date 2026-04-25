@@ -70,6 +70,19 @@ export async function GET() {
       env.allowLocalModels = false;
       env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
 
+      // Mirror the prod path's WASM configuration. Without this, the
+      // threaded-WASM session-create path fails on Vercel (no Cross-
+      // Origin Isolation) and Step 0 reports a misleading 'Can't create
+      // a session' even though getTextModel — which DOES apply this
+      // patch — succeeds in subsequent steps. Forcing single-threaded
+      // here lines the debug check up with what production actually
+      // runs.
+      const wasmCfg = env?.backends?.onnx?.wasm;
+      if (wasmCfg) {
+        wasmCfg.numThreads = 1;
+        wasmCfg.proxy      = false;
+      }
+
       const t1 = Date.now();
       const tokenizer = await AutoTokenizer.from_pretrained("ff13/fashion-clip");
       const tokenizerMs = Date.now() - t1;
