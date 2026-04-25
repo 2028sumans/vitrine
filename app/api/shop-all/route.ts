@@ -729,14 +729,21 @@ export async function POST(request: Request) {
         nbHits = facetRes.nbHits ?? 0;
 
         const brandCounts: Record<string, number> = (facetRes.facets?.brand ?? {}) as Record<string, number>;
-        // Sort brands by item count descending — common brands first means
-        // the round-robin head is dominated by brands that have plenty of
-        // inventory, with rarer brands (1-2 items) trailing. Slightly
-        // better UX than alphabetical (which would put "8rb4" before
-        // "Khaite") and slightly better recall than ascending (no point
-        // putting 1-item brands at the very top of the head).
+        // Sort brands by item count descending and CAP at MAX_BRANDS so we
+        // don't fire 250 parallel queries on Knits / Outerwear / etc. where
+        // the brand pool is very long-tailed. Algolia rate-limits at the
+        // application level — 250 parallel queries per page-load was hard-
+        // blocking the entire app within minutes.
+        //
+        // 50 covers the practical labeling need: the user sees 50 distinct
+        // brands in the first 50 tiles, more than enough variety to pick
+        // ~40 items per age bucket. The dropped long-tail brands typically
+        // have 1-3 items each in the catalog and would rarely surface in
+        // labeling anyway.
+        const MAX_BRANDS = 50;
         const brandNames = Object.entries(brandCounts)
           .sort((a, b) => b[1] - a[1])
+          .slice(0, MAX_BRANDS)
           .map(([brand]) => brand);
 
         // Step 2 — parallel per-brand queries. PER_BRAND=8 gives us enough
