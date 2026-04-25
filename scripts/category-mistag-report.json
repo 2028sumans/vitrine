@@ -1,0 +1,6061 @@
+{
+  "index": "vitrine_products",
+  "total": 98715,
+  "flagged_total": 856,
+  "flagged": {
+    "beauty_in_apparel": [
+      {
+        "objectID": "shpfy-stagnicom-7170376138834",
+        "title": "St. Pauls | Eau de Parfum 50ml - by FRAMA",
+        "brand": "St. Agni",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-9161728491688",
+        "title": "CLOUD DAZE (막걸리) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-9161726754984",
+        "title": "BAE FRAIS (아람) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-9161723445416",
+        "title": "ROYAL RESIN (침향) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-9161716891816",
+        "title": "SILK BOUQUET (채화) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8472138285224",
+        "title": "JANG (장) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8472133075112",
+        "title": "HAENYEO (해녀) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8472127373480",
+        "title": "HANOK (한옥) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8472119804072",
+        "title": "GIT (깃) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7783423869096",
+        "title": "BE BY MY SIDE (흐노니) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7783423344808",
+        "title": "HAZY BLUE (이내) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7783422492840",
+        "title": "GENTLE SHOWER (잠비) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7783420493992",
+        "title": "INFLORESCENCE (송아리) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7113728491688",
+        "title": "FIRE (리) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7113725378728",
+        "title": "WATER (감) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7113717055656",
+        "title": "EARTH (곤) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-7113644015784",
+        "title": "HEAVEN (건) Eau De Parfum",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7401589899338",
+        "title": "ZAN EAU DE PARFUM",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7401587212362",
+        "title": "NOOR EAU DE PARFUM",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7401586819146",
+        "title": "MAST EAU DE PARFUM",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-aninebingcom-6715109113928",
+        "title": "Pure Noir Eau De Parfum 100ML  - Pure Noir",
+        "brand": "Anine Bing",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-aninebingcom-6715109081160",
+        "title": "Rose Wood Eau De Parfum 100ML - Rose Wood",
+        "brand": "Anine Bing",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-8663330193711",
+        "title": "L'Amour Rose Saint-Tropez Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-blonditacom-10398666162469",
+        "title": "Perfect Angel Eau De Parfum",
+        "brand": "Blondita",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-8293167202607",
+        "title": "Sundae Pretty Pink Gift Set Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-8293151113519",
+        "title": "Sundae Violet Vibe Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-8099381739823",
+        "title": "Fantasia Pop Surprise Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-4925912875096",
+        "title": "Sky Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10261297037615",
+        "title": "Wild Wonder Collection Utopia Mist Eau de Parfum",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10261296513327",
+        "title": "Wild Wonder Collection Thorn of a Rose Eau de Parfum",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10261295792431",
+        "title": "Wild Wonder Collection Mystic Luna Eau de Parfum",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10261294481711",
+        "title": "Wild Wonder Collection Electric Whisper Eau de Parfum",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-262925647902",
+        "title": "Flight of Fancy Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-262857097246",
+        "title": "Sui Dreams Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-9648982458671",
+        "title": "Fantasia Rose Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-311434969118",
+        "title": "Fantasia Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-262861815838",
+        "title": "Secret Wish Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-262848806942",
+        "title": "Anna Sui Classic Eau de Toilette",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-6683552579672",
+        "title": "Anna Sui Volume Mascara",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-6683551596632",
+        "title": "Anna Sui Waterproof Mascara",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-4481930625112",
+        "title": "Sui Black Mascara",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-8068016570671",
+        "title": "The Mascara Base",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10496574980399",
+        "title": "New: Anna Sui Eyebrow Mascara",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-4817200283736",
+        "title": "Nail Polish Topper",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-4817194680408",
+        "title": "Nail Polish",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      }
+    ],
+    "lifestyle_in_apparel": [
+      {
+        "objectID": "shpfy-staudclothing-8535884136621",
+        "title": "CERAMIC TOWER INCENSE HOLDER | MIDNIGHT CONFETTI GLAZE",
+        "brand": "STAUD",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-staudclothing-8535884628141",
+        "title": "PYRAMID INCENSE HOLDER | MOLASSES GLAZE",
+        "brand": "STAUD",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-johnstonsofelgincom-15152616178049",
+        "title": "Cashmere Navy Hot Water Bottle Gift Set",
+        "brand": "Johnstons Of Elgin",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-johnstonsofelgincom-15152614441345",
+        "title": "Cashmere Natural Hot Water Bottle Gift Set",
+        "brand": "Johnstons Of Elgin",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-johnstonsofelgincom-15152610804097",
+        "title": "Cashmere Grey Hot Water Bottle Gift Set",
+        "brand": "Johnstons Of Elgin",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "woo-maisoncleocom-375759",
+        "title": "PACK 6 : Pyjama shirt + pyjama trousers + basic panty + MaisonCléo x Eska Paris bows candle + box",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-staudclothing-8535885381805",
+        "title": "COASTER SET | CERAMIC LEATHER",
+        "brand": "STAUD",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-staudclothing-8535884595373",
+        "title": "HUT INCENSE HOLDER | BLUE BURNT ORANGE GLAZE",
+        "brand": "STAUD",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-johnstonsofelgincom-9674613555478",
+        "title": "Cashmere Cable Natural Hot Water Bottle",
+        "brand": "Johnstons Of Elgin",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-johnstonsofelgincom-9674611032342",
+        "title": "Cable Grey Cashmere Hot Water Bottle",
+        "brand": "Johnstons Of Elgin",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "woo-maisoncleocom-375716",
+        "title": "PACK 5 : Pyjama shirt + pyjama bottoms + froufrous panty + MaisonCléo x Eska Paris bows candle + box",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-johnstonsofelgincom-9390789460246",
+        "title": "Light Grey Cashmere Hot Water Bottle Cover",
+        "brand": "Johnstons Of Elgin",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-mutimerco-8354295447748",
+        "title": "Cowboy Incense Holder",
+        "brand": "Mutimer",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-appariscom-14705028497773",
+        "title": "Meena Mink Hot Water Bottle",
+        "brand": "Apparis",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-appariscom-14705028465005",
+        "title": "Meena Mink Hot Water Bottle",
+        "brand": "Apparis",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-appariscom-7969433616579",
+        "title": "Meena Leopard Hot Water Bottle",
+        "brand": "Apparis",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-appariscom-7969433551043",
+        "title": "Meena Dark Leopard Hot Water Bottle",
+        "brand": "Apparis",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-nanushkacom-15159846207867",
+        "title": "Incense Holder - Clay Incense Holder - Multicolor",
+        "brand": "Nanushka",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8688062070952",
+        "title": "Diffuser Solution",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590811332847",
+        "title": "KINTO TO GO TUMBLER",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-postsolecom-7891133890758",
+        "title": "Brass Incense Holder \"S\" Shape",
+        "brand": "Post Sole Studio",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-postsolecom-7891133857990",
+        "title": "Brass Incense Holder \"C\" Shape",
+        "brand": "Post Sole Studio",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8963405152424",
+        "title": "EARTH - Hand and Body Wash",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8963382542504",
+        "title": "GIT - Hand and Body Wash",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8963369009320",
+        "title": "HAZY BLUE - Hand and Body Wash",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8963411017896",
+        "title": "GIT - Hand Cream",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8963408855208",
+        "title": "EARTH - Hand Cream",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-eloreacom-8963355836584",
+        "title": "HAZY BLUE - Hand Cream",
+        "brand": "Elorea",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10701997277487",
+        "title": "Limited Edition: Mirror and Hand Cream Kit",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-9055191498991",
+        "title": "KORO INCENSE HOLDER",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590817329391",
+        "title": "NATURAL BODY WASH BY CORPUS",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8612993564843",
+        "title": "Spring Coaster Set",
+        "brand": "Dippin Daisys",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-minkadinklondoncom-14962220958080",
+        "title": "Minka Water Bottle",
+        "brand": "Minka Dink London",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-8236844810411",
+        "title": "Nobody's Child Iris Reed Diffuser",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-disshcom-8599819911356",
+        "title": "MIRROR WATER SOAK BATH SALTS",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590811365615",
+        "title": "KINTO WATER BOTTLE",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10775449764143",
+        "title": "Anna Sui Hand Cream",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590753464559",
+        "title": "REED DIFFUSER - LOW",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590749008111",
+        "title": "REED DIFFUSER",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-8236840190123",
+        "title": "Nobody's Child Rhea Reed Diffuser",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-14992758407553",
+        "title": "Karpo Reed Diffuser",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-7839152865451",
+        "title": "Daisy Printed Tumbler",
+        "brand": "Dippin Daisys",
+        "category": "dress",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590702313711",
+        "title": "DIFFUSER REFILL",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15174774325633",
+        "title": "Fig Reed Diffuser",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15174774489473",
+        "title": "Assorted Hand Cream Trio Set",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "DELETE"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590750154991",
+        "title": "SCULPT TUMBLER GLASS",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "DELETE"
+      }
+    ],
+    "swimwear_in_dress": [
+      {
+        "objectID": "shpfy-annasuicom-11253234827567",
+        "title": "Desert Bloom Swimsuit",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773306220596",
+        "title": "Marseille DD Drawstring Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773305499700",
+        "title": "Belle DD Drawstring Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773305368628",
+        "title": "Coastline Zip Front One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773304483892",
+        "title": "Coastline DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773006458932",
+        "title": "Belle V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762618085428",
+        "title": "Mala DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762615758900",
+        "title": "Beach Boheme Zip Front One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8744617672756",
+        "title": "Beachclub DD One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692100038708",
+        "title": "Bandwave DD One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663494656052",
+        "title": "Beach Bound DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773757665332",
+        "title": "Beach Club V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773305696308",
+        "title": "Mesh Effect DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773304582196",
+        "title": "Marseille Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8773304287284",
+        "title": "Mesh Effect V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762643611700",
+        "title": "Beach Boheme Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762615955508",
+        "title": "Beach Boheme V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8744644837428",
+        "title": "Seafolly Collective DD One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692100792372",
+        "title": "Bandwave Zip Front One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663512023092",
+        "title": "Beach Bound Boyleg One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663510384692",
+        "title": "Seafolly Collective F Cup One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591434645556",
+        "title": "Seafolly Collective DD One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8664715132980",
+        "title": "Beach Bound Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591437660212",
+        "title": "Seafolly Collective Ruched Underwire One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8745350758452",
+        "title": "Seafolly Collective V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8744727838772",
+        "title": "Seafolly Collective V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663545020468",
+        "title": "Seafolly Collective Multi Fit Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663511466036",
+        "title": "Seafolly Collective Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591432908852",
+        "title": "Sea Dive DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591120662580",
+        "title": "Seafolly Collective V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8743473446964",
+        "title": "Viva Vacation DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717728743476",
+        "title": "Hothouse Flowers Zip Front One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692099121204",
+        "title": "C Shells DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675157377076",
+        "title": "Palermo Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675111501876",
+        "title": "Palermo DD Drawstring Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663538499636",
+        "title": "Sorrento Zip Front One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663511498804",
+        "title": "Clubhouse DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663511203892",
+        "title": "Sorrento Reversible Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591435759668",
+        "title": "Riviera Coast Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591433007156",
+        "title": "Riviera Coast DD One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591117942836",
+        "title": "Riviera Coast Zip Front One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675158818868",
+        "title": "Sea Dive V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663494885428",
+        "title": "Sea Dive Deep V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591436316724",
+        "title": "Sea Dive V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663510220852",
+        "title": "Sorrento Reversible Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8607777226804",
+        "title": "Beach Bound DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-annasuicom-9606098354479",
+        "title": "Wavy Clouds Bathing Suit",
+        "brand": "Anna Sui",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8743985020980",
+        "title": "Clubhouse Retro One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8743970373684",
+        "title": "Viva Vacation Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591700852788",
+        "title": "Mesh Effect V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591434022964",
+        "title": "Riviera Coast V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663511990324",
+        "title": "Gia Check Ric Rac DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8623353167924",
+        "title": "Mesh Effect V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8610977022004",
+        "title": "Mesh Effect DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8698102251572",
+        "title": "Positano V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675166289972",
+        "title": "Playa Bonita Ruched Underwire One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675153805364",
+        "title": "Positano V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591437758516",
+        "title": "Coastline DD Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717710032948",
+        "title": "Calypso Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663522639924",
+        "title": "Gia Check Ric Rac One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591437299764",
+        "title": "Coastline V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591436677172",
+        "title": "Beach Picnic Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8591433302068",
+        "title": "Coastline V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8719111192628",
+        "title": "Hothouse Flowers V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717712457780",
+        "title": "Hothouse Flowers V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717710721076",
+        "title": "Hothouse Flowers V Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692099612724",
+        "title": "C Shells Bandeau One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667842121806",
+        "title": "Printed Wrap Swimsuit Dark Garden",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667841826894",
+        "title": "Printed Wrap Swimsuit Alea",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667841073230",
+        "title": "Printed Wrap Swimsuit Color Palette",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667838255182",
+        "title": "Printed Wrap Swimsuit Summer",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667834159182",
+        "title": "Printed Wrap Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692099809332",
+        "title": "Kai Square Neck One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8779415355444",
+        "title": "Textured Stripe Bikini",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8779414339636",
+        "title": "Summer Chintz Triangle Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8779413946420",
+        "title": "Summer Chintz One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762644660276",
+        "title": "Palermo Tie One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762642890804",
+        "title": "Palermo Tie Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762616938548",
+        "title": "Texture Triangle Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-7659316314164",
+        "title": "Essentials Bikini - Black",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667881541710",
+        "title": "Knotted Swimsuit Green",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667829833806",
+        "title": "Knotted Swimsuit Brown",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667829309518",
+        "title": "Knotted Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7612673392718",
+        "title": "Patterned Surf Swimsuit Faded Tie Dye",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7415545987150",
+        "title": "Swimsuit With Front Zip Multi Color",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412419493966",
+        "title": "Patterned Surf Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412417691726",
+        "title": "Patterned Surf Swimsuit Leaf",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412417593422",
+        "title": "Patterned Surf Swimsuit Blue Shell",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412415987790",
+        "title": "Patterned Surf Swimsuit Wave",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7409239818318",
+        "title": "Swimsuit With Front Zip Geometric",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7409239720014",
+        "title": "Swimsuit With Front Zip Zebra",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7392467451982",
+        "title": "Swimsuit With Front Zip Tiny Flower",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7392467353678",
+        "title": "Swimsuit With Front Zip Peach",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-6988506759246",
+        "title": "Swimsuit With Front Zip Chamomile",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-6988506234958",
+        "title": "Swimsuit With Front Zip Retro",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-6988505677902",
+        "title": "Swimsuit With Front Zip Color Brush",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-6988505415758",
+        "title": "Swimsuit With Front Zip Tie Dye",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-6988504727630",
+        "title": "Swimsuit With Front Zip Flower",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8779415715892",
+        "title": "Aruba One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762669400116",
+        "title": "Texture One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762644398132",
+        "title": "Beach Boheme One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762616741940",
+        "title": "Beach Boheme Shirred Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717728940084",
+        "title": "Gingham Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717728841780",
+        "title": "Gingham One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717728776244",
+        "title": "Hothouse Flowers Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675806576692",
+        "title": "Terry One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675183919156",
+        "title": "Maldives One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675119169588",
+        "title": "Playa Bonita Triangle Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675108290612",
+        "title": "Maldives Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663538073652",
+        "title": "Terry Triangle Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8633478807604",
+        "title": "Stripe Chilli One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8633478316084",
+        "title": "Stripe Chilli Textured Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8592197812276",
+        "title": "Seersucker One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-6988911050830",
+        "title": "Long Balloon Sleeve Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7004780232755",
+        "title": "Butter High Rise Bikini",
+        "brand": "Retrofete",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667841269838",
+        "title": "Adjustable Waist Swimsuit Blue",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667833372750",
+        "title": "Adjustable Waist Swimsuit Green",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667832848462",
+        "title": "Adjustable Waist Swimsuit Brown",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667832225870",
+        "title": "Adjustable Waist Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717708525620",
+        "title": "Gingham Shirred Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675193978932",
+        "title": "Coral Sea Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675179429940",
+        "title": "Playa Bonita Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675155935284",
+        "title": "Coral Sea One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663511236660",
+        "title": "Terry One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412417298510",
+        "title": "Athletic Parachute Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667922665550",
+        "title": "Print Ruched Swimsuit Pure Floral",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8633478348852",
+        "title": "Beach Picnic Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7667834257486",
+        "title": "Print Cross‑Back Swimsuit Summer",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8717710622772",
+        "title": "Hothouse Flowers Shirred Bikini Set",
+        "brand": "Seafolly",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412407074894",
+        "title": "Swimsuit With Tie Detail Red",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412406943822",
+        "title": "Swimsuit With Tie Detail Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412406419534",
+        "title": "Cross-Strap Swimsuit Cherry",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412406124622",
+        "title": "Cross-Strap Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412405174350",
+        "title": "Cut Out Swimsuit Red",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7392560382030",
+        "title": "Cut Out Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7412400816206",
+        "title": "Belted Swimsuit Black",
+        "brand": "Manuka Global",
+        "category": "dress",
+        "suggested": "other"
+      }
+    ],
+    "swimwear_in_top_or_bottom": [
+      {
+        "objectID": "shpfy-nefsfindscom-9195047026917",
+        "title": "LILY TANKINI",
+        "brand": "Nefsfinds",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9341275504879",
+        "title": "Size 38 EU Chanel Logo Navy Blue Nylon One Piece Swimsuit",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7982967455837",
+        "title": "Mixed Cashew And Birds One-Piece Swimsuit",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7982950711389",
+        "title": "Off-White Banana Flowers One-Piece Swimsuit",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7982948253789",
+        "title": "Multicolor Floraline Smocked Strapless One-Piece Swimsuit",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762617135156",
+        "title": "Mala Ring Front Halter One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-farmriocom-8039940522077",
+        "title": "Light Pink Anthurium One-Piece Swimsuit",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692099219508",
+        "title": "Bandwave Belted Tank One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663545348148",
+        "title": "Beach Bound Tank One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-railscom-8425608839337",
+        "title": "RAILS X LSPACE NADIA ONE PIECE SWIMSUIT - BLACK",
+        "brand": "Rails",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8744727740468",
+        "title": "Seafolly Collective Multifit Wrap Front Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675138142260",
+        "title": "Seafolly Collective Multi Fit Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675134505012",
+        "title": "Seafolly Collective Multi Fit Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8664715231284",
+        "title": "Seafolly Collective Square Neck Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663510482996",
+        "title": "Clubhouse Tank One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-7659315888180",
+        "title": "Seafolly Collective Twist Halter Tankini Bikini Top - Black",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8615149174955",
+        "title": "Vanilla Custard Tankini Super Cheeky Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8615147569323",
+        "title": "Bonjour Tankini Super Cheeky Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8716966002859",
+        "title": "Banana Bay Tankini Super Cheeky Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8676511088811",
+        "title": "Flor De Sol Tankini Cheeky Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8544336838827",
+        "title": "Turkish Coffee Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8544335233195",
+        "title": "Ocean Spray Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8544331759787",
+        "title": "Indigo Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-fruitybootycouk-15318003777922",
+        "title": "Leopard Shania Tankini",
+        "brand": "Fruity Booty",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8454030164139",
+        "title": "Limone Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8454028230827",
+        "title": "Gardenia Pointelle Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-fruitybootycouk-15318003581314",
+        "title": "Kiwi Tankini",
+        "brand": "Fruity Booty",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-fruitybootycouk-15318003417474",
+        "title": "Floss Tankini",
+        "brand": "Fruity Booty",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8425742794923",
+        "title": "Lilo Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692100923444",
+        "title": "C Shells Square Neck Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8692100857908",
+        "title": "C Shells Square Neck Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8663510876212",
+        "title": "Sorrento Multi Fit  Tankini Bikini Top",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-fruitybootycouk-14924359106946",
+        "title": "Reef Tankini",
+        "brand": "Fruity Booty",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7816827863133",
+        "title": "Off-White Sweet Bloom Bouquet One-Piece Swimsuit",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7886414217309",
+        "title": "Black Sunny Moon One-Piece Swimsuit",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8675196665908",
+        "title": "Beach Bound Tank One Piece Swimsuit",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-jcthelabelcom-8255335039145",
+        "title": "i'm not going out in this monokini",
+        "brand": "Jc The Label",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-dippindaisyscom-8454018695339",
+        "title": "Bellini Stripe Tankini Full Set",
+        "brand": "Dippin Daisys",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8779411259444",
+        "title": "Textured Tankini Set",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-seafollycom-8762644430900",
+        "title": "Textured Tankini Set",
+        "brand": "Seafolly",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-datchoicecom-7655386775705",
+        "title": "Coral Monokini",
+        "brand": "Dat'choice",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-datchoicecom-7655391756441",
+        "title": "Heart Neck Monokini Swimsuit",
+        "brand": "Dat'choice",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590819328239",
+        "title": "ONE PIECE SWIMSUIT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-iamgiacom-8372665614507",
+        "title": "SEDONA TANKINI - FLUTTER CAMO",
+        "brand": "I AM GIA",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8908684886255",
+        "title": "ONE SHOULDER ONE-PIECE SWIMSUIT WITH CUTOUT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "other"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590834794735",
+        "title": "CONTRAST DETAIL ONE PIECE SWIMSUIT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "other"
+      }
+    ],
+    "shoes_mistagged": [
+      {
+        "objectID": "shpfy-laruiccicom-8338193547484",
+        "title": "DENIM STILETTO BOOTS",
+        "brand": "Laruicci",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-8019605749834",
+        "title": "CAMILLA SANDAL - BLACK",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-mlouyecom-6681680085038",
+        "title": "Louise Slide Sandal - Denim",
+        "brand": "Mlouye",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-8090187890762",
+        "title": "ESTEE SANDAL - TOASTED CARAMEL",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-8090187857994",
+        "title": "ESTEE SANDAL - BLACK",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-aninebingcom-7032330747976",
+        "title": "Jess Sandals Denim - Clean Indigo",
+        "brand": "Anine Bing",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-aninebingcom-7022505623624",
+        "title": "Paloma Espadrilles - Leopard",
+        "brand": "Anine Bing",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-guestinresidencecom-9720991088880",
+        "title": "MB X GIR EVX MULE KNIT",
+        "brand": "Guest In Residence",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-guestinresidencecom-9720991056112",
+        "title": "MB X GIR EVX MULE KNIT",
+        "brand": "Guest In Residence",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-guestinresidencecom-9720991023344",
+        "title": "MB X GIR EVX MULE KNIT",
+        "brand": "Guest In Residence",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7087898132531",
+        "title": "Pacifica Embellished Denim Mule",
+        "brand": "Retrofete",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7166157717584",
+        "title": "Camilla Stacked Sole Sandal",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "woo-maisoncleocom-337915",
+        "title": "Cowboy boots / Messages / Tartan / Hearts / Dragon knitted wool scarf",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7196888236066",
+        "title": "Riya Denim Cowboy Boot - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7022062010419",
+        "title": "Daphne Denim Mule",
+        "brand": "Retrofete",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286345138551",
+        "title": "Espadrilles Lozi - Suède ambre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286345073015",
+        "title": "Espadrilles Lozi - Cuir python marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-kendallmilesdesignscom-6773404270665",
+        "title": "Miles Sneaker (Two-toned Denim)",
+        "brand": "Kendall Miles Designs",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7166157127760",
+        "title": "Dune Denim Trainer",
+        "brand": "Aje",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592292806995",
+        "title": "Espadrilles Maya - Suède ambre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286358966647",
+        "title": "Espadrilles Maya - Suède violet",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286358868343",
+        "title": "Espadrilles Maya - Suède pourpre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286358802807",
+        "title": "Espadrilles Maya - Suède orange",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873518276983",
+        "title": "Espadrilles Maya - Suède magenta",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873518244215",
+        "title": "Espadrilles Maya - Suède léopard",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973492916448",
+        "title": "Espadrilles Catherine - Suède marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973492785376",
+        "title": "Espadrilles Catherine - Cuir grainé champagne",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7698709545184",
+        "title": "Espadrilles plates Chantal - Cuir grainé champagne",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286342844791",
+        "title": "Espadrilles Dina - Suède rose",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286342779255",
+        "title": "Espadrilles Dina - Suède ambre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286336127351",
+        "title": "Espadrilles Chantal - Cuir doré",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286334456183",
+        "title": "Espadrilles Azel - Suède pourpre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286334390647",
+        "title": "Espadrilles Azel - Suède ambre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286334357879",
+        "title": "Espadrilles Azel - Cuir doré",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873491243383",
+        "title": "Espadrilles Chantal - Suède léopard",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7196891054114",
+        "title": "Micah Denim Embossed Chunky Loafer - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7169755283490",
+        "title": "Sara Mule Denim - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973493080288",
+        "title": "Espadrilles Charles - Suède kaki",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7698709643488",
+        "title": "Espadrilles Charles - Suède marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592293069139",
+        "title": "Espadrilles Roméo - Suède taupe",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592293036371",
+        "title": "Espadrilles Roméo - Suède marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973493342432",
+        "title": "Espadrilles Raymond - Suède marine",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973493276896",
+        "title": "Espadrilles Raymond - Suède kaki",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-15286334554487",
+        "title": "Espadrilles Bebi - Satin rouge",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873491210615",
+        "title": "Espadrilles Bebi - Toile noir",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7698714394848",
+        "title": "Espadrilles compensées Ambre - Suède orange",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873506218359",
+        "title": "Espadrilles Lanzo - Toile écru",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873506152823",
+        "title": "Espadrilles Lanzo - Toile noir",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873495994743",
+        "title": "Espadrilles Hawa - Suède marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873495961975",
+        "title": "Espadrilles Hawa - Suède magenta",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873495929207",
+        "title": "Espadrilles Hawa - Suède léopard",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873495830903",
+        "title": "Espadrilles Fidi - Suède magenta",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873495798135",
+        "title": "Espadrilles Fidi - Suède léopard",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592292905299",
+        "title": "Espadrilles Maya - Suède sapin",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592292839763",
+        "title": "Espadrilles Maya - Suède moutarde",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973493506272",
+        "title": "Espadrilles Thais - Cuir doré",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973493440736",
+        "title": "Espadrilles Thais - Cuir marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7201767260194",
+        "title": "Lexi Denim Embossed Sandal - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592292643155",
+        "title": "Espadrilles Chantal - Suède embossé tressé ambre",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-7973492981984",
+        "title": "Espadrilles Chantal - Cuir plissé fuchsia",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592292708691",
+        "title": "Espadrilles Flore - Suède sapin moutarde marron",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-8592292675923",
+        "title": "Espadrilles Flore - Suède corail ciel jaune",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873495896439",
+        "title": "Espadrilles Flore - Suède magenta kaki beige",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873491145079",
+        "title": "Espadrilles Bebi - Suède léopard",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      },
+      {
+        "objectID": "shpfy-odajecom-14873491177847",
+        "title": "Espadrilles Bebi - Toile beige",
+        "brand": "Odaje",
+        "category": "dress",
+        "suggested": "shoes"
+      }
+    ],
+    "bags_mistagged": [
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214607261935",
+        "title": "Jumbo Classic Flap Patchwork Multicolor Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9343270355183",
+        "title": "Baguette Denim Print Canvas with Python Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9334279504111",
+        "title": "Classic Double Flap 2017 Matelasse Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9247041257711",
+        "title": "Mini Square Classic Flap 1997-1999 Matelasse Black Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9234911920367",
+        "title": "Classic Flap Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9332480671983",
+        "title": "Classic Double Flap 2003-2004 Matelasse Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9325344555247",
+        "title": "Classic Flap 2017-2018 Matelasse Multicolor Woven Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9209965904111",
+        "title": "Classic Flap 2021-2026 Matelasse Logo Print Black Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9343269732591",
+        "title": "Jumbo Classic Flap 2016-2017 Perfume Bottle Embroidery Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9335178363119",
+        "title": "Mini Classic Flap 2019 Matelasse Black Parisian Rooftop Canvas Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214607294703",
+        "title": "Classic Double Flap Knit Black & White Wool Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9332480934127",
+        "title": "Posty Patchwork Blue Monogram Denim Two Way Messenger Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214608638191",
+        "title": "Pleaty Olive Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9254657032431",
+        "title": "Saddle Blue Tie Dye Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217262026991",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-nordicpoetrycom-10128951476523",
+        "title": "Vintage Louis Vuitton 2005 Blue denim Monogram Speedy Handbag",
+        "brand": "Nordic Poetry",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9234912018671",
+        "title": "Mini Pleaty Green Denim Monogram Canvas Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9223231504623",
+        "title": "Mombasa Gray Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217263796463",
+        "title": "Mombasa Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9211415855343",
+        "title": "Classic Flap 2019 Knit Black & White Wool Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9324717342959",
+        "title": "Baguette Floral Beaded Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9323696652527",
+        "title": "Pleaty Green Monogram Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9323696226543",
+        "title": "Diva Black Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9245458694383",
+        "title": "Baggy Monogram Green Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-nordicpoetrycom-9901902102827",
+        "title": "Vintage 2005 Pink denim Monogram Baggy Shoulder Bag",
+        "brand": "Nordic Poetry",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-nordicpoetrycom-9901443121451",
+        "title": "Vintage 2001 Double Denim Saddle Bag",
+        "brand": "Nordic Poetry",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9251793699055",
+        "title": "Mombasa Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9234911985903",
+        "title": "Mamma Baguette Floral Embroidery Pink Knitted Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9221894439151",
+        "title": "Neo Speedy Fuchsia Monogram Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9254655328495",
+        "title": "Baguette Floral Embroidered Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9233982357743",
+        "title": "Mini Pleaty Green Monogram Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9231021080815",
+        "title": "Saddle Speedway Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-nordicpoetrycom-9043793412395",
+        "title": "Vintage 2000's Pink Denim Monogram Bucket Bag",
+        "brand": "Nordic Poetry",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9203599835375",
+        "title": "Saddle Flower Embroidery Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214607917295",
+        "title": "Baggy Pink Monogram Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9210604650735",
+        "title": "Baguette Floral Beaded Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9231018361071",
+        "title": "Drawstring Blue Denim Gold Strap Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214610309359",
+        "title": "Baguette Blue Zucca Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9205969158383",
+        "title": "Mamma Baguette Embroidery Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9339074838767",
+        "title": "Saddle Blue Trotter Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9239917396207",
+        "title": "Neo Baggy Blue Monogram Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9239036788975",
+        "title": "Mombasa Black Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9233981210863",
+        "title": "Saddle Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9324717146351",
+        "title": "Baguette Floral Raffia Embroidered Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9324717015279",
+        "title": "Baguette Floral Mesh Applique Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9309015212271",
+        "title": "Mini Baguette Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9251789275375",
+        "title": "Baguette in Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9245460398319",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9239037116655",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9238168731887",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214608539887",
+        "title": "Baguette Blue Zucca Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9209965248751",
+        "title": "Baggy Blue Monogram Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9209965183215",
+        "title": "Baggy Blue Monogram Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9315438493935",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9254656049391",
+        "title": "Saddle Pink Trim Gray Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217263501551",
+        "title": "Saddle Blue Trotter Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9198186397935",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9338095403247",
+        "title": "Double Saddle Blue Trotter Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9239036854511",
+        "title": "Mombasa Black Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9231017476335",
+        "title": "Baguette in Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217264124143",
+        "title": "Baggy Blue Monogram Canvas Denim Hobo Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214607360239",
+        "title": "Baggy Blue Monogram Denim Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9234912411887",
+        "title": "Neo Baggy Blue Monogram Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9210609500399",
+        "title": "Mamma Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9182202069231",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9323695472879",
+        "title": "Baguette Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9306732429551",
+        "title": "Baguette Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9247041388783",
+        "title": "Mamma Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217264156911",
+        "title": "Mombasa Crescent Gray Denim Crossbody Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217262190831",
+        "title": "Ballet Corset Black Leather Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214608081135",
+        "title": "Baguette Rhinestone Buckle Knit Gray Wool Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9210607075567",
+        "title": "Saddle Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9343806865647",
+        "title": "2002-2003 Blue CC Canvas Denim Hobo Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9339075330287",
+        "title": "Baguette Navy Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9334280847599",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9309866557679",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9254656573679",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214608212207",
+        "title": "Lady Dior East West Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9331366002927",
+        "title": "Mamma Baguette Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9323695669487",
+        "title": "Gaucho Red Trim Green Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9254655787247",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9210604585199",
+        "title": "Mini Street Chic Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9182203347183",
+        "title": "Baggy Monogram PM Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9180005728495",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9335179051247",
+        "title": "Neo Speedy Green Monogram Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9181172433135",
+        "title": "Mini Mamma Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9343271141615",
+        "title": "Baguette Denim with Silver Hardware Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217261601007",
+        "title": "Gaucho Green Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9210603995375",
+        "title": "Caro Multi-Color Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9318341116143",
+        "title": "Gaucho Green Denim and Red Leather Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9234912641263",
+        "title": "Baguette Purple Knitted Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9222709936367",
+        "title": "Mamma Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9307748335855",
+        "title": "Mini Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9205970272495",
+        "title": "Noe Full Pink Monogram Denim Two Way Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9223382892783",
+        "title": "Street Chic Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9198185840879",
+        "title": "Columbus Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9210604519663",
+        "title": "Malice Pearl Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9318343377135",
+        "title": "Mamma Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9318343278831",
+        "title": "Mamma Baguette Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9199088861423",
+        "title": "Malice Pearl Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9234912477423",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9231019802863",
+        "title": "Noefull Hot Pink Monogram Denim Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9221895651567",
+        "title": "Baguette Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-nordicpoetrycom-9994076750123",
+        "title": "Vintage Fendi 1990's Denim Mini Tote Bag",
+        "brand": "Nordic Poetry",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-nordicpoetrycom-10128999022891",
+        "title": "Vintage 2000's Miu Miu Denim Pink Hobo Shoulder Bag",
+        "brand": "Nordic Poetry",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9332480475375",
+        "title": "Baguette Cream White Knit Wool Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9214611194095",
+        "title": "Baguette Blue Knitted Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9239038263535",
+        "title": "Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9313895448815",
+        "title": "Panthere Brown Crocodile Embossed Leather Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9211415134447",
+        "title": "Baguette Knit Gray Wool Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9200706846959",
+        "title": "Baguette Brown Zucchino Patent Coated Canvas Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "jacket",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9309865509103",
+        "title": "Navy Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9306732986607",
+        "title": "Black Denim with Brown Leather Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9239036952815",
+        "title": "Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9231020392687",
+        "title": "Denim Trim Brown Cow Print Pony Hair Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217265565935",
+        "title": "Maris Pearl Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9205103788271",
+        "title": "Abbey Blue GG Canvas Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9200702521583",
+        "title": "Saddle Pouch Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9343271239919",
+        "title": "Blue Denim with Sillver Details Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9339075068143",
+        "title": "Vintage Spy Blue Denim Hobo Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9320423850223",
+        "title": "Mamma Baguette White Knitted Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9221894996207",
+        "title": "Navy Blue Denim Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9211416641775",
+        "title": "Mini Rhinestone Studded Blue Denim Crossbody Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9200707731695",
+        "title": "Canapa Blue Denim and Fur Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9339074412783",
+        "title": "Joie Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9309854105839",
+        "title": "Saddle Vintage Classic Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-cuyanacom-14884518363502",
+        "title": "Camina Bucket Bag (Suede)",
+        "brand": "Cuyana",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9325828440303",
+        "title": "Small Rhinestone and Stud Embellished Blue Denim Crossbody Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-cuyanacom-14884518330734",
+        "title": "Camina Bucket Bag",
+        "brand": "Cuyana",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9209964462319",
+        "title": "Brown Cow Print Pony Hair & Denim Tote Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9231019376879",
+        "title": "Knit Gray Cashmere Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9217263337711",
+        "title": "Bordeaux Macadam Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9350264652015",
+        "title": "Paris Macadam Navy Triomphe Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9175905861871",
+        "title": "Archive Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9329627889903",
+        "title": "Blue Denim Shoulder Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9200705143023",
+        "title": "Intrecciato Blue Denim and Leather Clutch Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7861095137354",
+        "title": "OSA SHOULDER BAG - DENIM",
+        "brand": "Cult Gaia",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-hiveprelovedcom-9155632562415",
+        "title": "Paris Macadam Purple Denim Hobo Bag",
+        "brand": "Hive Preloved",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "woo-maisoncleocom-392851",
+        "title": "Animal short velvet baguette pockets shoulder bag",
+        "brand": "Maison Cléo",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-6802789761058",
+        "title": "FEI Jacquard Knit Medium Tote Bag - Navy",
+        "brand": "Jw Pei",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8334488633378",
+        "title": "Hana Medium Denim Tote Bag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8348842623010",
+        "title": "Maeve Tote Bag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8348842590242",
+        "title": "Hana Mini Denim Tote Bag - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8340253278242",
+        "title": "Yara Denim Shoulder Bag - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-insisshop-7674650656873",
+        "title": "Coated Tote Bag",
+        "brand": "Insis",
+        "category": "jacket",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8355686154274",
+        "title": "Hana Mini Tote Bag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8355685924898",
+        "title": "Jayla Metal Pendant Embellished Shoulder Bag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8348843311138",
+        "title": "Ines Tote Bag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8348842655778",
+        "title": "Lucia Classic Handbag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7196949151778",
+        "title": "Eliana Denim Embossed Tote Bag - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7196893708322",
+        "title": "Ashley Denim Ruched Shoulder Bag - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7982943273053",
+        "title": "Blue Toucan Puffer Tote Bag",
+        "brand": "Farm Rio",
+        "category": "jacket",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8355686121506",
+        "title": "Tina Quilted Chain Crossbody - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7196741369890",
+        "title": "Joy Denim Embossed Curved Shoulder Bag - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7196675670050",
+        "title": "Tessa Denim Embossed Shoulder Bag - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-8355686088738",
+        "title": "Addisyn Shoulder Bag - Blue Denim",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7411212615714",
+        "title": "Tina Denim Quilted Chain Crossbody - Blue",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-6565874794530",
+        "title": "Joy Shoulder Bag - Steel Blue",
+        "brand": "Jw Pei",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-7398954401826",
+        "title": "Lily Shoulder Bag - Blue Denim Weave",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7790630076494",
+        "title": "Knit Detail Tote Bag Dark Brown",
+        "brand": "Manuka Global",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7790630010958",
+        "title": "Knit Detail Tote Bag Black",
+        "brand": "Manuka Global",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-6565861720098",
+        "title": "Eva Shoulder Handbag - Blue Denim Weave",
+        "brand": "Jw Pei",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-vertigousacom-583827587083",
+        "title": "Mario Quilted Canteen Crossbody Bag",
+        "brand": "Vertigo",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-derschutzecom-6006181429413",
+        "title": "“Red Hoodie” Backpack Derschutze X Erin Nicholls",
+        "brand": "Derschutze",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-jwpeicom-6979908730914",
+        "title": "Shea Checkerboard Knitted Tote Bag - Brown",
+        "brand": "Jw Pei",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590745207023",
+        "title": "METAL KNIT SHOULDER BAG",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8806336332015",
+        "title": "CARGO SHOULDER BAG",
+        "brand": "Oak + Fort",
+        "category": "bottom",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "html-tl180com-19474",
+        "title": "Lola Knitted Tote Bag Rosso",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "html-tl180com-18605",
+        "title": "Lola Knitted Tote Bag Mini Bianco and Nero",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bag"
+      },
+      {
+        "objectID": "html-tl180com-18236",
+        "title": "Lola Knitted Tote Bag Grande Bianco and Nero",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bag"
+      }
+    ],
+    "dress_in_top": [],
+    "top_in_dress": [],
+    "bottom_in_top": [
+      {
+        "objectID": "shpfy-stjohnknitscom-10168406999328",
+        "title": "Marina Skirt In Breton Stripe Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10080239157536",
+        "title": "Sophia Skirt In Venezia Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9905460314400",
+        "title": "Nina Skirt In Santa Roma Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10213441896736",
+        "title": "Nina Skirt In Santa Roma Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10080238829856",
+        "title": "Nina Skirt In Santa Roma Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10080238764320",
+        "title": "Nina Skirt In Santa Roma Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-kallmeyernyc-10306250506552",
+        "title": "Regina Drawstring Skirt in Mesh Knit",
+        "brand": "Kallmeyer",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-kallmeyernyc-10306250473784",
+        "title": "Regina Drawstring Skirt in Mesh Knit",
+        "brand": "Kallmeyer",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-tovestudiocom-15213544866166",
+        "title": "Ash Knitted Skirt Black",
+        "brand": "Tove",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9886387929376",
+        "title": "Serena Skirt in St. John x Malbon Santa Roma Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9886387896608",
+        "title": "Serena Skirt in St. John x Malbon Santa Roma Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10168407720224",
+        "title": "Ayla Skirt in Perlé Crepe Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9587941802266",
+        "title": "Modular Cropped Cargo Jeans",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9579008557338",
+        "title": "Modular Cropped Cargo Jeans",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-tovestudiocom-15213541884278",
+        "title": "Thora Knitted Skirt Putty",
+        "brand": "Tove",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872817795442",
+        "title": "Crinkled knit skirt black",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872817664370",
+        "title": "Crinkled knit skirt white",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872813207922",
+        "title": "Crinkled knit skirt pale apricot",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7166149853264",
+        "title": "Agave Knit Raffia Midi Skirt",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7166149820496",
+        "title": "Agave Knit Raffia Midi Skirt",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14699382276466",
+        "title": "Long knit skirt white",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14699382210930",
+        "title": "Long knit skirt black",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14699382374770",
+        "title": "Knit shorts black",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14699382243698",
+        "title": "Knit shorts white",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nanushkacom-8437344928033",
+        "title": "Zoey - Cropped Kick-Flare Jeans - Eco Light Wash",
+        "brand": "Nanushka",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7166149787728",
+        "title": "Agave Knit Raffia Mini Skirt",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10023005520160",
+        "title": "Sadie Skirt in Brighton Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-roheframescom-15852918210909",
+        "title": "Cropped wide leg trousers | black",
+        "brand": "Róhe",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-roheframescom-15852801130845",
+        "title": "Cropped wide leg trousers | off white",
+        "brand": "Róhe",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872816583026",
+        "title": "Capri knit leggings black",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872816189810",
+        "title": "Capri knit leggings off-white",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7211454922832",
+        "title": "Carmine Knit Midi Skirt",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10023006634272",
+        "title": "Edith Skirt in Valley Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-8113695883338",
+        "title": "AMORET KNIT SKIRT - GHERMEZ",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7137316208720",
+        "title": "Camille Midi Skirt",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-destreecom-10140437741901",
+        "title": "Textured knit midi skirt in merino wool",
+        "brand": "Destree",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14645894611314",
+        "title": "Compact knit capri trousers black",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7965538910282",
+        "title": "AMORET KNIT SKIRT - BLACK",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7883309875274",
+        "title": "AMORET KNIT SKIRT - OFF WHITE",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ronnykobocom-10540961857841",
+        "title": "Drake Knit Skirt",
+        "brand": "Ronny Kobo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-337765",
+        "title": "NO CHANGE NO FUTURE knitted large trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-337763",
+        "title": "TERESA knitted black flare large trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-destreecom-9897718546765",
+        "title": "Tailored knit trousers",
+        "brand": "Destree",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nanushkacom-15331107438971",
+        "title": "Hira - Checked Shirting Shorts - Creme/Grey",
+        "brand": "Nanushka",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872815272306",
+        "title": "Capri knit shorts off-white",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-totemestudiocom-14872814289266",
+        "title": "Capri knit shorts black",
+        "brand": "Totême",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10023005684000",
+        "title": "Rhea Skirt in Redondo Rib Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10004563951904",
+        "title": "Rhea Skirt in Redondo Rib Knit",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9733374083354",
+        "title": "PANELED CROPPED JEANS",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9703732576538",
+        "title": "Cropped Wide-Leg Jeans",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9637531746586",
+        "title": "Cropped Wide-Leg Jeans",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9589310292250",
+        "title": "Split Cropped Jeans",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-annasuicom-10746616938799",
+        "title": "Wavy Chevron Knit Asymmetrical Stripe Skirt",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-siedrescom-9115159986432",
+        "title": "SOU - Form-fitting knit mini shorts",
+        "brand": "Siedrés",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-337766",
+        "title": "TERESA knitted off-white organic cotton trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-becandbridgecom-7271807549495",
+        "title": "CAMILLE MAXI SKIRT - BUTTERCREAM",
+        "brand": "Bec + Bridge",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-becandbridgecom-7218398560311",
+        "title": "CAMILLE MAXI SKIRT - PEACH",
+        "brand": "Bec + Bridge",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-becandbridgecom-7218398527543",
+        "title": "CAMILLE MAXI SKIRT - BLACK",
+        "brand": "Bec + Bridge",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7746933325875",
+        "title": "Isaie Bandage Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-cultgaiacom-7472497033290",
+        "title": "EWEN KNIT SKIRT - BLACK",
+        "brand": "Cult Gaia",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9136346235162",
+        "title": "PANELED CROPPED JEANS",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-destreecom-8590004584781",
+        "title": "Warm grey knitted midi skirt",
+        "brand": "Destree",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9689467453728",
+        "title": "Bonded Sequin Knit Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7184295854160",
+        "title": "Classique Knit Midi Skirt",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7747153854515",
+        "title": "Harmony Metallic Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7747152379955",
+        "title": "Kora Knit Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7747137732659",
+        "title": "Roxee Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7658623565875",
+        "title": "Tansy Knit Midi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7512132747315",
+        "title": "Harmony Metallic Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7097506725939",
+        "title": "Kora Knit Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-glucgatorcom-15446324871555",
+        "title": "Stripey blue knit trousers",
+        "brand": "Gluc-gator",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-glucgatorcom-15422999036291",
+        "title": "Striped brown knit trousers",
+        "brand": "Gluc-gator",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-glucgatorcom-15422994186627",
+        "title": "Grey knit trousers",
+        "brand": "Gluc-gator",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-354561",
+        "title": "Ecru knitted cotton long skirt with side slits",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-349291",
+        "title": "RUNWAY LOOK 7 – Fuchsia pink knitted mid-length skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9689498747168",
+        "title": "Sequin Knit Maxi Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9689496518944",
+        "title": "Sequin Knit Maxi Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-bubonco-15155925188992",
+        "title": "Jeen Knit Skirt",
+        "brand": "Bubon",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-349050",
+        "title": "Golden sequins knitted mermaid long skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-348152",
+        "title": "Grey houndstooth pleated belted wool knitted mini skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-347343",
+        "title": "Silver sequins knitted mermaid long skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7746934800435",
+        "title": "Mikayla Rib Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-358299",
+        "title": "AMBRE pink flowers knitted ecru cotton skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-391974",
+        "title": "Long knitted multicolor striped buttoned skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-379143",
+        "title": "ANOUCK pattern midi brown wool knitted skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-374468",
+        "title": "LOLO cashmere knitted black flare large trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-357943",
+        "title": "MANUELA sparkling white glitter long mermaid knit skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-347335",
+        "title": "RUNWAY LOOK 11 – Fuchsia pink cotton knitted mini cut out skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-bubonco-15362381250944",
+        "title": "Arc Knit Trousers",
+        "brand": "Bubon",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-379182",
+        "title": "MONA off-white soft wool knitted flounced skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10234476232992",
+        "title": "Punto Riso Knit Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7034610581555",
+        "title": "Sofie Knit Crochet Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7263082774579",
+        "title": "Camila Leather Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7512064557107",
+        "title": "Hydra Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7091073876019",
+        "title": "Hydra Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-annasuicom-11396122444079",
+        "title": "Lingerie Lace Knits Skirt - Sky Blue",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-annasuicom-11395755835695",
+        "title": "Lingerie Lace Knit Skirt - Blush",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6898219909171",
+        "title": "Raya Knit Crochet Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-358214",
+        "title": "JACKIE fuchsia pink organic cotton knitted skater skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-351926",
+        "title": "RUNWAY LOOK 43 – Black knitted cotton mini skirt with rounded slit",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-349306",
+        "title": "RUNWAY LOOK 30 – Fuchsia pink knitted mini skirt with side slits and heart piercing",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-343509",
+        "title": "SYLVIE turquoise knitted ruffled mid-length skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-341786",
+        "title": "Fuchsia pink knitted mini skirt with side slits and heart piercing",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-341784",
+        "title": "Ecru knitted cotton mini skirt with rounded slit",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9238056861952",
+        "title": "Ashton Jeans Blue Sol Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-annasuicom-8994188820783",
+        "title": "Swirly Rainbow Knit Skirt",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-380079",
+        "title": "AUDREY III topstitched off-white skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-338326",
+        "title": "AUDREY III topstitched off-white skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7680073990249",
+        "title": "Okayama Cropped Jeans",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-8039956742237",
+        "title": "Multicolor Tapestry Fringes Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-8039361904733",
+        "title": "Dark Green Miranda Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-hansenandgretelcom-9319294992640",
+        "title": "Everly Skirt Steel",
+        "brand": "Hansen & Gretel",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-358275",
+        "title": "LA BADOULE LOOK 16 –  ELYNE belted bright red cotton knitted skirt with coconut flowers charms",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-358188",
+        "title": "LA BADOULE LOOK 14 – LIVIA denim blue openwork flowers knitted skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9364628406528",
+        "title": "Hansen Baggy Jeans Mid Blue Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9293899464960",
+        "title": "Helena Trousers Black Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9238045753600",
+        "title": "Helena Trousers Off White Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9181973414144",
+        "title": "Layton Jeans Classic Blue Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8899478880512",
+        "title": "Noah Jeans Frangelica Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8863378735360",
+        "title": "Celine Trousers Grey Stripe Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8037861589248",
+        "title": "Evie Trousers Off White Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-357822",
+        "title": "PABLA baby pink mohair and silk knitted skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-15052054561136",
+        "title": "ZOE BLACK SCALLOPED KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9393011491072",
+        "title": "Miranda Capri Trousers Black Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9364609564928",
+        "title": "Peta Trousers Mocha Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9128955085056",
+        "title": "Naomi Trousers Black Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9112134156544",
+        "title": "Emmy Trousers Brown Stripe Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9110672408832",
+        "title": "Noah Jeans White Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9077722644736",
+        "title": "Noah Jeans Grey Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-9077722448128",
+        "title": "Noah Jeans Beige Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8899479240960",
+        "title": "Noah Jeans Indigo Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8805555634432",
+        "title": "Naomi Trousers Almond Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8450139357440",
+        "title": "Harley High Rise Jeans White Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8450139062528",
+        "title": "Harley High Rise Jeans Black Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8148514865408",
+        "title": "Harley High Rise Jeans Vintage Blue Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8148514406656",
+        "title": "Harley High Rise Jeans Mid Blue Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-355300",
+        "title": "ANANIA kiwi green knitted cotton cutout skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-mariadelaordencom-9688070488393",
+        "title": "Long Owl Knit Skirt",
+        "brand": "Maria de la Orden",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-344147",
+        "title": "CANDICE yellow multicolor knitted summer mini skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6941684629555",
+        "title": "Delta Embellished Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-dhruvkapoorcom-9732973920538",
+        "title": "PANELED CROPPED JEANS",
+        "brand": "Dhruv Kapoor",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-annasuicom-6946749775960",
+        "title": "Utopian Gingham Shorts",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-moderncitizencom-7834227048511",
+        "title": "Katerina Pleated Knit Skirt",
+        "brand": "Modern Citizen",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-15019016585584",
+        "title": "THEA BURNT RED COTTON KNIT SHORTS",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-349293",
+        "title": "Ecru knitted mini-shorts",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-338792",
+        "title": "Ecru knitted mini-shorts",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9800783135008",
+        "title": "Pique Knit Pencil Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10240091357472",
+        "title": "Stretch Piqué Knit Pencil Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7698099208297",
+        "title": "Wool-linen Knitted Skirt",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7599574089833",
+        "title": "Curved Knit Elasticated Joggers",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7583889195113",
+        "title": "Cotton Cropped Jeans",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7455338692659",
+        "title": "Mikayla Rib Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7215801335859",
+        "title": "Alya Knit Pleated Trousers",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7618267840563",
+        "title": "Ludo Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7513239584819",
+        "title": "Darlene Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7034624573491",
+        "title": "Posie Rib Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7033847185459",
+        "title": "Rebecca Bandage Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6890145218611",
+        "title": "Kelso Bandage Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7513242894387",
+        "title": "Mikayla Rib Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7446253371443",
+        "title": "Camila Leather Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7409283203177",
+        "title": "Yak Wool Reversible Waistband Knitted Skirt",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7665739137075",
+        "title": "Cecilie Embellished Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-14932318683504",
+        "title": "DINA NATURAL KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-14920006664560",
+        "title": "DINA OFF WHITE KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-14920006533488",
+        "title": "DINA CHOC KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-littleyarncomau-10084142580025",
+        "title": "Madeleine Midi Skirt - silver knit",
+        "brand": "Little Yarn",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9800783986976",
+        "title": "Crochet Knit Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9800781791520",
+        "title": "Crochet Knit Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-9800781496608",
+        "title": "Crochet Knit Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-annasuicom-6945398620248",
+        "title": "Utopian Gingham Bike Shorts",
+        "brand": "Anna Sui",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-hansenandgretelcom-8797569712384",
+        "title": "Lucio Knit Skirt Glacier",
+        "brand": "Hansen & Gretel",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-hansenandgretelcom-8797569614080",
+        "title": "Lucio Knit Skirt Ivory",
+        "brand": "Hansen & Gretel",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-pixiemarketcom-7077082824809",
+        "title": "Chocolate Knit Maxi Skirt",
+        "brand": "Pixie Market",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6949177655347",
+        "title": "Aria Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8863418056960",
+        "title": "Rowan Shorts Steel Stripe",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7088008364083",
+        "title": "Topanga Crochet Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7217024270387",
+        "title": "Clarissa Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-377871",
+        "title": "Light grey organic bambou knitted midi skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7069319397427",
+        "title": "Thea Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-7544525258861",
+        "title": "Julie - Sateen Tailored Twin Pleat Trousers - Black",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7495295172713",
+        "title": "Cotton-linen Knitted Skirt",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7513187549235",
+        "title": "Katanna Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6899602128947",
+        "title": "Magen Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6890141384755",
+        "title": "Taressa Bandage Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-stjohnknitscom-10234476462368",
+        "title": "Breton Stripe Flat Back Knit Skirt",
+        "brand": "St. John",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7022141866035",
+        "title": "Cleat Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-6893466583149",
+        "title": "Rosa - Ripstop Parachute Cargo Pants - Black",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-6893463437421",
+        "title": "Rosa - Ripstop Parachute Cargo Pants - Sage",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-15594041278842",
+        "title": "Rosa - Ripstop Parachute Cargo Pants - Cream",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-15026669027706",
+        "title": "Lyra - Knit Maxi Skirt with Foldover - Taupe",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-15026643698042",
+        "title": "Lyra - Knit Maxi Skirt with Foldover - Black",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7577396805737",
+        "title": "Seamless Drawstring Knit Joggers",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-hansenandgretelcom-8797568073984",
+        "title": "Camilla Skirt Natural",
+        "brand": "Hansen & Gretel",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6932774453299",
+        "title": "Brooke Embellished Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7654607814749",
+        "title": "Black Blossom Tapestry Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7954112217264",
+        "title": "Tehya Pointelle Knit Pleated Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7954112151728",
+        "title": "Malvie Plaid Knit Mini Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7758997913693",
+        "title": "Flowing Beauty Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-insisshop-7498714906729",
+        "title": "Cotton Knitted Skirt",
+        "brand": "Insis",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-spelldesignscom-15328595050569",
+        "title": "Lou Lou Knit Midi Skirt",
+        "brand": "Spell",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390545",
+        "title": "Tangerine red knitted skirt with coconut button belt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7033825198131",
+        "title": "Cape Knit Denim Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7941211947101",
+        "title": "Pineapple Love Knit Midi Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7941207130205",
+        "title": "Stripes Winter Tapestry Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ajeworldcom-7157542453328",
+        "title": "Cntrst Knit Pleated Skirt 628",
+        "brand": "Aje",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7032424857651",
+        "title": "Magen Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390708",
+        "title": "Black cotton knitted skirt with rounded opening",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390623",
+        "title": "Turquoise blue knitted skirt with cutouts openings",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390575",
+        "title": "Light blue knitted cotton mini skirt with flowers cutouts",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390439",
+        "title": "Fuschia pink cotton knitted long skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390353",
+        "title": "Pink flowers roses pattern cotton knitted skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390217",
+        "title": "Turquoise blue cotton knitted trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-378322",
+        "title": "AUDREY III topstitched off-white skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8606103339196",
+        "title": "AVA INK LONGLINE KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7034637778995",
+        "title": "Marjorie Knit Crochet Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7743392546992",
+        "title": "Sol Textured Floral Knit Midi Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126657986733",
+        "title": "Knit Midi Skirt with Emoji Cut-Outs - Yoru",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126656577709",
+        "title": "Knit Midi Skirt with Emoji Cut-Outs - Sora",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126649729197",
+        "title": "Knit Midi Skirt with Emoji Cut-Outs - Hoshi",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126646812845",
+        "title": "Knit Midi Skirt with Emoji Cut-Outs - Hana",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8247061152000",
+        "title": "Benny Trousers Dark Grey Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390491",
+        "title": "Fuchsia pink knitted mini skirt with rounded openings",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390465",
+        "title": "Fuchsia pink cotton knitted mini skirt with faux-piercing chain",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390381",
+        "title": "Light blue knitted mini skirt with faux-piercing belly chain",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390191",
+        "title": "Capri cotton knitted black trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7268379721779",
+        "title": "Sidra Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manieredevoircom-6594356346989",
+        "title": "Knitted High Waisted Leggings - Black",
+        "brand": "Manière De Voir",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15317945909633",
+        "title": "Black Gingham Embroidered Cropped Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15302693749121",
+        "title": "Ecru Striped Cropped Soho Wide Jeans",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7999834489008",
+        "title": "Shaylla Knit High-Rise Skater Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6913645936691",
+        "title": "Hydra Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8450137751808",
+        "title": "Bodie Jeans Blue Cropped",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7022101397555",
+        "title": "Raya Knit Crochet Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7215798714419",
+        "title": "Mea Knit Mini Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390325",
+        "title": "Light blue knitted cotton ruffled mini skirt",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15295896617345",
+        "title": "Black Cropped Flat Front Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7816844050525",
+        "title": "Blue Mixed Waves Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390299",
+        "title": "Multicolor cotton knitted capri trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390243",
+        "title": "Multicolor cotton knitted capri trousers",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7243317477427",
+        "title": "Magen Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15332019208577",
+        "title": "Black Linen-Blend Cropped Sia Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7816857419869",
+        "title": "Off-White Delicate Tapestry Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7816832057437",
+        "title": "Red Tropical Jacquard Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7455531139123",
+        "title": "Harmony Metallic Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7005046702131",
+        "title": "Alma Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7654627639389",
+        "title": "Black Hearts Ikat Knit Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-ronnykobocom-10322323013937",
+        "title": "Neoma Knit Shorts",
+        "brand": "Ronny Kobo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8358908362940",
+        "title": "MARGOT CHOC KNIT CROCHET MINI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7449270681651",
+        "title": "Alice Metallic Knit Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7417784500275",
+        "title": "Hazel Knit Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7654653460573",
+        "title": "Green Pinneaple Ikat Knit Mini Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7005046833203",
+        "title": "Aria Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8765520216320",
+        "title": "Bimmi Knit Skirt Cream",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8765519921408",
+        "title": "Bimmi Knit Skirt Beige",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7722709614768",
+        "title": "Karsyn Knit Midi Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8447698043053",
+        "title": "cozy knit mini skirt - apple jelly",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8447696797869",
+        "title": "cozy knit mini skirt - BRUSH PETAL",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126683185325",
+        "title": "Knit Mini Skirt with Emoji Cut-Outs - Yoru",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126678761645",
+        "title": "Knit Mini Skirt with Emoji Cut-Outs - Sora",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126673256621",
+        "title": "Knit Mini Skirt with Emoji Cut-Outs - Hoshi",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-8126659068077",
+        "title": "Knit Mini Skirt with Emoji Cut-Outs - Hana",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-hansenandgretelcom-8559399567616",
+        "title": "Tahli Knit Skirt Cream Pointelle",
+        "brand": "Hansen & Gretel",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10652032500022",
+        "title": "Isabel Mini Skirt - Mid Waist Knit Skirt in Black",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10641025106230",
+        "title": "Isabel Mini Skirt - Mid Waist Knit Skirt in Chocolate",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10155442438454",
+        "title": "Isabel Mini Skirt - Mid Waist Knit Skirt in Mushroom",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-prodnet-10888338178207",
+        "title": "Camila Slit Skirt",
+        "brand": "Prod",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-prodnet-10888337948831",
+        "title": "Camila Slit Skirt",
+        "brand": "Prod",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6781455761459",
+        "title": "Indra Cable Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590916124911",
+        "title": "KNIT MINI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-14859981848944",
+        "title": "MELISSA CHOCOLATE KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8629604876544",
+        "title": "Drew Knit Shorts Sky Blue",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8629604679936",
+        "title": "Drew Knit Shorts Grey",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-onemilethelabelcom-8629604483328",
+        "title": "Drew Knit Shorts Black",
+        "brand": "One Mile The Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-farmriocom-7759013675101",
+        "title": "Navy Blue Ainika Tropical Splendor Knit Midi Skirt",
+        "brand": "Farm Rio",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "woo-maisoncleocom-390090",
+        "title": "Cotton knitted ecru mini shorts",
+        "brand": "Maison Cléo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6949177393203",
+        "title": "Magen Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-6914202796083",
+        "title": "Magen Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-iamgiacom-8296336654507",
+        "title": "QUEENIE MINI SKIRT - BLUE : STEEL BLUE",
+        "brand": "I AM GIA",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7455544311859",
+        "title": "Kirt Wide Leg Cropped Jeans",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7063490723891",
+        "title": "Magen Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15315180290433",
+        "title": "White Crochet Trim Knitted Shorts",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15315180552577",
+        "title": "Red Striped Fine Knit Shorts",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7455530450995",
+        "title": "Kora Knit Maxi Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7823959523504",
+        "title": "Knit A-line Midi Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7417789579315",
+        "title": "Java Knit Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8606191157436",
+        "title": "HEIDI TAN MARLE KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8590960656572",
+        "title": "AVA CREAM LONGLINE KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-14877904273776",
+        "title": "SOL BLACK KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-14860081135984",
+        "title": "SOL CINNAMON KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10586274234678",
+        "title": "Sabrina Maxi Skirt - Laser Cut Knit Skirt in Chocolate",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-7952526344365",
+        "title": "The Striped Knitted Shorts - holidays",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-imnotamorningpersonstore-7952522903725",
+        "title": "The Striped Knitted Shorts - Winter",
+        "brand": "Imnotamorningperson",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-retrofetecom-7032426594355",
+        "title": "Thea Knitted Skirt",
+        "brand": "Retrofete",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15016593260929",
+        "title": "White Cropped Wide Leg Linen-Blend Shona Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-pixiemarketcom-7005156638825",
+        "title": "Brown Crochet-Knit Slit Skirt",
+        "brand": "Pixie Market",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590931198191",
+        "title": "RIB-KNIT STRAIGHT LEG PANT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15070249484673",
+        "title": "Blue High Rise Scallop Trim Cropped Palazzo Jeans",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-astrthelabelcom-7744663945392",
+        "title": "Textured Asymmetric Knit Skirt",
+        "brand": "ASTR the Label",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15151937552769",
+        "title": "Black Cord Cropped Scallop Trim Jeans",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-vertigousacom-15108755062944",
+        "title": "Baroque Knit Skirt",
+        "brand": "Vertigo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-vertigousacom-15084449431712",
+        "title": "Abstract Knit Skirt",
+        "brand": "Vertigo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7741547446350",
+        "title": "Knit Flared Skirt Beıge",
+        "brand": "Manuka Global",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7741546430542",
+        "title": "Knit Flared Skirt Blue",
+        "brand": "Manuka Global",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-manukaglobalco-7741545218126",
+        "title": "Knit Flared Skirt Brown",
+        "brand": "Manuka Global",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10407291650358",
+        "title": "Marilou Mini Skirt - Knit Skirt in White",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10269134815542",
+        "title": "Camille Shorts - Low Rise Recycled Denim Distressed Mini Shorts in Light Blue Wash",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8590961803452",
+        "title": "REM BLACK KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8590961082556",
+        "title": "REM STONE KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-disshcom-8573112451260",
+        "title": "SYLVIA BITTER CHOC KNIT MIDI SKIRT",
+        "brand": "Dissh",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15111491453313",
+        "title": "Beige Gingham Check Tailored Cropped Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-tigermistcom-7623197655179",
+        "title": "VERENA MINI SKIRT - STEEL GREY",
+        "brand": "Tiger Mist",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-14997355266433",
+        "title": "Light Blue High Rise Cropped Kick Flare Jeans",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-14997355200897",
+        "title": "Dark Blue High Rise Cropped Kick Flare Jeans",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15139004121473",
+        "title": "Black Whipstitch Knitted Mini Wrap Skirt",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-9043237175535",
+        "title": "KNIT MINI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8921202295023",
+        "title": "PLEATED KNIT MINI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10198599270710",
+        "title": "Danielle Mini Skirt - High Waist Pleated Knit Skirt in Cream",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10174117019958",
+        "title": "Marge Mini Skirt - High Waisted Cable Knit Mini Skirt in White",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15212109136257",
+        "title": "Black Floral Cropped Zeena Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15018515366273",
+        "title": "Black Linen-blend Cropped Shona Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-nobodyschildcom-15000761074049",
+        "title": "Khaki Linen-blend Cropped Shona Trousers",
+        "brand": "Nobody's Child",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10211993026870",
+        "title": "Henrietta Mini Skirt - Fitted Pointelle Knit Skirt in Off White",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8819419349231",
+        "title": "HIGH-RISE RIBBED KNIT MIDI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8811397513455",
+        "title": "RIBBED KNIT MIDI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590924611823",
+        "title": "STRETCH KNIT MINI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590918189295",
+        "title": "CROCHET KNIT SKIRT WITH WRAP BELT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590815265007",
+        "title": "KNIT MIDI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590811824367",
+        "title": "KNIT MAXI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-showpocom-10186155917622",
+        "title": "Rowena Mini Skirt - Knit Skirt in Red",
+        "brand": "Showpo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-vertigousacom-8218548633760",
+        "title": "Short Length Stretch Knit Leggings",
+        "brand": "Vertigo",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-oakandfortcom-8590927069423",
+        "title": "PONTE KNIT MINI SKIRT",
+        "brand": "Oak + Fort",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "shpfy-hosbjergcom-9797302976851",
+        "title": "Camille shorts",
+        "brand": "Hosbjerg",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-18251",
+        "title": "Dea Knitted Skirt Cioccolato and Celeste",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-18209",
+        "title": "Lina Knitted Skirt Miele",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-16885",
+        "title": "Cinzia Metal Knitted Skirt Oro",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-16593",
+        "title": "Cinzia Metal Knitted Skirt Argento Antico",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-16381",
+        "title": "Cinzia Knitted Skirt Rosso and Rosa",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-16370",
+        "title": "Carla Knitted Skirt Melanzana and Celeste",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-16209",
+        "title": "Jodi Long Knitted Skirt Vanisé Bordò and Caramello",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-15518",
+        "title": "Akka Knitted Skirt Blu and Arancio",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-15409",
+        "title": "Cosima Knitted Mini Skirt Tartan Marrone",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-15354",
+        "title": "Gia Long Knitted Skirt Marino and Panna",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-15052",
+        "title": "Cinzia Knitted Skirt Leo",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-14539",
+        "title": "Akka Knitted Skirt Cioccolato and Nero",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-14430",
+        "title": "Gia Long Knitted Skirt Carta da Zucchero and Verde Bosco",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-14415",
+        "title": "Cinzia Metal Knitted Skirt Lilla Grigio",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-13324",
+        "title": "Gia Long Knitted Skirt Marino and Ruggine",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      },
+      {
+        "objectID": "html-tl180com-10305",
+        "title": "Dea Knitted Long Skirt Rosso and Verde",
+        "brand": "TL 180",
+        "category": "top",
+        "suggested": "bottom"
+      }
+    ]
+  },
+  "rules": [
+    {
+      "name": "beauty_in_apparel",
+      "correctAction": "delete"
+    },
+    {
+      "name": "lifestyle_in_apparel",
+      "correctAction": "delete"
+    },
+    {
+      "name": "swimwear_in_dress",
+      "correctAction": "recategorize",
+      "target": "other"
+    },
+    {
+      "name": "swimwear_in_top_or_bottom",
+      "correctAction": "recategorize",
+      "target": "other"
+    },
+    {
+      "name": "shoes_mistagged",
+      "correctAction": "recategorize",
+      "target": "shoes"
+    },
+    {
+      "name": "bags_mistagged",
+      "correctAction": "recategorize",
+      "target": "bag"
+    },
+    {
+      "name": "dress_in_top",
+      "correctAction": "recategorize",
+      "target": "dress"
+    },
+    {
+      "name": "top_in_dress",
+      "correctAction": "recategorize",
+      "target": "top"
+    },
+    {
+      "name": "bottom_in_top",
+      "correctAction": "recategorize",
+      "target": "bottom"
+    }
+  ],
+  "generated_at": "2026-04-25T23:52:55.410Z"
+}
