@@ -1209,13 +1209,12 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     answers?:      QuestionnaireAnswers;
   }
   const [contextBlocks, setContextBlocks]   = useState<ContextBlock[]>([
-    // Pinterest is the primary funnel — boards carry the richest aesthetic
-    // signal Claude can read, so that's the landing tab when allowed. The
-    // `?describe=…` param below flips this to "text" when the user arrived
-    // from /shop's Steer flow with a pre-filled prompt. When Pinterest is
-    // hidden (allowPinterest=false), default to "text" so the first tab
-    // matches the only-shown options.
-    { id: "b1", type: allowPinterest ? "pinterest" : "text", textQuery: "", uploadedFiles: [] },
+    // Default tab is Describe. Pinterest used to be the landing because
+    // boards carry the richest aesthetic signal, but most first-time users
+    // don't have a curated fashion board ready and the empty Pinterest
+    // panel ("connect to import boards") was a dead end. A text prompt is
+    // the universal entry point — anyone can type a vibe.
+    { id: "b1", type: "text", textQuery: "", uploadedFiles: [] },
   ]);
   // Price tier chosen in the intake form, before Build my feed. Sent to the
   // server so it's the FIRST constraint applied — candidate retrieval and
@@ -1824,9 +1823,12 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
 
             {/* Context blocks */}
             <div className="flex flex-col gap-3 mb-5 max-w-xl">
-              {contextBlocks.map((block) => (
+              {contextBlocks.map((block, idx) => (
                 <div key={block.id} className="border border-border">
-                  {/* Block type selector row */}
+                  {/* Block type selector row — tabs on the left, the
+                      "+ Add more context" affordance trails on the right
+                      of the LAST block's tab row so it reads as part of
+                      the tab strip rather than a separate stacked button. */}
                   <div className="flex items-center justify-between border-b border-border">
                     <div className="flex">
                       {BLOCK_TYPES.map(({ mode, label }) => (
@@ -1838,12 +1840,20 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                         </button>
                       ))}
                     </div>
-                    {contextBlocks.length > 1 && (
-                      <button onClick={() => removeBlock(block.id)}
-                        className="px-4 py-2 font-sans text-[11px] text-muted hover:text-foreground transition-colors">
-                        ✕
-                      </button>
-                    )}
+                    <div className="flex items-center">
+                      {idx === contextBlocks.length - 1 && contextBlocks.length < 4 && (
+                        <button onClick={addBlock}
+                          className="px-4 py-2.5 font-sans text-[9px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border-l border-border">
+                          + Add more context
+                        </button>
+                      )}
+                      {contextBlocks.length > 1 && (
+                        <button onClick={() => removeBlock(block.id)}
+                          className="px-4 py-2 font-sans text-[11px] text-muted hover:text-foreground transition-colors border-l border-border">
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Block form */}
@@ -1938,36 +1948,17 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
               ))}
             </div>
 
-            {/* Bottom toolbar — Add-more / Price / Build all on one
-                horizontal row so the panel ends in a single visual line
-                instead of three stacked rows of chrome. Wraps gracefully
-                on mobile (flex-wrap), keeps Build right-aligned via
-                ml-auto so it reads as the primary action. Total panel
-                height drops ~150 px vs the previous stacked layout —
-                enough that the first row of products peeks under the
-                fold on a 1280×800 viewport. */}
-            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 max-w-xl">
-              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-                {contextBlocks.length < 4 && (
-                  <button onClick={addBlock}
-                    className="font-sans text-[10px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border border-dashed border-border-mid px-4 py-2">
-                    + Add more context
-                  </button>
-                )}
-
-                {/* Price constraint — applied before Claude's aesthetic analysis
-                    so every downstream step (candidate fetch, curation) works
-                    within the user's chosen price range. Optional — default
-                    "All" lets Claude infer tier from the board. */}
-                <div>
-                  <label className="block font-sans text-[9px] tracking-widest uppercase text-muted-dim mb-1.5">
-                    Price
-                  </label>
-                  <PriceFilterBar tier={intakePriceTier} onChange={setIntakePriceTier} />
-                </div>
+            {/* Price + Build stacked vertically, both left-aligned with
+                the rest of the panel. The Add-more affordance now lives
+                inline at the right edge of the tab row above. */}
+            <div className="max-w-xl">
+              <div className="mb-5">
+                <label className="block font-sans text-[9px] tracking-widest uppercase text-muted-dim mb-1.5">
+                  Price
+                </label>
+                <PriceFilterBar tier={intakePriceTier} onChange={setIntakePriceTier} />
               </div>
 
-              {/* Submit — primary action, sits at the right edge of the toolbar */}
               <button
                 onClick={handleShopMulti}
                 disabled={!contextBlocks.some((b) =>
@@ -1976,7 +1967,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                   (b.type === "images" && b.uploadedFiles.length > 0) ||
                   (b.type === "quiz" && !!b.answers)
                 )}
-                className="ml-auto px-6 py-2.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
+                className="px-6 py-2.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
                 Build my feed →
               </button>
             </div>
