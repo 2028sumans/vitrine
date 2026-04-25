@@ -1,57 +1,46 @@
 /**
- * Convert hand-labeled aesthetic sets into curation-log-format rows that
- * `scripts/train-taste-head.mjs` (and the upcoming preference-head / LoRA
- * scripts) can consume without code change.
+ * Convert hand-labeled per-category golden datasets into curation-log-format
+ * rows that scripts/build-age-centroids.mjs (and any future taste-head
+ * trainer) can consume.
  *
- * Input
- * -----
- *   data/eval-labels.json  (exported from /admin/label in the app)
- *   Shape:
- *     {
- *       version: 1,
- *       labels:   { [objectID]: "<aesthetic-key>" },
- *       products: { [objectID]: { title, brand, image_url, category? } },
- *       updatedAt: "2026-04-24T..."
- *     }
+ * Per-category model
+ * ------------------
+ * Each /admin/label/<category> page produces its own download named
+ * `eval-labels-<category>-<ts>.json`. After labeling you move the latest
+ * download for each category to `data/eval-labels-<category>.json` (no
+ * timestamp), and run this script.
  *
- * Output
- * ------
- *   data/eval-set.jsonl
- *   One row per aesthetic, matching the curation_logs schema:
- *     {
- *       dna_hash:         "eval:<aesthetic-key>",
- *       kept_ids:         [ ...objectIDs labeled with this aesthetic ],
- *       rejected_ids:     [ ...objectIDs labeled with any OTHER aesthetic ],
- *       candidate_ids:    [ ...kept + rejected ],
- *       board_image_urls: [],
- *       created_at:       <now>
- *     }
+ * One eval-set output is produced per category with files in `data/`:
+ *   data/eval-labels-tops.json     →  data/eval-set-tops.jsonl
+ *   data/eval-labels-shoes.json    →  data/eval-set-shoes.jsonl
+ *   ...etc
  *
- *   Why this shape: train-taste-head.mjs builds triplets as
- *     (anchor ∈ kept, positive ∈ kept, negative ∈ rejected)
- *   per row. Mapping each aesthetic to its own row + cross-aesthetic negatives
- *   gives the model exactly the contrast we want: "things labeled minimalist
- *   French should cluster; things labeled anything-else should push away."
+ * Categories without a labels file are skipped silently (you might be
+ * mid-curation on shoes but not bags-and-accessories yet).
+ *
+ * Output shape per row:
+ *   { dna_hash: "eval:tops:age-25-32",
+ *     kept_ids: [...items tagged this age within this category],
+ *     rejected_ids: [...other items in this same category labeled elsewhere],
+ *     candidate_ids, board_image_urls, created_at, source: "eval", category: "tops" }
+ *
+ * Why per-category negatives only (not cross-category): training a taste
+ * head on cross-category triplets would just teach the model that a shoe
+ * is not a top, which we already know from the catalog's category field.
+ * Useful contrast lives WITHIN a category — across age groups.
  *
  * Usage
  * -----
- *   node scripts/build-eval-triplets.mjs
- *   node scripts/build-eval-triplets.mjs --input path/to/labels.json
- *   node scripts/build-eval-triplets.mjs --out data/custom.jsonl
- *   node scripts/build-eval-triplets.mjs --min 10        # warn if any aesthetic < 10
- *
- * After running, feed it to the trainer:
- *   # Eval set alone (pure hand-labeled signal)
- *   cp data/eval-set.jsonl data/curation-log.jsonl  # WARNING: overwrites real logs
- *   node scripts/train-taste-head.mjs --source jsonl
- *
- *   # Or merged with real curation logs (recommended once both exist — we'll
- *   # wire a first-class --eval-set flag into train-taste-head.mjs in the next
- *   # step so you don't have to cat/concat by hand).
+ *   node scripts/build-eval-triplets.mjs                       # all categories
+ *   node scripts/build-eval-triplets.mjs --category shoes     # one category
+ *   node scripts/build-eval-triplets.mjs --min 20             # warn-below threshold
  */
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Args ──────────────────────────────────────────────────────────────────────
 
@@ -63,115 +52,130 @@ function getFlag(name, fallback) {
   return (v == null || v.startsWith("--")) ? fallback : v;
 }
 
-const INPUT  = getFlag("input", "data/eval-labels.json");
-const OUTPUT = getFlag("out",   "data/eval-set.jsonl");
-const MIN_PER_AESTHETIC = Number(getFlag("min", "20"));
+const ONLY_CATEGORY      = getFlag("category", null);
+const MIN_PER_AESTHETIC  = Number(getFlag("min", "20"));
+const DATA_DIR           = path.resolve(__dirname, "..", "data");
 
-// ── Load + validate ───────────────────────────────────────────────────────────
+// ── Category taxonomy ────────────────────────────────────────────────────────
+// Mirrors lib/category-taxonomy.ts. We don't import the .ts file because this
+// script runs under plain Node — keeping the slugs duplicated here is cheaper
+// than wiring a TS loader, and the list rarely changes.
 
-if (!fs.existsSync(INPUT)) {
-  console.error(`✗ Input not found: ${INPUT}`);
-  console.error(`  Tip: export from /admin/label in the app, then move the downloaded file to ${INPUT}`);
+const CATEGORY_SLUGS = [
+  "tops", "dresses", "bottoms", "knits", "outerwear",
+  "shoes", "bags-and-accessories",
+];
+
+const slugsToProcess = ONLY_CATEGORY
+  ? (CATEGORY_SLUGS.includes(ONLY_CATEGORY) ? [ONLY_CATEGORY] : [])
+  : CATEGORY_SLUGS;
+
+if (ONLY_CATEGORY && slugsToProcess.length === 0) {
+  console.error(`✗ Unknown category: ${ONLY_CATEGORY}`);
+  console.error(`  Known slugs: ${CATEGORY_SLUGS.join(", ")}`);
   process.exit(1);
 }
 
-let store;
-try {
-  store = JSON.parse(fs.readFileSync(INPUT, "utf8"));
-} catch (e) {
-  console.error(`✗ Couldn't parse ${INPUT}: ${e.message}`);
-  process.exit(1);
-}
+// ── Per-category processing ───────────────────────────────────────────────────
 
-const labels   = store?.labels   ?? {};
-const products = store?.products ?? {};
-const labelEntries = Object.entries(labels);
+let processed = 0;
+let skipped   = 0;
 
-if (labelEntries.length === 0) {
-  console.error(`✗ No labels in ${INPUT}`);
-  process.exit(1);
-}
+for (const slug of slugsToProcess) {
+  const inputPath  = path.join(DATA_DIR, `eval-labels-${slug}.json`);
+  const outputPath = path.join(DATA_DIR, `eval-set-${slug}.jsonl`);
 
-// ── Normalise + group ─────────────────────────────────────────────────────────
-//
-// The admin tool writes multi-label files (objectID → string[]) from v2
-// onwards, but we also keep compat with v1 single-label downloads (objectID
-// → string). Coerce everything to arrays before grouping.
-
-/** @type {Map<string, string[]>} objectID → aesthetic keys the item carries */
-const tagsById = new Map();
-for (const [objectID, raw] of labelEntries) {
-  if (typeof objectID !== "string") continue;
-  const tags = Array.isArray(raw)
-    ? raw.filter((k) => typeof k === "string")
-    : typeof raw === "string" && raw.length > 0
-      ? [raw]
-      : [];
-  if (tags.length > 0) tagsById.set(objectID, tags);
-}
-
-/** @type {Map<string, string[]>} aesthetic → objectIDs tagged with it */
-const byAesthetic = new Map();
-for (const [objectID, tags] of tagsById) {
-  for (const aesthetic of tags) {
-    if (!byAesthetic.has(aesthetic)) byAesthetic.set(aesthetic, []);
-    byAesthetic.get(aesthetic).push(objectID);
-  }
-}
-
-// ── Report ────────────────────────────────────────────────────────────────────
-
-const totalTags  = [...tagsById.values()].reduce((n, arr) => n + arr.length, 0);
-const uniqueItems = tagsById.size;
-console.log(`Loaded ${totalTags} tags across ${uniqueItems} unique items in ${byAesthetic.size} aesthetics.\n`);
-let anyUnder = false;
-const sortedAesthetics = [...byAesthetic.entries()].sort((a, b) => b[1].length - a[1].length);
-for (const [aesthetic, ids] of sortedAesthetics) {
-  const short = aesthetic.length > 28 ? aesthetic.slice(0, 25) + "…" : aesthetic;
-  const warn  = ids.length < MIN_PER_AESTHETIC ? " ← below min" : "";
-  if (ids.length < MIN_PER_AESTHETIC) anyUnder = true;
-  console.log(`  ${short.padEnd(30)} ${String(ids.length).padStart(4)}${warn}`);
-}
-if (anyUnder) {
-  console.log(`\n⚠ One or more aesthetics have fewer than ${MIN_PER_AESTHETIC} items.`);
-  console.log(`  Triplet loss degrades sharply below ~20/aesthetic — consider labeling more.`);
-}
-
-// ── Write curation-log-format rows ────────────────────────────────────────────
-
-const allLabeledIds = new Set(Object.keys(labels));
-const now = new Date().toISOString();
-
-const lines = [];
-for (const [aesthetic, keptIds] of byAesthetic) {
-  // Cross-aesthetic negatives: every labeled item NOT tagged with this
-  // aesthetic gets used as a negative. An item tagged with both 25-32
-  // and 32-40 is in the kept set for both buckets and the rejected set
-  // for 13-18 / 18-25 / 40-60 — correct contrastive structure.
-  // train-taste-head.mjs samples down to maxPerRun per row, so passing
-  // the full pool is fine; the sampler caps it.
-  const rejectedIds = [];
-  for (const id of allLabeledIds) {
-    const tags = tagsById.get(id) ?? [];
-    if (!tags.includes(aesthetic)) rejectedIds.push(id);
+  if (!fs.existsSync(inputPath)) {
+    if (ONLY_CATEGORY) {
+      console.error(`✗ ${slug}: input not found at ${path.relative(process.cwd(), inputPath)}`);
+      console.error(`  Tip: download from /admin/label/${slug}, then mv ~/Downloads/eval-labels-${slug}-*.json ${path.relative(process.cwd(), inputPath)}`);
+      process.exit(1);
+    }
+    skipped++;
+    continue;
   }
 
-  lines.push(JSON.stringify({
-    dna_hash:         `eval:${aesthetic}`,
-    dna_summary:      `Hand-labeled eval set — aesthetic: ${aesthetic}`,
-    kept_ids:         keptIds,
-    rejected_ids:     rejectedIds,
-    candidate_ids:    [...keptIds, ...rejectedIds],
-    board_image_urls: [],
-    created_at:       now,
-    source:           "eval",  // marker so we can tell eval rows apart later
-  }));
+  let store;
+  try {
+    store = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+  } catch (e) {
+    console.error(`✗ ${slug}: couldn't parse ${inputPath}: ${e.message}`);
+    continue;
+  }
+
+  const labels = store?.labels ?? {};
+  const labelEntries = Object.entries(labels);
+  if (labelEntries.length === 0) {
+    console.warn(`⚠ ${slug}: no labels in file — skipped`);
+    continue;
+  }
+
+  // Normalise to arrays (defensive against any stale single-string entries).
+  const tagsById = new Map();
+  for (const [objectID, raw] of labelEntries) {
+    if (typeof objectID !== "string") continue;
+    const tags = Array.isArray(raw)
+      ? raw.filter((k) => typeof k === "string")
+      : typeof raw === "string" && raw.length > 0
+        ? [raw]
+        : [];
+    if (tags.length > 0) tagsById.set(objectID, tags);
+  }
+
+  // Group: aesthetic → objectIDs tagged with it (within this category)
+  const byAesthetic = new Map();
+  for (const [objectID, tags] of tagsById) {
+    for (const aesthetic of tags) {
+      if (!byAesthetic.has(aesthetic)) byAesthetic.set(aesthetic, []);
+      byAesthetic.get(aesthetic).push(objectID);
+    }
+  }
+
+  // Report
+  const totalTags  = [...tagsById.values()].reduce((n, arr) => n + arr.length, 0);
+  console.log(`\n[${slug}] ${totalTags} tags across ${tagsById.size} unique items in ${byAesthetic.size} aesthetics:`);
+  let anyUnder = false;
+  for (const [aesthetic, ids] of [...byAesthetic.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    const warn = ids.length < MIN_PER_AESTHETIC ? " ← below min" : "";
+    if (ids.length < MIN_PER_AESTHETIC) anyUnder = true;
+    console.log(`  ${aesthetic.padEnd(14)} ${String(ids.length).padStart(4)}${warn}`);
+  }
+  if (anyUnder) {
+    console.log(`  ⚠ One or more aesthetics have fewer than ${MIN_PER_AESTHETIC} items in this category.`);
+  }
+
+  // Write per-aesthetic rows. Negatives = items WITHIN this category that
+  // don't carry the current aesthetic tag — purely intra-category contrast.
+  const allLabeledIds = new Set(tagsById.keys());
+  const now = new Date().toISOString();
+  const lines = [];
+  for (const [aesthetic, keptIds] of byAesthetic) {
+    const rejectedIds = [];
+    for (const id of allLabeledIds) {
+      const tags = tagsById.get(id) ?? [];
+      if (!tags.includes(aesthetic)) rejectedIds.push(id);
+    }
+    lines.push(JSON.stringify({
+      dna_hash:         `eval:${slug}:${aesthetic}`,
+      dna_summary:      `Hand-labeled ${slug} eval set — aesthetic: ${aesthetic}`,
+      kept_ids:         keptIds,
+      rejected_ids:     rejectedIds,
+      candidate_ids:    [...keptIds, ...rejectedIds],
+      board_image_urls: [],
+      created_at:       now,
+      source:           "eval",
+      category:         slug,
+    }));
+  }
+
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, lines.join("\n") + "\n");
+  const kb = (fs.statSync(outputPath).size / 1024).toFixed(1);
+  console.log(`  ✓ Wrote ${lines.length} rows to ${path.relative(process.cwd(), outputPath)} (${kb} KB)`);
+  processed++;
 }
 
-fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-fs.writeFileSync(OUTPUT, lines.join("\n") + "\n");
-
-const kb = (fs.statSync(OUTPUT).size / 1024).toFixed(1);
-console.log(`\n✓ Wrote ${lines.length} aesthetic rows to ${OUTPUT} (${kb} KB)`);
-console.log(`\nNext step:`);
-console.log(`  node scripts/train-taste-head.mjs   # (once --eval-set flag lands)`);
+console.log(`\nProcessed ${processed} categories. ${skipped > 0 ? `${skipped} skipped (no labels file).` : ""}`);
+if (processed > 0) {
+  console.log(`\nNext: node scripts/build-age-centroids.mjs   # builds lib/age-centroids.json`);
+}

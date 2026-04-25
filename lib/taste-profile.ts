@@ -43,7 +43,7 @@ import styleCentroids from "@/lib/style-centroids.json";
 import { getStyleCentroid } from "@/lib/taste-memory";
 import { getOnboarding, type AgeRangeKey } from "@/lib/onboarding-memory";
 
-interface CentroidsFile {
+interface FlatCentroidsFile {
   version:      number;
   dim:          number;
   builtAt:      string | null;
@@ -51,10 +51,20 @@ interface CentroidsFile {
   centroids:    Record<string, number[] | null>;
 }
 
-// The JSON import widens all fields to `any`; narrow once at module load so
-// the rest of the file gets type support.
-const AGE:   CentroidsFile = ageCentroids   as unknown as CentroidsFile;
-const STYLE: CentroidsFile = styleCentroids as unknown as CentroidsFile;
+// New per-category schema (v2) for age centroids: one age-centroid map
+// per catalog category. Style centroids stay flat — they aren't categorized.
+interface PerCategoryCentroidsFile {
+  version:     number;
+  dim:         number;
+  builtAt:     string | null;
+  perCategory: Record<string, {
+    sampleCounts: Record<string, number>;
+    centroids:    Record<string, number[] | null>;
+  }>;
+}
+
+const AGE:   PerCategoryCentroidsFile = ageCentroids   as unknown as PerCategoryCentroidsFile;
+const STYLE: FlatCentroidsFile        = styleCentroids as unknown as FlatCentroidsFile;
 
 // Per-source weights. Change in one place — see composition comment above.
 const WEIGHTS = {
@@ -187,14 +197,60 @@ export interface TasteVectorBreakdown {
 }
 
 /**
+ * Resolve the age centroid for a user given their age range and (optionally)
+ * the catalog category they're shopping. Three cases:
+ *
+ *   1. `categorySlug` provided AND that category has a centroid for the
+ *      user's age   → use it. Most accurate path; the centroid was built
+ *      from items hand-labeled within the same category.
+ *
+ *   2. `categorySlug` provided but missing a centroid for the user's age →
+ *      average across populated categories for the same age (general age
+ *      signal). Better than null while we're still labeling.
+ *
+ *   3. No category context (e.g., /brands, /shop picker) → average across
+ *      all populated categories for the user's age.
+ *
+ * Returns null when no category has a centroid for that age (e.g., labeling
+ * not yet started). Caller drops the age contribution and the user vector
+ * is composed from upload + session only.
+ */
+function resolveAgeCentroid(ageRange: AgeRangeKey, categorySlug: string | null): number[] | null {
+  if (!AGE.perCategory) return null;
+
+  if (categorySlug) {
+    const cat = AGE.perCategory[categorySlug];
+    const direct = cat?.centroids?.[ageRange] ?? null;
+    if (direct && direct.length > 0) return direct;
+    // Fall through to the cross-category average — better signal than nothing.
+  }
+
+  // Average across all categories that have a centroid for this age bucket.
+  const populated: number[][] = [];
+  for (const cat of Object.values(AGE.perCategory)) {
+    const v = cat?.centroids?.[ageRange];
+    if (v && v.length > 0) populated.push(v);
+  }
+  if (populated.length === 0) return null;
+  return weightedCombine(populated.map((vec) => ({ vec, weight: 1 })));
+}
+
+/**
  * Given a user_token, returns their current taste vector plus a breakdown of
  * which sources contributed. Hits Supabase twice (onboarding + session
  * centroid) and one local JSON file (age centroids). All three calls are
  * parallel so the wall-clock cost is max(onboarding, session) ≈ 40-80 ms.
  *
+ * Optional `category` arg routes the age-centroid lookup into the matching
+ * per-category bucket. When omitted (e.g., on /brands) we fall back to a
+ * cross-category average for the user's age range.
+ *
  * null-`userToken` / "anon" is a fast-return (no network).
  */
-export async function loadUserTasteVector(userToken: string): Promise<TasteVectorBreakdown> {
+export async function loadUserTasteVector(
+  userToken: string,
+  options:   { category?: string | null } = {},
+): Promise<TasteVectorBreakdown> {
   if (!userToken || userToken === "anon") {
     return { vector: null, sources: { upload: false, age: null, session: false, styles: [] } };
   }
@@ -204,9 +260,10 @@ export async function loadUserTasteVector(userToken: string): Promise<TasteVecto
     getStyleCentroid(userToken),
   ]);
 
-  const ageRange   = onboarding?.ageRange ?? null;
-  const uploadVec  = onboarding?.uploadCentroid ?? null;
-  const ageVec     = ageRange ? (AGE.centroids?.[ageRange] ?? null) : null;
+  const ageRange     = onboarding?.ageRange ?? null;
+  const uploadVec    = onboarding?.uploadCentroid ?? null;
+  const categorySlug = options.category ?? null;
+  const ageVec       = ageRange ? resolveAgeCentroid(ageRange, categorySlug) : null;
 
   // Style inference is gated on uploads being present — for age-only users,
   // running the age centroid through style-space and adding it back is a

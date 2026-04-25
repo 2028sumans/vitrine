@@ -23,6 +23,7 @@ import { algoliasearch } from "algoliasearch";
 import { searchByEmbeddings, searchByLikedProductIds } from "@/lib/embeddings";
 import { loadUserTasteVector } from "@/lib/taste-profile";
 import { applyBrandAgePenalty } from "@/lib/brand-age-affinity";
+import { slugFromFilter } from "@/lib/category-taxonomy";
 import type { AgeRangeKey } from "@/lib/onboarding-memory";
 
 export const revalidate = 60;
@@ -322,14 +323,19 @@ async function clipSimilarityRanking(likedProductIds: string[]): Promise<string[
 // same boost step as clipIds. Fires for any signed-in user with a non-null
 // centroid — no "liked >= 2" floor, because the onboarding centroid is
 // itself a deliberately-chosen signal, not accumulated click noise.
-async function tasteVectorRanking(userToken: string): Promise<{ ids: string[]; hasVector: boolean; userAge: AgeRangeKey | null }> {
+async function tasteVectorRanking(
+  userToken:    string,
+  categorySlug: string | null,
+): Promise<{ ids: string[]; hasVector: boolean; userAge: AgeRangeKey | null }> {
   if (!userToken || userToken === "anon") return { ids: [], hasVector: false, userAge: null };
   try {
-    const profile = await loadUserTasteVector(userToken);
+    // Pass the category slug so loadUserTasteVector picks the per-category
+    // age centroid instead of the cross-category average. When unscoped
+    // (no slug), it falls back to averaging all populated category centroids
+    // for the user's age — sensible default behaviour.
+    const profile = await loadUserTasteVector(userToken, { category: categorySlug });
     const userAge = profile.sources.age;
     if (!profile.vector || profile.vector.length === 0) return { ids: [], hasVector: false, userAge };
-    // Single-vector Pinecone query — no clustering, the profile is already
-    // one blended centroid. 300K mirrors the clip path for stable merging.
     const ids = await searchByEmbeddings([profile.vector], 300);
     return { ids, hasVector: true, userAge };
   } catch (e) {
@@ -701,7 +707,10 @@ export async function POST(request: Request) {
       // reciprocal rank so items surfacing in both lanes float to the top.
       const [clipIds, taste] = await Promise.all([
         clipSimilarityRanking(likedProductIds),
-        tasteVectorRanking(userToken),
+        // Resolve the categoryFilter ("Tops", "Bags and accessories"...) into
+        // the slug taste-profile uses internally ("tops", "bags-and-accessories").
+        // Brand-mode requests have no category context, so we pass null.
+        tasteVectorRanking(userToken, slugFromFilter(categoryFilter || null)),
       ]);
       const boostIds = mergeRankedIds(clipIds, taste.ids);
 
@@ -789,7 +798,9 @@ export async function POST(request: Request) {
           },
         }),
         clipSimilarityRanking(likedProductIds),
-        tasteVectorRanking(userToken),
+        // Query-driven path has no hard category scope, so we pass null —
+        // taste-profile averages across populated categories for the user's age.
+        tasteVectorRanking(userToken, null),
       ]);
       const boostIds = mergeRankedIds(clipIds, taste.ids);
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;

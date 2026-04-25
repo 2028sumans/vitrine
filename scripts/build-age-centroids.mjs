@@ -1,39 +1,39 @@
 /**
- * Compute per-age-range FashionCLIP centroids from the hand-labeled eval set.
+ * Compute per-category × per-age FashionCLIP centroids from the hand-labeled
+ * eval sets, output to a single nested lib/age-centroids.json.
  *
  * Pipeline
  * --------
- *   1. Read data/eval-set.jsonl (written by scripts/build-eval-triplets.mjs,
- *      which in turn reads the download from /admin/label).
- *   2. For each age bucket row (dna_hash = "eval:age-NN-NN"), collect
- *      kept_ids — these are the items the user tagged as belonging to
- *      that age range.
- *   3. Fetch each item's 512-dim vector from Pinecone (default namespace,
- *      the visual FashionCLIP space).
- *   4. Average per bucket, L2-normalize, write to lib/age-centroids.json.
+ *   1. Read every data/eval-set-<category>.jsonl that exists.
+ *   2. For each (category, age-bucket) pair, collect kept_ids → fetch
+ *      vectors from Pinecone → average → unit-normalize.
+ *   3. Write a single file with shape:
+ *        { version, dim, builtAt, perCategory: {
+ *            tops:    { sampleCounts, centroids: { age-13-18: [...], … } },
+ *            shoes:   { … },
+ *            ...
+ *          } }
  *
- * When the downstream `lib/taste-profile.ts` loads a user's taste vector,
- * it pulls their age bucket's centroid from the file this script produces
- * and blends it with their quiz-uploaded image vectors.
+ * Categories without an eval-set file land with all-null centroids in the
+ * output — lib/taste-profile.ts treats null as "no signal" so missing
+ * categories cause graceful zero-impact, not errors.
  *
  * Usage
  * -----
- *   # Defaults: read data/eval-set.jsonl, write lib/age-centroids.json.
- *   PINECONE_API_KEY=<key> node scripts/build-age-centroids.mjs
+ *   PINECONE_API_KEY=<k> node scripts/build-age-centroids.mjs
+ *   PINECONE_API_KEY=<k> node scripts/build-age-centroids.mjs --category shoes
  *
- *   # Flags
- *     --input  path   override input path (default: data/eval-set.jsonl)
- *     --out    path   override output path (default: lib/age-centroids.json)
- *     --min    N      warn if any bucket has fewer than N items (default: 20)
- *
- * Safe to re-run — the output file is rewritten on each invocation.
+ * Re-runs are idempotent — the output file is rewritten each time.
  */
 
 import { Pinecone } from "@pinecone-database/pinecone";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-// ── Flags ─────────────────────────────────────────────────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// ── Flags + env ───────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
 function flag(name, fallback) {
@@ -42,69 +42,87 @@ function flag(name, fallback) {
   const v = args[i + 1];
   return (v == null || v.startsWith("--")) ? fallback : v;
 }
-const INPUT  = flag("input", "data/eval-set.jsonl");
-const OUTPUT = flag("out",   "lib/age-centroids.json");
-const MIN    = Number(flag("min", "20"));
+const ONLY_CATEGORY = flag("category", null);
+const OUTPUT        = flag("out", "lib/age-centroids.json");
+const MIN           = Number(flag("min", "20"));
+
+const envPath = path.resolve(__dirname, "..", ".env.local");
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+}
 
 const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
 const PINECONE_INDEX   = process.env.PINECONE_INDEX ?? "muse";
+if (!PINECONE_API_KEY) { console.error("Missing PINECONE_API_KEY"); process.exit(1); }
 
-if (!PINECONE_API_KEY) {
-  console.error("Missing PINECONE_API_KEY — set it in the environment or .env.local.");
+// Mirrors lib/category-taxonomy.ts. Update both lists if you add a category.
+const CATEGORY_SLUGS = [
+  "tops", "dresses", "bottoms", "knits", "outerwear",
+  "shoes", "bags-and-accessories",
+];
+const AGE_KEYS = ["age-13-18", "age-18-25", "age-25-32", "age-32-40", "age-40-60"];
+const DATA_DIR = path.resolve(__dirname, "..", "data");
+
+const slugsToProcess = ONLY_CATEGORY
+  ? (CATEGORY_SLUGS.includes(ONLY_CATEGORY) ? [ONLY_CATEGORY] : [])
+  : CATEGORY_SLUGS;
+
+if (ONLY_CATEGORY && slugsToProcess.length === 0) {
+  console.error(`✗ Unknown category: ${ONLY_CATEGORY}`);
   process.exit(1);
 }
 
-// ── Load eval rows ────────────────────────────────────────────────────────────
+// ── Step 1: per-category, collect kept_ids by age bucket from the JSONL ──────
 
-if (!existsSync(INPUT)) {
-  console.error(`✗ Input not found: ${INPUT}`);
-  console.error("  Run scripts/build-eval-triplets.mjs first to produce it.");
-  process.exit(1);
+/** category-slug → age-key → [objectID, ...] */
+const idsByCategoryAge = new Map();
+
+for (const slug of slugsToProcess) {
+  const evalSet = path.join(DATA_DIR, `eval-set-${slug}.jsonl`);
+  if (!existsSync(evalSet)) {
+    console.log(`[${slug.padEnd(22)}] no eval-set file — centroids will be null`);
+    continue;
+  }
+
+  const rows = readFileSync(evalSet, "utf8")
+    .split("\n").map((s) => s.trim()).filter(Boolean)
+    .map((s) => { try { return JSON.parse(s); } catch { return null; } })
+    .filter(Boolean);
+
+  const ageMap = new Map();
+  for (const r of rows) {
+    // dna_hash format: "eval:<slug>:age-NN-NN"
+    const m = String(r.dna_hash ?? "").match(/^eval:[^:]+:(age-[\d-]+)$/);
+    if (!m) continue;
+    const ageKey = m[1];
+    if (!ageMap.has(ageKey)) ageMap.set(ageKey, []);
+    ageMap.get(ageKey).push(...(r.kept_ids ?? []));
+  }
+  idsByCategoryAge.set(slug, ageMap);
+
+  const totalIds = [...ageMap.values()].reduce((n, a) => n + a.length, 0);
+  console.log(`[${slug.padEnd(22)}] ${totalIds} kept-ids across ${ageMap.size} buckets`);
 }
 
-const rows = readFileSync(INPUT, "utf8")
-  .split("\n")
-  .map((s) => s.trim())
-  .filter(Boolean)
-  .map((s) => { try { return JSON.parse(s); } catch { return null; } })
-  .filter(Boolean);
-
-// Keep only rows whose dna_hash starts with "eval:age-" — that's our age labels.
-// Ignore anything else (real curation logs, other eval rows).
-const ageRows = rows.filter((r) => typeof r.dna_hash === "string" && r.dna_hash.startsWith("eval:age-"));
-if (ageRows.length === 0) {
-  console.error(`✗ No age-labeled rows in ${INPUT} (expected dna_hash like "eval:age-25-32").`);
-  console.error("  Make sure you labeled items at /admin/label and ran build-eval-triplets.mjs.");
-  process.exit(1);
-}
-
-// Group: bucket key ("age-13-18") → [objectID, ...]
-const idsByBucket = new Map();
-for (const r of ageRows) {
-  const bucket = r.dna_hash.replace(/^eval:/, "");
-  if (!idsByBucket.has(bucket)) idsByBucket.set(bucket, []);
-  idsByBucket.get(bucket).push(...(r.kept_ids ?? []));
-}
+// ── Step 2: collect ALL unique objectIDs and fetch their vectors once ────────
+// Many products are tagged across multiple categories (a sweater that's
+// labeled in both "knits" and "tops") — fetching once and caching the
+// vector is much faster than per-category fetches.
 
 const allIds = new Set();
-for (const ids of idsByBucket.values()) for (const id of ids) allIds.add(id);
-
-console.log(`Loaded ${ageRows.length} age-labeled rows referencing ${allIds.size} unique products.`);
-for (const [bucket, ids] of idsByBucket) {
-  const warn = ids.length < MIN ? "  ← below min" : "";
-  console.log(`  ${bucket.padEnd(12)} ${String(ids.length).padStart(4)}${warn}`);
+for (const ageMap of idsByCategoryAge.values()) {
+  for (const ids of ageMap.values()) for (const id of ids) allIds.add(id);
 }
 
-// ── Fetch vectors from Pinecone ───────────────────────────────────────────────
-
-console.log(`\nFetching ${allIds.size} vectors from Pinecone index "${PINECONE_INDEX}"…`);
+console.log(`\nFetching ${allIds.size} unique vectors from Pinecone "${PINECONE_INDEX}"…`);
 const pc    = new Pinecone({ apiKey: PINECONE_API_KEY });
 const index = pc.index(PINECONE_INDEX);
-
 const vecById = new Map();
 const idList  = Array.from(allIds);
 const CHUNK   = 100;
-
 for (let i = 0; i < idList.length; i += CHUNK) {
   const chunk = idList.slice(i, i + CHUNK);
   try {
@@ -115,78 +133,79 @@ for (let i = 0; i < idList.length; i += CHUNK) {
       }
     }
   } catch (e) {
-    console.warn(`  fetch error (chunk ${i}):`, e.message);
+    console.warn(`\n  fetch error (chunk ${i}):`, e.message);
   }
   process.stdout.write(`\r  ${Math.min(i + CHUNK, idList.length)}/${idList.length} queried, ${vecById.size} hit`);
 }
 console.log();
 
-if (vecById.size === 0) {
-  console.error("✗ No vectors returned from Pinecone — cannot build centroids.");
-  console.error("  Check PINECONE_API_KEY, PINECONE_INDEX, and that the labeled items are embedded.");
-  process.exit(1);
-}
-
-const DIM = vecById.values().next().value.length;
+const DIM = vecById.size > 0 ? vecById.values().next().value.length : 512;
 console.log(`  vector dim = ${DIM}`);
 
-// ── Compute centroids ─────────────────────────────────────────────────────────
+// ── Step 3: average + normalize per (category, age) ──────────────────────────
 
 function normalize(v) {
-  let n = 0;
-  for (let i = 0; i < v.length; i++) n += v[i] * v[i];
+  let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
   n = Math.sqrt(n);
   if (n === 0) return v.slice();
   return v.map((x) => x / n);
 }
 
-const centroids    = {};
-const sampleCounts = {};
-for (const [bucket, ids] of idsByBucket) {
-  const vectors = ids.map((id) => vecById.get(id)).filter(Boolean);
-  sampleCounts[bucket] = vectors.length;
-  if (vectors.length === 0) {
-    centroids[bucket] = null;
+// If we're updating only one category, preserve the existing other-category
+// data from the previous build instead of nulling them out.
+let existing = null;
+if (ONLY_CATEGORY && existsSync(OUTPUT)) {
+  try { existing = JSON.parse(readFileSync(OUTPUT, "utf8")); } catch { /* ignore */ }
+}
+
+const perCategory = {};
+for (const slug of CATEGORY_SLUGS) {
+  // Carry over previously-built data when we're scoped to a single category
+  // and this isn't the one we're rebuilding.
+  if (ONLY_CATEGORY && slug !== ONLY_CATEGORY && existing?.perCategory?.[slug]) {
+    perCategory[slug] = existing.perCategory[slug];
     continue;
   }
-  // Component-wise average of normalized vectors. Normalize inputs so a single
-  // item with an outlier magnitude can't dominate the bucket.
-  const sum = new Array(DIM).fill(0);
-  for (const v of vectors) {
-    const nv = normalize(v);
-    for (let i = 0; i < DIM; i++) sum[i] += nv[i];
+
+  const ageMap        = idsByCategoryAge.get(slug);
+  const sampleCounts  = {};
+  const centroids     = {};
+
+  for (const ageKey of AGE_KEYS) {
+    const ids     = ageMap?.get(ageKey) ?? [];
+    const vectors = ids.map((id) => vecById.get(id)).filter(Boolean);
+    sampleCounts[ageKey] = vectors.length;
+    if (vectors.length === 0) { centroids[ageKey] = null; continue; }
+    const sum = new Array(DIM).fill(0);
+    for (const v of vectors) {
+      const nv = normalize(v);
+      for (let i = 0; i < DIM; i++) sum[i] += nv[i];
+    }
+    const avg = sum.map((s) => s / vectors.length);
+    centroids[ageKey] = normalize(avg);
+
+    if (vectors.length < MIN) {
+      console.warn(`⚠ ${slug}/${ageKey}: only ${vectors.length} samples (below min ${MIN}) — centroid will be noisy`);
+    }
   }
-  const avg = sum.map((s) => s / vectors.length);
-  centroids[bucket] = normalize(avg); // re-normalize so the centroid is unit length
+
+  perCategory[slug] = { sampleCounts, centroids };
 }
 
-// ── Write ─────────────────────────────────────────────────────────────────────
-
-// Preserve the bucket order from the original source for deterministic output.
-const orderedBuckets = ["age-13-18", "age-18-25", "age-25-32", "age-32-40", "age-40-60"];
-const outCounts   = {};
-const outCentroids = {};
-for (const b of orderedBuckets) {
-  outCounts[b]    = sampleCounts[b] ?? 0;
-  outCentroids[b] = centroids[b]    ?? null;
-}
+// ── Step 4: write ────────────────────────────────────────────────────────────
 
 const payload = {
-  version:      1,
-  dim:          DIM,
-  builtAt:      new Date().toISOString(),
-  sampleCounts: outCounts,
-  centroids:    outCentroids,
+  version:     2,
+  dim:         DIM,
+  builtAt:     new Date().toISOString(),
+  perCategory,
 };
 
 writeFileSync(OUTPUT, JSON.stringify(payload, null, 2) + "\n");
-
 const kb = (Buffer.byteLength(JSON.stringify(payload)) / 1024).toFixed(1);
-console.log(`\n✓ Wrote ${Object.keys(centroids).length} age centroids (${DIM}-dim) to ${OUTPUT} (${kb} KB)`);
 
-// Warn on any bucket with 0 vectors — that bucket will be a no-op at read time.
-const empty = orderedBuckets.filter((b) => outCentroids[b] == null);
-if (empty.length > 0) {
-  console.warn(`\n⚠ Empty buckets (no vectors found): ${empty.join(", ")}`);
-  console.warn("  Those ages will fall back to upload-only centroids at read time.");
-}
+const populatedBuckets = Object.entries(perCategory).reduce((n, [, c]) =>
+  n + Object.values(c.centroids).filter(Boolean).length, 0);
+const totalBuckets = CATEGORY_SLUGS.length * AGE_KEYS.length;
+
+console.log(`\n✓ Wrote per-category centroids (${populatedBuckets}/${totalBuckets} buckets populated, ${DIM}-dim) to ${OUTPUT} (${kb} KB)`);
