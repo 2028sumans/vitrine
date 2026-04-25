@@ -31,6 +31,11 @@ import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insi
 import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
 import { addSaved, removeSaved, isSaved, getShortlistSummary } from "@/lib/saved";
 import {
+  loadSessionSignals,
+  saveSessionSignals,
+  flushSessionSignals,
+} from "@/lib/session-signals";
+import {
   rankCards,
   type ScoringSignals,
   type ScoringCard,
@@ -1800,6 +1805,53 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
   // returns the user to the intake state inside this same component.
   const handleClearSearch = onClearSearch ?? reset;
 
+  // Promote search-time taste signals (likedIds + clickHistory + dislikes)
+  // into the shared `lib/session-signals` store BEFORE the search is torn
+  // down — otherwise the local state inside this component is wiped by
+  // `reset()` and the page underneath has no idea what the user just liked.
+  // Existing persisted signals are merged (new entries prepended so they
+  // weight as "most recent"); flushed synchronously so the parent's
+  // re-hydrate-on-clear sees them on the very next tick.
+  const persistThenClear = useCallback(() => {
+    try {
+      const existing = loadSessionSignals() ?? {
+        likedIds: [], clickHistory: [], dislikedSignals: [], dwellTimes: {}, savedAt: 0,
+      };
+      // Likes — order doesn't matter much, but keep new IDs at the end.
+      // Array.from(...) instead of `for…of` because the repo's tsconfig
+      // has no `target` set and tsc rejects Set iterators without
+      // --downlevelIteration. Same workaround as mixBrands in /shop.
+      const likeSet = new Set(existing.likedIds);
+      const mergedLikes = [...existing.likedIds];
+      for (const id of Array.from(sessionLikedIds)) {
+        if (!likeSet.has(id)) { likeSet.add(id); mergedLikes.push(id); }
+      }
+      // Click history — search-time clicks first so they're "most recent"
+      // and dominate the recency-decayed ranking on the next fetch.
+      const seenClicks = new Set(existing.clickHistory.map((s) => s.objectID));
+      const mergedClicks = [
+        ...clickHistoryRef.current.filter((s) => !seenClicks.has(s.objectID)),
+        ...existing.clickHistory,
+      ];
+      const seenDis = new Set(existing.dislikedSignals.map((s) => s.objectID));
+      const mergedDislikes = [
+        ...dislikedSignalsRef.current.filter((s) => !seenDis.has(s.objectID)),
+        ...existing.dislikedSignals,
+      ];
+      saveSessionSignals({
+        likedIds:        mergedLikes,
+        clickHistory:    mergedClicks,
+        dislikedSignals: mergedDislikes,
+        dwellTimes:      existing.dwellTimes,
+      });
+      flushSessionSignals();
+    } catch {
+      // Best-effort — if persistence fails, still let the user back out of
+      // the search. Worst case is the underneath feed isn't re-personalised.
+    }
+    handleClearSearch();
+  }, [sessionLikedIds, handleClearSearch]);
+
   return (
     <div className="taste-shop-flow">
       {/* Lightweight chrome — "← Go back" anchored to the LEFT, the
@@ -1812,7 +1864,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
         <div className="flex items-center justify-between gap-6 px-8 pt-4 pb-2">
           {step === "shopping" ? (
             <button
-              onClick={handleClearSearch}
+              onClick={persistThenClear}
               className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors"
             >
               ← Go back

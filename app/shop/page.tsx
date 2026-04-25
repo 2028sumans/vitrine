@@ -206,6 +206,13 @@ function ShopPageContent() {
   // Scroll + Price sort) that controls the picks directly.
   const [tasteSearchActive, setTasteSearchActive] = useState(false);
 
+  // Bumped when we want the init-fetch effect to re-run even though brand /
+  // category / steer / price haven't changed. Used after the user dismisses
+  // a TasteShopFlow search so the underneath default feed re-fetches with
+  // the freshly-merged taste signals (the search-time likes that just got
+  // promoted into shared session-signals storage).
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // ── Session scoring algorithm state ────────────────────────────────────────
   // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
   // swipes add to dislikedSignals, and both re-rank the upcoming queue so
@@ -290,6 +297,27 @@ function ShopPageContent() {
       window.removeEventListener("beforeunload", onHide);
     };
   }, []);
+
+  // Watch for the inline TasteShopFlow tearing down (user clicked "← Go
+  // back"). When it goes from active → inactive, re-hydrate session signals
+  // from storage (TasteShopFlow promotes its search-time likes there before
+  // it tears down) and bump refreshKey so the default-feed init effect
+  // re-runs with the freshly-merged bias. Effect: the regular results the
+  // user lands back on are now ranked by what they just liked inside the
+  // search.
+  const prevTasteActiveRef = useRef(false);
+  useEffect(() => {
+    if (prevTasteActiveRef.current && !tasteSearchActive) {
+      const persisted = loadSessionSignals();
+      if (persisted) {
+        if (persisted.likedIds.length)        setLikedIds(new Set(persisted.likedIds));
+        if (persisted.clickHistory.length)    clickHistoryRef.current    = persisted.clickHistory;
+        if (persisted.dislikedSignals.length) dislikedSignalsRef.current = persisted.dislikedSignals;
+      }
+      setRefreshKey((k) => k + 1);
+    }
+    prevTasteActiveRef.current = tasteSearchActive;
+  }, [tasteSearchActive]);
 
   // Saved products ("Your Edit"). Persisted to localStorage via lib/saved.
   // Only the ID set lives in component state — the full product rows are
@@ -503,7 +531,7 @@ function ShopPageContent() {
     // empty in both, so without including `allFlag` the scope key stays
     // "|||" and initStartedRef would block the fetch — the catalog walk
     // never fires and the user lands on an empty Shop all page.
-    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}|${priceMax ?? ""}|${allFlag}`;
+    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}|${priceMax ?? ""}|${allFlag}|${refreshKey}`;
     if (lastScopeRef.current === scope && initStartedRef.current) return;
     lastScopeRef.current   = scope;
     initStartedRef.current = true;
@@ -560,7 +588,7 @@ function ShopPageContent() {
       }
     })();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken, allFlag]);
+  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken, allFlag, refreshKey]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
