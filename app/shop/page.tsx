@@ -20,6 +20,12 @@ import {
   saveSessionSignals,
   flushSessionSignals,
 } from "@/lib/session-signals";
+import {
+  getUserToken,
+  trackProductClick,
+  trackProductsViewed,
+  trackProductConversion,
+} from "@/lib/insights";
 import { MobileMenu } from "../_components/MobileMenu";
 import { TasteShopFlow } from "../_components/TasteShopFlow";
 import { displayTitle } from "@/lib/algolia";
@@ -46,6 +52,13 @@ interface Product {
   title_en?:          string;
   description_en?:    string;
   original_language?: string;
+  // Algolia Insights provenance (set by /api/shop-all when clickAnalytics
+  // is on). Carried per-hit so click + conversion events can reference the
+  // exact ranked list each item came from. _position is the 1-indexed slot
+  // in the FINAL displayed ranking (after all our re-ranking), not the
+  // original Algolia rank.
+  _queryID?:          string;
+  _position?:         number;
 }
 
 
@@ -137,7 +150,21 @@ function ShopPageContent() {
   // Falls back to empty string for anonymous visitors (server treats "" as
   // "no taste boost" → Algolia + liked-products behaviour, unchanged).
   const { data: session } = useSession();
-  const userToken = session?.user?.id ?? "";
+  // Unified user token: prefer the signed-in NextAuth ID, fall back to a
+  // stable per-browser anon UUID from lib/insights.getUserToken(). Critical
+  // that this matches the token Insights events use — otherwise Algolia
+  // can't correlate the events with the searches and the personalization
+  // profile stays empty. Anon users still get personalized as long as they
+  // come back on the same browser (UUID persists in localStorage).
+  const sessionToken = session?.user?.id ?? "";
+  const [anonToken, setAnonToken] = useState<string>("");
+  useEffect(() => {
+    // getUserToken touches localStorage → can't run during SSR. Hydrate
+    // after mount; until then, anon users send "" (Algolia skips
+    // personalization, behaviour identical to the previous code path).
+    setAnonToken(getUserToken());
+  }, []);
+  const userToken = sessionToken || anonToken;
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   // Max price cap (USD). null = no cap. Applied as an Algolia numeric filter
@@ -192,9 +219,31 @@ function ShopPageContent() {
   // view without re-creating the callback (and re-firing in-flight checks)
   // on every grid/scroll toggle.
   const viewModeRef                   = useRef<ViewMode>("grid");
+  // De-dupe Insights view events: Algolia counts each view as fresh
+  // impression weight, so re-sending the same objectID inflates noise.
+  // Track what we've already reported once.
+  const viewedIdsRef                  = useRef<Set<string>>(new Set());
 
   // Keep viewModeRef in sync with state.
   useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
+
+  // Algolia Insights view events on grid view — when a new batch lands in
+  // displayProducts, fire a single "Products Viewed" for the new objectIDs.
+  // Builds the personalization profile even for users who never click or
+  // save. Skipped on scroll view (a separate per-active-card view event
+  // fires below from onActiveChange).
+  useEffect(() => {
+    if (!userToken || viewMode !== "grid" || products.length === 0) return;
+    const fresh: string[] = [];
+    for (const p of products) {
+      if (viewedIdsRef.current.has(p.objectID)) continue;
+      viewedIdsRef.current.add(p.objectID);
+      fresh.push(p.objectID);
+    }
+    if (fresh.length > 0) {
+      trackProductsViewed({ userToken, objectIDs: fresh });
+    }
+  }, [products, viewMode, userToken]);
 
   // Hydrate from localStorage on mount so a returning user's feed already
   // reflects what they responded to last visit. Session-signals persistence
@@ -685,6 +734,19 @@ function ShopPageContent() {
     setSavedIds((prev) => new Set(prev).add(productId));
     setToast("saved to your shortlist");
 
+    // Algolia Insights conversion event. Save = the strongest deliberate
+    // signal we collect; tag it with the originating queryID so
+    // Personalization can attribute the conversion to the search that
+    // surfaced it.
+    if (userToken) {
+      trackProductConversion({
+        userToken,
+        objectID:  productId,
+        queryID:   product._queryID,
+        eventName: "Product Saved",
+      });
+    }
+
     // Feed the saved product's attributes into the upcoming-rank signal
     // so cards ahead of the user's position reshuffle toward brand /
     // color / category matches. Capped at 30 like clickHistory so one
@@ -742,6 +804,18 @@ function ShopPageContent() {
     const signal = productToSignal(product);
     clickHistoryRef.current = [signal, ...clickHistoryRef.current].slice(0, 30);
     likedAtRef.current = [{ id: productId, ts: Date.now() }, ...likedAtRef.current].slice(0, 30);
+    // Fire an Algolia Insights "conversion" event so Personalization weights
+    // this objectID's facets (brand/category/color/price_range) toward the
+    // user's profile. Conversions count ~10× a view event, so a like is
+    // by far the strongest signal we can send.
+    if (userToken) {
+      trackProductConversion({
+        userToken,
+        objectID:  productId,
+        queryID:   product._queryID,
+        eventName: "Product Liked",
+      });
+    }
     setLikedIds((prev) => {
       const next = new Set(prev);
       next.add(productId);
@@ -835,6 +909,51 @@ function ShopPageContent() {
     });
     persistSignals();
   }, [products, likedIds, dwellTimes, reRankUpcomingProducts, persistSignals]);
+
+  // Remove a single steer field (chip click). The user keeps the rest of
+  // the active steer; only the targeted constraint drops. If the resulting
+  // interp goes empty across all fields, we clear it entirely so the feed
+  // re-runs un-steered.
+  type SteerFieldKey = "search_terms" | "avoid_terms" | "categories" | "colors" | "price_range" | "style_axes";
+  const removeSteerField = useCallback((field: SteerFieldKey, value?: string) => {
+    setSteerInterp((prev) => {
+      if (!prev) return prev;
+      const next: SteerInterpretation = {
+        ...prev,
+        search_terms: [...prev.search_terms],
+        avoid_terms:  [...prev.avoid_terms],
+        categories:   [...prev.categories],
+        colors:       [...prev.colors],
+        style_axes:   { ...prev.style_axes },
+      };
+      if (field === "price_range") {
+        next.price_range = null;
+      } else if (field === "style_axes" && value) {
+        delete next.style_axes[value as keyof typeof next.style_axes];
+      } else if (field !== "style_axes" && value !== undefined) {
+        next[field] = (next[field] as string[]).filter((v) => v !== value);
+      }
+      const stillActive =
+        next.search_terms.length > 0 ||
+        next.avoid_terms.length  > 0 ||
+        next.categories.length   > 0 ||
+        next.colors.length       > 0 ||
+        !!next.price_range ||
+        Object.keys(next.style_axes).length > 0;
+      if (!stillActive) {
+        // Also clear the raw query string so the search-bar input visually empties.
+        setSteerQuery("");
+        return null;
+      }
+      return next;
+    });
+    // Feed reset mirrors handleSteer so the visible products refetch with
+    // the new (smaller) interp.
+    setProducts([]);
+    setPage(0);
+    setHasMore(true);
+    seenIdsRef.current = new Set();
+  }, []);
 
   // Steer submit from inside the scroll view.
   //
@@ -1101,6 +1220,12 @@ function ShopPageContent() {
               </span>
             </div>
 
+            {/* Active-steer chips — every field of the current steerInterp
+                renders as a removable pill. Lets the user see what's
+                currently shaping their feed and surgically lift one
+                constraint without retyping the whole thing. */}
+            <SteerChips interp={steerInterp} onRemove={removeSteerField} />
+
             {viewMode === "grid" && (
               <>
                 {products.length === 0 && (loading || interpretingSteer) && (
@@ -1112,12 +1237,26 @@ function ShopPageContent() {
                 )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                  {displayProducts.map((p) => (
+                  {displayProducts.map((p, i) => (
                     <GridTile
                       key={p.objectID}
                       product={p}
                       isSaved={savedIds.has(p.objectID)}
                       onSave={() => handleSave(p.objectID)}
+                      onClickThrough={() => {
+                        // Algolia Insights click event. Tied to the queryID
+                        // the server stamped on this hit so personalization
+                        // can attribute the click to the search that ranked
+                        // it. Position is the final rank we showed, not the
+                        // raw Algolia rank.
+                        if (!userToken) return;
+                        trackProductClick({
+                          userToken,
+                          objectID: p.objectID,
+                          queryID:  p._queryID ?? "",
+                          position: p._position ?? (i + 1),
+                        });
+                      }}
                     />
                   ))}
                 </div>
@@ -1165,7 +1304,17 @@ function ShopPageContent() {
           onLike={handleLike}
           onDwell={handleDwell}
           onScrollBack={handleScrollBack}
-          onActiveChange={(idx) => { activeScrollIdxRef.current = idx; }}
+          onActiveChange={(idx) => {
+            activeScrollIdxRef.current = idx;
+            // View event for the card the user is currently looking at —
+            // counts as an impression for Personalization profile-building
+            // even without a click. Cheap (de-duped via viewedIdsRef).
+            const p = displayProducts[idx];
+            if (userToken && p && !viewedIdsRef.current.has(p.objectID)) {
+              viewedIdsRef.current.add(p.objectID);
+              trackProductsViewed({ userToken, objectIDs: [p.objectID] });
+            }
+          }}
           onSteer={handleSteer}
           steerQuery={steerQuery}
           savedIds={savedIds}
@@ -1208,10 +1357,12 @@ function GridTile({
   product,
   isSaved,
   onSave,
+  onClickThrough,
 }: {
-  product: Product;
-  isSaved: boolean;
-  onSave:  () => void;
+  product:        Product;
+  isSaved:        boolean;
+  onSave:         () => void;
+  onClickThrough: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const brandLabel = product.brand || product.retailer || "";
@@ -1225,6 +1376,7 @@ function GridTile({
         target="_blank"
         rel="noopener noreferrer"
         className="block"
+        onClick={onClickThrough}
       >
         {/* Image — this is the only element with a border + shadow now. No
             bottom-gradient overlay anymore; the brand that used to sit there
@@ -2097,5 +2249,90 @@ function ScrollIcon({ active }: { active: boolean }) {
       <rect x="3" y="1" width="8" height="4" stroke={c} strokeWidth="1.2" />
       <rect x="3" y="9" width="8" height="4" stroke={c} strokeWidth="1.2" />
     </svg>
+  );
+}
+
+// ── Active-steer chips ───────────────────────────────────────────────────────
+//
+// Renders each field of the current SteerInterpretation as a small olive
+// pill with an × button. Lets users see exactly what's currently shaping
+// their feed and remove individual constraints without retyping the whole
+// steer.
+//
+// Field order (left → right): price → categories → colors → search terms →
+// style axis nudges → avoids. Avoids show with a leading "no" prefix and
+// a slightly muted style so they read as the inverse of additive filters.
+
+type SteerFieldKey = "search_terms" | "avoid_terms" | "categories" | "colors" | "price_range" | "style_axes";
+
+function SteerChips({
+  interp,
+  onRemove,
+}: {
+  interp:   SteerInterpretation | null;
+  onRemove: (field: SteerFieldKey, value?: string) => void;
+}) {
+  if (!interp) return null;
+
+  // Friendly labels for the 5 style axis keys when displayed on a chip.
+  // Sign decides the verb: positive = "more X", negative = "less X".
+  const axisLabel: Record<string, [string, string]> = {
+    formality:  ["dressier",     "less dressy"],
+    minimalism: ["more minimal", "more maximal"],
+    edge:       ["edgier",       "softer"],
+    romance:    ["more romantic","more tailored"],
+    drape:      ["more flowy",   "more structured"],
+  };
+
+  const chips: Array<{ key: string; label: string; field: SteerFieldKey; value?: string; tone: "add" | "avoid" }> = [];
+
+  if (interp.price_range) {
+    const priceLabel: Record<string, string> = { budget: "Budget", mid: "Mid-range", luxury: "Luxury" };
+    chips.push({
+      key:   `price:${interp.price_range}`,
+      label: priceLabel[interp.price_range] ?? interp.price_range,
+      field: "price_range",
+      tone:  "add",
+    });
+  }
+  for (const c of interp.categories) chips.push({ key: `cat:${c}`,    label: c,          field: "categories",   value: c, tone: "add" });
+  for (const c of interp.colors)     chips.push({ key: `col:${c}`,    label: c,          field: "colors",       value: c, tone: "add" });
+  for (const t of interp.search_terms) chips.push({ key: `st:${t}`,   label: t,          field: "search_terms", value: t, tone: "add" });
+  for (const [axis, delta] of Object.entries(interp.style_axes)) {
+    if (typeof delta !== "number") continue;
+    const [pos, neg] = axisLabel[axis] ?? [`+ ${axis}`, `- ${axis}`];
+    chips.push({
+      key:   `ax:${axis}`,
+      label: delta > 0 ? pos : neg,
+      field: "style_axes",
+      value: axis,
+      tone:  "add",
+    });
+  }
+  for (const a of interp.avoid_terms) chips.push({ key: `av:${a}`,    label: `no ${a}`, field: "avoid_terms",  value: a, tone: "avoid" });
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-6 -mt-2">
+      <span className="font-sans text-[9px] tracking-widest uppercase text-muted-dim mr-1">
+        Active steer
+      </span>
+      {chips.map((c) => (
+        <button
+          key={c.key}
+          onClick={() => onRemove(c.field, c.value)}
+          className={`group flex items-center gap-1.5 px-3 py-1 font-sans text-[10px] tracking-widest uppercase border transition-colors ${
+            c.tone === "avoid"
+              ? "border-border-mid text-muted hover:text-foreground hover:border-foreground/60"
+              : "bg-foreground text-background border-foreground hover:bg-accent"
+          }`}
+          aria-label={`Remove ${c.label}`}
+        >
+          <span>{c.label}</span>
+          <span aria-hidden className="opacity-60 group-hover:opacity-100">×</span>
+        </button>
+      ))}
+    </div>
   );
 }

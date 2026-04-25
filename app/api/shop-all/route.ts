@@ -37,10 +37,12 @@ import {
   applyNegativeSubtraction,
   blendWithSteerText,
   buildAxisProfile,
+  applyAxisDeltas,
   scoreAxisMatch,
   AXIS_KEYS,
   type AxisRecord,
 } from "@/lib/taste-centroid";
+import type { StyleAxesDelta } from "@/lib/types";
 
 export const revalidate = 60;
 
@@ -391,6 +393,12 @@ interface SessionRankingInput {
   liked:        RankableSignal[];
   disliked:     RankableSignal[];
   steerQuery:   string;
+  /** Signed style-axis deltas from the Steer interpretation (e.g. "more
+   *  minimalist" → { minimalism: +0.35 }). Layered on top of the user's
+   *  learned axis profile via applyAxisDeltas before scoring — so the
+   *  steer actually shifts the target the ranker matches against, instead
+   *  of just contributing keyword search terms. */
+  steerAxisDeltas?: StyleAxesDelta;
   userToken:    string;
   categorySlug: string | null;
   totalK?:      number;
@@ -513,9 +521,18 @@ async function rankBySessionCentroid(input: SessionRankingInput): Promise<Sessio
   }
 
   // Build the axis profile from positive metadata for the soft re-rank.
-  const axisProfile = buildAxisProfile(
-    savedFiltered.map((r) => extractAxes(r.metadata)),
-    likedFiltered.map((r) => extractAxes(r.metadata)),
+  // If the user's current Steer carries signed deltas ("more minimalist"
+  // → { minimalism: +0.35 }), shift the learned profile toward that target
+  // BEFORE scoring. This makes the steer's abstract phrasing actually
+  // move the ranker — previously style_axes was parsed by Claude but
+  // discarded by the route. With deltas applied, "edgier" surfaces items
+  // with edge-axis ≥ 0.7 even when the catalog title doesn't say "edgy."
+  const axisProfile = applyAxisDeltas(
+    buildAxisProfile(
+      savedFiltered.map((r) => extractAxes(r.metadata)),
+      likedFiltered.map((r) => extractAxes(r.metadata)),
+    ),
+    input.steerAxisDeltas ?? {},
   );
 
   // Single Pinecone query with the unified centroid; metadata included so
@@ -650,6 +667,10 @@ interface SteerInterp {
   price_range?:  "budget" | "mid" | "luxury" | null;
   categories?:   string[];
   colors?:       string[];
+  // Signed deltas per StyleAxes key (lib/types.StyleAxesDelta). Parsed by
+  // /api/steer-interpret from prompts like "more minimalist" and consumed
+  // by rankBySessionCentroid to nudge the centroid along each axis.
+  style_axes?:   StyleAxesDelta;
 }
 
 function buildQueryFromBias(bias: BiasPayload): string {
@@ -681,6 +702,25 @@ function buildSteerQuery(s: SteerInterp | null): string {
   for (const t of s.search_terms ?? []) terms.push(t);
   for (const c of s.colors       ?? []) terms.push(c);
   for (const c of s.categories   ?? []) terms.push(c);
+
+  // Algolia's query string supports `-word` syntax for soft-negative terms
+  // (matches with that word get demoted in ranking, not hard-filtered).
+  // Pushing avoid_terms here in addition to the existing post-filter means
+  // the avoid kicks in at search time — Algolia returns 384 non-leather
+  // items in the FIRST batch instead of leather-heavy results that our
+  // post-filter then drops, leaving the page sparse.
+  //
+  // Multi-word avoids ("polka dot") split into individual negative tokens
+  // since Algolia negation is per-word. Min 3 chars to avoid killing
+  // common short words like "or" / "to".
+  for (const a of s.avoid_terms ?? []) {
+    const cleaned = a.replace(/^-+/, "").trim();
+    if (!cleaned) continue;
+    for (const tok of cleaned.split(/\s+/)) {
+      if (tok.length >= 3) terms.push(`-${tok}`);
+    }
+  }
+
   return terms.filter(Boolean).join(" ").trim();
 }
 
@@ -726,6 +766,33 @@ function applyPriceMaxPostFilter(
 // colors, avoid_terms) as a lenient post-filter. Lenient means: only drops
 // a product if it HAS the field and the field disagrees — products missing
 // the field are kept so we don't nuke the whole feed over incomplete data.
+// Algolia Personalization params, applied to every search in this route so
+// the user's facet-affinity profile (built from Insights events fired on the
+// frontend) actually influences ranking. Without this, Personalization is
+// computed but never consulted for /shop traffic. clickAnalytics returns the
+// queryID per response, which Insights events reference for per-position
+// attribution. Both are no-ops when userToken is empty/anon — Algolia just
+// skips personalization for those requests.
+function personalizationParams(userToken: string): Record<string, unknown> {
+  const valid = userToken && userToken !== "anon";
+  return {
+    clickAnalytics:        true,
+    enablePersonalization: valid,
+    ...(valid ? { userToken } : {}),
+  };
+}
+
+// Stamp _queryID on each hit so the frontend can fire trackProductClick /
+// trackProductConversion with provenance. Position is filled in just before
+// returning to the client (once we know the final ranked order).
+function annotateQueryId<T extends Record<string, unknown>>(
+  hits: T[],
+  queryID: string | undefined,
+): T[] {
+  if (!queryID) return hits;
+  return hits.map((h) => ({ ...h, _queryID: queryID }));
+}
+
 function applySteerPostFilter(
   products: Array<Record<string, unknown>>,
   s: SteerInterp | null,
@@ -751,7 +818,28 @@ function applySteerPostFilter(
       if (pcol && !cols.some((c) => pcol.includes(c))) return false;
     }
     if (avoids.length > 0) {
-      const hay = `${String(p.title ?? "")} ${String(p.category ?? "")} ${String(p.color ?? "")}`.toLowerCase();
+      // Extended avoid haystack — title alone misses items with the avoid
+      // term in description ("vegetable-tanned crossbody"), aesthetic_tags
+      // ("grunge"), material ("leather"), or the English back-fill
+      // (description_en for non-English original products). Saying "no
+      // leather" should drop the bag tagged material:"leather" even if
+      // its title is "Aspen Crossbody".
+      const aesthTags = Array.isArray(p.aesthetic_tags)
+        ? (p.aesthetic_tags as unknown[]).map((t) => String(t ?? "")).join(" ")
+        : "";
+      const hay = [
+        p.title,
+        p.title_en,
+        p.description,
+        p.description_en,
+        p.category,
+        p.color,
+        p.material,
+        aesthTags,
+      ]
+        .map((v) => String(v ?? ""))
+        .join(" ")
+        .toLowerCase();
       if (avoids.some((a) => hay.includes(a))) return false;
     }
     return true;
@@ -852,6 +940,10 @@ export async function POST(request: Request) {
     "objectID", "title", "brand", "retailer", "price",
     "image_url", "product_url",
     "category", "color", "price_range", "aesthetic_tags",
+    // Material + description needed by applySteerPostFilter's extended
+    // avoid match — "no leather" drops items where the term lives in
+    // material or description rather than title. ~80 bytes/product.
+    "material", "description",
     // English back-fills written by scripts/translate-non-english.mjs.
     // Frontend prefers these when present (see app/shop/page.tsx,
     // app/dashboard/page.tsx) so non-English brand sites read in English
@@ -961,9 +1053,15 @@ export async function POST(request: Request) {
                   hitsPerPage: PER_BAND,
                   page,
                   attributesToRetrieve,
+                  ...personalizationParams(userToken),
                 },
               });
-              return { hits: (r.hits ?? []) as Array<Record<string, unknown>>, nbHits: r.nbHits ?? 0 };
+              const queryID = (r as unknown as { queryID?: string }).queryID;
+              const annotated = annotateQueryId(
+                (r.hits ?? []) as Array<Record<string, unknown>>,
+                queryID,
+              );
+              return { hits: annotated, nbHits: r.nbHits ?? 0 };
             } catch (e) {
               console.warn("[shop-all] price-band slice failed:", e instanceof Error ? e.message : e);
               return { hits: [] as Array<Record<string, unknown>>, nbHits: 0 };
@@ -1058,9 +1156,14 @@ export async function POST(request: Request) {
                   hitsPerPage: PER_BRAND,
                   page:        0,
                   attributesToRetrieve,
+                  ...personalizationParams(userToken),
                 },
               });
-              return (r.hits ?? []) as Array<Record<string, unknown>>;
+              const queryID = (r as unknown as { queryID?: string }).queryID;
+              return annotateQueryId(
+                (r.hits ?? []) as Array<Record<string, unknown>>,
+                queryID,
+              );
             } catch (e) {
               console.warn(`[shop-all] diversify per-brand query failed for "${brand}":`, e instanceof Error ? e.message : e);
               return [] as Array<Record<string, unknown>>;
@@ -1096,9 +1199,14 @@ export async function POST(request: Request) {
             hitsPerPage: SCOPED_FETCH,
             page,
             attributesToRetrieve,
+            ...personalizationParams(userToken),
           },
         });
-        products = (res.hits ?? []) as Array<Record<string, unknown>>;
+        const queryID = (res as unknown as { queryID?: string }).queryID;
+        products = annotateQueryId(
+          (res.hits ?? []) as Array<Record<string, unknown>>,
+          queryID,
+        );
         nbHits   = res.nbHits ?? 0;
       }
 
@@ -1126,6 +1234,7 @@ export async function POST(request: Request) {
           liked:        likedSignals,
           disliked:     dislikedSignals,
           steerQuery,
+          steerAxisDeltas: steerInterp?.style_axes ?? {},
           userToken,
           categorySlug: slugFromFilter(categoryFilter || null),
         });
@@ -1247,8 +1356,11 @@ export async function POST(request: Request) {
       // trimmed a 384-item fetch below 192 — and pagination terminated even
       // though the index had thousands more matching items.
       const consumed = (page + 1) * SCOPED_FETCH;
+      // Stamp final 1-indexed position so frontend click events reference
+      // the visible rank, not the Algolia rank from before re-ranking.
+      const cleanWithPos = clean.map((p, i) => ({ ...p, _position: i + 1 }));
       return NextResponse.json({
-        products: clean,
+        products: cleanWithPos,
         page,
         hasMore:  nbHits > 0 ? consumed < nbHits : products.length >= SCOPED_FETCH / 4,
         mode:     brandFilterQuery ? "brand" : "category",
@@ -1276,6 +1388,7 @@ export async function POST(request: Request) {
           hitsPerPage: HITS_PER_PAGE,
           page,
           attributesToRetrieve,
+          ...personalizationParams(userToken),
         },
       });
 
@@ -1299,6 +1412,7 @@ export async function POST(request: Request) {
             liked:        likedSignals,
             disliked:     dislikedSignals,
             steerQuery,
+            steerAxisDeltas: steerInterp?.style_axes ?? {},
             userToken,
             categorySlug: null, // Query-driven path has no category scope
           }),
@@ -1310,7 +1424,11 @@ export async function POST(request: Request) {
         taste            = { hasVector: ranking.hasVector, userAge: ranking.userAge };
       }
 
-      let products = (res.hits ?? []) as Array<Record<string, unknown>>;
+      const queryDrivenQID = (res as unknown as { queryID?: string }).queryID;
+      let products = annotateQueryId(
+        (res.hits ?? []) as Array<Record<string, unknown>>,
+        queryDrivenQID,
+      );
 
       const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
       const dislikedCategories = new Set((bias.dislikedCategories ?? []).map((s) => s.toLowerCase()));
@@ -1389,8 +1507,9 @@ export async function POST(request: Request) {
       // hasMore from total catalog count.
       const queryNbHits = res.nbHits ?? 0;
       const queryConsumed = (page + 1) * HITS_PER_PAGE;
+      const cleanWithPos = clean.map((p, i) => ({ ...p, _position: i + 1 }));
       return NextResponse.json({
-        products: clean,
+        products: cleanWithPos,
         page,
         hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= HITS_PER_PAGE / 2,
         mode:    seedProductId ? "seed" : (steerQuery ? (hasLikedSignals(bias) ? "steered+biased" : "steered") : "biased"),
@@ -1434,18 +1553,23 @@ export async function POST(request: Request) {
               hitsPerPage: PER_SLICE,
               page:        sliceIdx * SLICE_SPAN_PAGES + page,
               attributesToRetrieve,
+              ...personalizationParams(userToken),
             },
           })
-          .catch(() => ({ hits: [] as Array<Record<string, unknown>>, nbHits: 0 })),
+          .catch(() => ({ hits: [] as Array<Record<string, unknown>>, nbHits: 0, queryID: undefined })),
       ),
     );
 
-    // Round-robin interleave so the result spans all 8 slices.
+    // Round-robin interleave so the result spans all 8 slices. Each hit
+    // is stamped with its source slice's queryID so a click event can
+    // reference the exact ranked list it came from. Algolia accepts
+    // multiple queryIDs from the same userToken without conflict.
     const interleaved: Array<Record<string, unknown>> = [];
     for (let i = 0; i < PER_SLICE; i++) {
       for (let s = 0; s < SLICES; s++) {
+        const sliceQID = (sliceResults[s] as unknown as { queryID?: string }).queryID;
         const hit = sliceResults[s].hits?.[i] as Record<string, unknown> | undefined;
-        if (hit) interleaved.push(hit);
+        if (hit) interleaved.push(sliceQID ? { ...hit, _queryID: sliceQID } : hit);
       }
     }
 
@@ -1463,9 +1587,10 @@ export async function POST(request: Request) {
     const totalHits = sliceResults.find((r) => (r.nbHits ?? 0) > 0)?.nbHits ?? totalCatalog;
     const consumed  = (page + 1) * FLAT_HITS_PER_PAGE;
     const hasMore   = consumed < totalHits;
+    const productsWithPos = products.map((p, i) => ({ ...p, _position: i + 1 }));
 
     return NextResponse.json({
-      products,
+      products: productsWithPos,
       page,
       hasMore,
       mode:  "flat",

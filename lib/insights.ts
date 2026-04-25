@@ -140,3 +140,38 @@ export function trackProductsViewed({
     });
   }
 }
+
+/**
+ * Fire on a strong, deliberate signal — save to shortlist, heart-tap,
+ * external "Shop" click-out, etc. Conversions weight ~10× higher than
+ * view events in Algolia's personalization profile build, so distinguishing
+ * them from passive clicks matters a lot.
+ *
+ * `queryID` is the optional provenance id Algolia returns when
+ * `clickAnalytics: true` on the search. Including it lets Algolia attribute
+ * the conversion to the exact ranked list it served, which is what
+ * "conversion-after-search" personalization strategies key off. Without
+ * it, the event still feeds the profile but counts as a generic conversion
+ * (no per-position attribution).
+ */
+export function trackProductConversion({
+  userToken,
+  objectID,
+  queryID,
+  eventName = "Product Saved",
+}: {
+  userToken:  string;
+  objectID:   string;
+  queryID?:   string;
+  eventName?: string;
+}): void {
+  const event: Record<string, unknown> = {
+    eventType: "conversion",
+    eventName,
+    index:     INDEX_NAME,
+    userToken,
+    objectIDs: [objectID],
+  };
+  if (queryID) event.queryID = queryID;
+  sendEvent(event);
+}
