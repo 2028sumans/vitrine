@@ -143,6 +143,11 @@ function Labeler({ category }: { category: CategoryRow }) {
   const [hasMore, setHasMore]   = useState(true);
   const [hideTagged, setHideTagged] = useState(false);
   const seenIdsRef              = useRef<Set<string>>(new Set());
+  // Sentinel that sits just above the manual Load-more button. When it
+  // scrolls into view, loadMore() fires automatically. The visible button
+  // remains as a manual fallback in case IntersectionObserver doesn't run
+  // (browser policy, off-screen tab, etc.).
+  const sentinelRef             = useRef<HTMLDivElement>(null);
 
   // Hydrate on mount + whenever slug changes (route swap between categories).
   useEffect(() => {
@@ -202,6 +207,23 @@ function Labeler({ category }: { category: CategoryRow }) {
       void loadMore();
     }
   }, [products.length, hasMore, loading, loadMore]);
+
+  // Infinite scroll — IntersectionObserver on the sentinel div near the
+  // bottom of the grid. When it enters the viewport (with a 600px rootMargin
+  // for early prefetch), auto-call loadMore so the user can keep scrolling
+  // without hunting for the button. Re-attaches when hasMore / loading
+  // change so a stale closure doesn't fire on a "done" state.
+  useEffect(() => {
+    if (!hasMore) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+    const obs = new IntersectionObserver((entries) => {
+      const isVisible = entries.some((e) => e.isIntersecting);
+      if (isVisible && hasMore && !loading) void loadMore();
+    }, { rootMargin: "600px" });
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, [hasMore, loading, loadMore, products.length]);
 
   // Toggle-an-aesthetic on a product. Multi-label semantics — clicking a
   // pill adds it if absent, removes it if present. Empty array clears the
@@ -412,6 +434,12 @@ function Labeler({ category }: { category: CategoryRow }) {
             );
           })}
         </div>
+
+        {/* Sentinel — drives the infinite-scroll auto-fetch via the
+            IntersectionObserver wired up above. Sits 600px ABOVE the
+            manual button so loading kicks in before the user reaches
+            the bottom and the button never feels "needed". */}
+        <div ref={sentinelRef} aria-hidden className="h-px" />
 
         <div className="flex items-center justify-center py-10">
           {hasMore ? (
