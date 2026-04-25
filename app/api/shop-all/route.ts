@@ -85,12 +85,21 @@ type CategoryScope = {
 // "Belle Strapless" in Tops).
 //
 // Matched with word-start boundaries so "heel" won't hit "loopwheel".
+//
+// Swimwear / intimates note: the catalog contains ~1,500 items with titles
+// like "AQUA BIKINI TOP" or "Bikini 2PC Set" that are tagged category="top".
+// Without `bikini` / `swim` in the tops blocker, a steer like "summery" or
+// even just lexical overlap from a steer's optional words can surface them
+// in Tops — which the user definitely doesn't want when shopping for shirts.
+// Same logic for bottoms (bikini bottoms, briefs) and dresses (bikinis sold
+// as "set"). Lingerie words too — "bralette" / "corset" titles often live
+// under top tags but aren't what someone browsing Tops wants either.
 const CATEGORY_BLOCKERS: Record<string, readonly string[]> = {
-  tops:       ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "skirt", "dress", "jean", "trouser", "bag", "tote", "handbag", "clutch"],
-  dresses:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "jean", "trouser", "bag", "tote", "handbag", "clutch", "jacket", "coat", "blazer"],
-  bottoms:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "shirt", "blouse", "top", "tee", "tank", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch"],
+  tops:       ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "skirt", "dress", "jean", "trouser", "bag", "tote", "handbag", "clutch", "bikini", "swim", "swimsuit", "swimwear", "maillot", "bralette", "corset", "lingerie", "thong", "panty", "panties", "underwear"],
+  dresses:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "pant", "jean", "trouser", "bag", "tote", "handbag", "clutch", "jacket", "coat", "blazer", "bikini", "swim", "swimsuit", "swimwear", "lingerie", "bralette"],
+  bottoms:    ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "shirt", "blouse", "top", "tee", "tank", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch", "bikini", "swim", "swimsuit", "swimwear", "thong", "panty", "panties", "underwear", "bralette"],
   shoes:      ["hoody", "hoodie", "sweater", "sweatshirt", "cardigan", "jumper", "shirt", "blouse", "tee", "tank", "dress", "gown", "pant", "skirt", "short", "jean", "trouser", "jacket", "coat", "blazer", "bag", "tote", "handbag", "clutch", "necklace", "bracelet", "ring", "earring", "belt"],
-  outerwear:  ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "gown", "skirt", "short", "jean", "trouser", "bag", "tote", "handbag", "clutch"],
+  outerwear:  ["shoe", "boot", "sandal", "heel", "sneaker", "loafer", "pump", "dress", "gown", "skirt", "short", "jean", "trouser", "bag", "tote", "handbag", "clutch", "bikini", "swim"],
   "bags and accessories": ["shoe", "boot", "sandal", "heel", "sneaker", "pant", "skirt", "dress", "shirt", "blouse", "jacket", "coat"],
 };
 
