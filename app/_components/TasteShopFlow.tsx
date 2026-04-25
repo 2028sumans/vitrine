@@ -1823,7 +1823,17 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-8 py-5">
+      {/* Width: the intake (boards step) stays in a comfortable max-w-5xl
+          column so it reads as a search panel. Once the user submits and
+          we render the loading/results, drop the column constraint and the
+          horizontal padding so the picks fill the available width naturally
+          (the parent on /shop also drops its border in this state — see
+          app/shop/page.tsx). */}
+      <div className={
+        step === "boards"
+          ? "max-w-5xl mx-auto px-8 py-5"
+          : "py-5"
+      }>
 
         {/* ── Search hub (boards step) ──
             Inline above the category grid. Sizing is the editorial-minimal
