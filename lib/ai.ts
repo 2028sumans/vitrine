@@ -365,7 +365,11 @@ export async function fetchCandidateProductsByCategory(
     augmented,
     dna.style_keywords,
     dna.price_range,
-    20,           // up from 12 — more candidates → better shortlist picks
+    50,           // 6 categories × 50 = 300 raw → ~250 after filters,
+                  // matches the hybridSearch cap and the CLIP centroid
+                  // topK = 300 the rest of the pipeline is sized around.
+                  // Was 20 (→ ~70 after filters), too tight for any
+                  // post-Algolia diversity work.
     userToken
   );
 

@@ -404,20 +404,57 @@ export async function POST(request: Request) {
           rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead });
 
         } else if (mode === "text" || mode === "quiz") {
-          // Text / quiz mode: skip FashionCLIP entirely. For a typed query
-          // we already have Claude's `category_queries`, `style_keywords`,
-          // `color_palette`, `silhouettes` — all great fuel for Algolia
-          // keyword search. Running a ~150 MB ML model on a serverless
-          // lambda to encode 8 text phrases is the tail wagging the dog:
-          // it adds 20–40 s of cold-start for marginal recall gains, when
-          // Algolia returns in ~1 s and Claude's queries are already
-          // semantically-rich.
+          // Text / quiz mode used to be Algolia-only — the original concern
+          // was a 20–40 s serverless cold start to load FashionCLIP for one
+          // query. That's no longer the cost: embedTextQuery / searchByText-
+          // Query are already in production via /api/shop-all's text-steer
+          // augmentation (commit 2c69334) without that penalty, because the
+          // text encoder runs through a hosted endpoint, not an inline model
+          // load.
           //
-          // If we ever reintroduce visual voting for text mode, do it via
-          // a hot-loaded external embedding service (HuggingFace Inference
-          // Endpoints / Modal), not inline.
-          console.log(`[shop] Algolia-only (mode=${mode}) — FashionCLIP bypassed for speed`);
-          rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
+          // The bypass had real consequences: an abstract query like
+          // "y2k party" got translated to category_queries by Claude
+          // ("low rise jeans, metallic top, rhinestone tank"), Algolia
+          // title-matched only items whose titles literally contained
+          // those tokens, and visually-y2k items titled abstractly
+          // ("Crew Tee Wash 12") never surfaced. Plus the per-category cap
+          // here was 20 → 6 × 20 = 120 raw → ~70 after filters, vs the 50
+          // we use elsewhere.
+          //
+          // Now: text-encode the user's query (or a synthesized aesthetic
+          // string for quiz mode) and run the same hybridSearch the image
+          // path uses, with strict=true so the Algolia keyword voter is
+          // de-weighted and the Pinecone min-score floor tightens. Falls
+          // back to the original Algolia-only path if encoding fails.
+          let queryForClip = "";
+          if (mode === "text") {
+            queryForClip = (contexts[0].textQuery ?? "").trim();
+          } else {
+            // Quiz mode has no free text — synthesize one from the
+            // aesthetic's strongest descriptors so CLIP still has signal.
+            queryForClip = [
+              ...(aesthetic?.style_keywords ?? []).slice(0, 5),
+              ...(aesthetic?.color_palette  ?? []).slice(0, 3),
+            ].filter(Boolean).join(" ").trim();
+          }
+
+          let embeddings: number[][] = [];
+          if (queryForClip) {
+            try {
+              const emb = await embedTextQuery(queryForClip);
+              if (emb && emb.length > 0) embeddings = [emb];
+            } catch (e) {
+              console.warn(`[shop] text embedding failed (mode=${mode}); falling back to algolia-only:`, e instanceof Error ? e.message : e);
+            }
+          }
+
+          if (embeddings.length > 0) {
+            console.log(`[shop] Hybrid search: text query "${queryForClip.slice(0, 60)}" (mode=${mode}, strict)`);
+            rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead, strict: true });
+          } else {
+            console.log(`[shop] Algolia-only fallback (mode=${mode}, no text embedding)`);
+            rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
+          }
 
         } else {
           console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
