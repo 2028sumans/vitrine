@@ -1348,28 +1348,50 @@ function ProductScrollView({
   }, [products, hasMore, onNearEnd, onDwell, onScrollBack, onActiveChange]);
 
   // Wheel → snap by viewport height. Tuned for a TikTok-like snappy feel:
-  //   - delta threshold 144 px ignores micro-flicks, fires on small flicks
-  //   - cooldown 700 ms (was 1280) — consecutive snaps feel near-instant
-  //     to a power user without losing the "one flick = one card" invariant
-  //   - accumulator resets after 200 ms of no wheel input so stale delta
-  //     doesn't trigger a jump on the next session.
+  //   - mouse-wheel threshold 100 px (one click ≈ 120 px); trackpad threshold
+  //     bumps to 60 once we've seen at least one small delta, so a fast flick
+  //     fires reliably without single-pixel taps registering.
+  //   - cooldown released by `scrollend` when supported (Chrome / Firefox /
+  //     Edge / Safari 17+); a 420 ms timeout fallback covers older Safari.
+  //     Previously hardcoded 700 ms, which always felt sluggish on a fast
+  //     trackpad — the snap finished but the lock kept the next flick out.
+  //   - accumulator resets after 200 ms of no wheel input.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    let deltaAccum = 0;
+    let deltaAccum  = 0;
+    let lastDelta   = 0; // |last raw deltaY| — small ⇒ trackpad-like
     let resetTimer: number | null = null;
+    const releaseLock = () => { isScrolling.current = false; };
+    const supportsScrollEnd = typeof window !== "undefined" && "onscrollend" in window;
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (isScrolling.current) return;
       deltaAccum += e.deltaY;
+      lastDelta   = Math.max(lastDelta * 0.5, Math.abs(e.deltaY));
       if (resetTimer != null) window.clearTimeout(resetTimer);
-      resetTimer = window.setTimeout(() => { deltaAccum = 0; }, 200);
-      if (Math.abs(deltaAccum) < 144) return;
+      resetTimer = window.setTimeout(() => { deltaAccum = 0; lastDelta = 0; }, 200);
+
+      // Trackpad-vs-wheel threshold: trackpads fire many small deltas (each
+      // typically <30 px); a single mouse click is ~120 px. Lower threshold
+      // when we're seeing trackpad-shaped input so a flick doesn't have to
+      // accumulate a whole click's worth before the snap fires.
+      const threshold = lastDelta < 40 ? 60 : 100;
+      if (Math.abs(deltaAccum) < threshold) return;
+
       isScrolling.current = true;
       const direction = Math.sign(deltaAccum);
       deltaAccum = 0;
+      lastDelta  = 0;
       el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 700);
+
+      if (supportsScrollEnd) {
+        el.addEventListener("scrollend", releaseLock, { once: true });
+      }
+      // Fallback / safety net for browsers without scrollend, and to guarantee
+      // release even if scrollend never fires (rare but seen on iOS/Safari).
+      setTimeout(releaseLock, 420);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
@@ -1381,6 +1403,7 @@ function ProductScrollView({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    const supportsScrollEnd = typeof window !== "undefined" && "onscrollend" in window;
     const onKey = (e: KeyboardEvent) => {
       const a = document.activeElement;
       if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || (a as HTMLElement).isContentEditable)) return;
@@ -1388,8 +1411,9 @@ function ProductScrollView({
       const step = (dir: 1 | -1) => {
         isScrolling.current = true;
         el.scrollBy({ top: dir * el.clientHeight, behavior: "smooth" });
-        // Matches the wheel cooldown so keyboard and wheel snap at the same pace.
-        setTimeout(() => { isScrolling.current = false; }, 600);
+        const release = () => { isScrolling.current = false; };
+        if (supportsScrollEnd) el.addEventListener("scrollend", release, { once: true });
+        setTimeout(release, 420);
       };
       switch (e.key) {
         case "ArrowDown": case "j": case " ": case "PageDown":

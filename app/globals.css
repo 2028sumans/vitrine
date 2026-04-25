@@ -42,18 +42,22 @@
      with continued scrolling, leaving multiple Reveals mid-animation at once
      and producing visible jank. 600ms/24px finishes before the user has
      scrolled past, and the smaller transform is a smaller composited paint.
-     `will-change` is dropped after the reveal completes to free the GPU
-     layer (handled via `.reveal-visible` rule). */
+
+     `will-change` is *not* set here. Setting it on the base `.reveal`
+     promotes every un-revealed element to its own GPU compositor layer
+     up-front — on a long homepage with ~10+ reveals that's gigabytes of
+     layer storage held until the user scrolls to each. Modern browsers
+     auto-promote a `translate3d`+`opacity` transition at animation time
+     anyway. The Reveal component now toggles `will-change` via inline
+     style only on the element about to animate (see Reveal.tsx). */
   .reveal {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translate3d(0, 24px, 0);
     transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.6s cubic-bezier(0.16,1,0.3,1);
-    will-change: opacity, transform;
   }
   .reveal-visible {
     opacity: 1;
-    transform: translateY(0);
-    will-change: auto;
+    transform: translate3d(0, 0, 0);
   }
   @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1; transform: none; transition: none; }
