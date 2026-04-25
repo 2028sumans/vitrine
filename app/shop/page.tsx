@@ -199,6 +199,13 @@ function ShopPageContent() {
   const [steerInterp,      setSteerInterp]      = useState<SteerInterpretation | null>(null);
   const [interpretingSteer, setInterpretingSteer] = useState(false);
 
+  // True when the inline TasteShopFlow has produced (or is producing)
+  // personalized picks. While true, the default category feed and its
+  // grid/scroll/sort toolbar are hidden so the picks aren't sandwiched
+  // between unrelated UI. TasteShopFlow exposes its own toolbar (Grid /
+  // Scroll + Price sort) that controls the picks directly.
+  const [tasteSearchActive, setTasteSearchActive] = useState(false);
+
   // ── Session scoring algorithm state ────────────────────────────────────────
   // Mirrors the dashboard scoring pipeline: likes add to clickHistory, fast
   // swipes add to dislikedSignals, and both re-rank the upcoming queue so
@@ -1139,6 +1146,7 @@ function ShopPageContent() {
               categoryFilter={isCategoryMode ? categoryFilter : undefined}
               callbackUrl={`${pathname}${searchParams?.toString() ? "?" + searchParams.toString() : ""}`}
               allowPinterest={!!userToken}
+              onSearchActiveChange={setTasteSearchActive}
             />
           </section>
         )}
@@ -1146,8 +1154,13 @@ function ShopPageContent() {
         {/* Category picker — home view only */}
         {isPickerMode && <CategoryPickerGrid />}
 
-        {/* View toggle + product grid — only in brand/category mode */}
-        {!isPickerMode && (
+        {/* View toggle + product grid — only in brand/category mode AND only
+            when the inline TasteShopFlow isn't currently showing personalized
+            picks. Otherwise the user sees their picks AND a separate
+            unrelated category grid below them with its own competing
+            grid/scroll/sort toolbar — the bar that's actually controlling
+            the picks lives inside TasteShopFlow. */}
+        {!isPickerMode && !tasteSearchActive && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-y-5 gap-x-8 mb-10 border-y border-border-mid py-5">
               <div className="flex">

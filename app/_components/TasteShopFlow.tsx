@@ -1145,6 +1145,12 @@ export interface TasteShopFlowProps {
    *  results view. When supplied, the in-flow reset is skipped and the
    *  caller takes over (e.g. clear the URL, return to default category feed). */
   onClearSearch?:   () => void;
+  /** Fires `true` when the flow has produced personalized picks (or is in
+   *  the middle of producing them) and `false` when the user resets back
+   *  to the intake screen. Lets the parent hide its own default category
+   *  feed + view-toggle bar so the picks aren't sandwiched between
+   *  unrelated UI. */
+  onSearchActiveChange?: (active: boolean) => void;
 }
 
 export function TasteShopFlow(props: TasteShopFlowProps = {}) {
@@ -1153,6 +1159,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     callbackUrl    = "/dashboard",
     allowPinterest = true,
     onClearSearch,
+    onSearchActiveChange,
   } = props;
   const { data: session } = useSession();
 
@@ -1169,6 +1176,22 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
   const [errorMsg, setErrorMsg]             = useState("");
   const [userToken, setUserToken]           = useState("anon");
   const [shopViewMode, setShopViewMode]     = useState<ViewMode>("scroll");
+  // Sort mode for the picks grid. "featured" preserves the rankCards order
+  // (taste-relevance baked in by sortedProducts below); the two price modes
+  // re-sort the loaded set client-side. Mirrors /shop's SortMode pattern.
+  type ShopSortMode = "featured" | "price_asc" | "price_desc";
+  const [shopSortMode, setShopSortMode]     = useState<ShopSortMode>("featured");
+
+  // Tell the parent when the flow has produced personalized picks (or is in
+  // the middle of producing them). Lets the parent hide its own default
+  // category feed so the picks aren't sandwiched between unrelated UI.
+  // step === "shopping" when results are showing; "shopping_loading" while
+  // /api/shop is in flight; "boards" / "error" mean no active search.
+  useEffect(() => {
+    if (!onSearchActiveChange) return;
+    const active = step === "shopping" || step === "shopping_loading";
+    onSearchActiveChange(active);
+  }, [step, onSearchActiveChange]);
 
   // Infinite-scroll pagination on top of the initial /api/shop candidates.
   // Once the user works through the visual-first picks Pinecone returned,
@@ -2040,9 +2063,25 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
           }));
           const ranked = rankCards(cards, signals) as ScoringCard[];
           const byId = new Map(allProducts.map((p) => [p.objectID, p]));
-          const sortedProducts = ranked
+          const taste_sortedProducts = ranked
             .map((c) => byId.get(c.id))
             .filter((p): p is AlgoliaProduct => p != null);
+
+          // Apply optional price sort on top of the taste-relevance order.
+          // "featured" = leave taste order alone. Items without a price always
+          // sink to the end so a missing price doesn't accidentally win
+          // either ranking direction.
+          let sortedProducts = taste_sortedProducts;
+          if (shopSortMode !== "featured") {
+            const priced   = taste_sortedProducts.filter((p) => p.price != null);
+            const unpriced = taste_sortedProducts.filter((p) => p.price == null);
+            priced.sort((a, b) =>
+              shopSortMode === "price_asc"
+                ? (a.price as number) - (b.price as number)
+                : (b.price as number) - (a.price as number),
+            );
+            sortedProducts = [...priced, ...unpriced];
+          }
 
           const productToSignal = (p: AlgoliaProduct): ClickSignalLike => ({
             objectID:    p.objectID,
@@ -2102,15 +2141,41 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                       {sortedProducts.length} picks
                     </h1>
                   </div>
-                  <div className="flex border border-border overflow-hidden flex-shrink-0 mt-1">
-                    <button onClick={() => setShopViewMode("grid")}
-                      className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 ${shopViewMode === "grid" ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
-                      Grid
-                    </button>
-                    <button onClick={() => setShopViewMode("scroll")}
-                      className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 border-l border-border ${shopViewMode === "scroll" ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
-                      Scroll
-                    </button>
+                  <div className="flex flex-col gap-2 items-end flex-shrink-0 mt-1">
+                    {/* View toggle — Grid / Scroll, applies to the picks
+                        below (and the ProductScrollView modal). */}
+                    <div className="flex border border-border overflow-hidden">
+                      <button onClick={() => setShopViewMode("grid")}
+                        className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 ${shopViewMode === "grid" ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
+                        Grid
+                      </button>
+                      <button onClick={() => setShopViewMode("scroll")}
+                        className={`px-4 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 border-l border-border ${shopViewMode === "scroll" ? "bg-foreground text-background" : "text-muted hover:text-foreground"}`}>
+                        Scroll
+                      </button>
+                    </div>
+                    {/* Price sort — re-orders the LOADED picks client-side.
+                        "Featured" preserves the rankCards taste-relevance
+                        order. */}
+                    <div className="flex border border-border overflow-hidden">
+                      {([
+                        { label: "Featured", value: "featured"   },
+                        { label: "Price ↑",  value: "price_asc"  },
+                        { label: "Price ↓",  value: "price_desc" },
+                      ] as const).map((opt, i) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setShopSortMode(opt.value)}
+                          className={`px-3 py-2 font-sans text-[9px] tracking-widest uppercase transition-colors duration-150 ${i === 0 ? "" : "border-l border-border"} ${
+                            shopSortMode === opt.value
+                              ? "bg-foreground text-background"
+                              : "text-muted hover:text-foreground"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
