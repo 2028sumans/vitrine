@@ -48,65 +48,6 @@ export async function GET() {
   const checks:    Record<string, unknown> = {};
   const failures:  string[] = [];
 
-  // ── -1. onnxruntime-node loadability check ────────────────────────────────
-  //        @xenova/transformers v2 picks the ONNX backend at first import:
-  //        it tries onnxruntime-node, falls back to onnxruntime-web on error.
-  //        The user's prod logs show transformers still using onnxruntime-web,
-  //        meaning the node binding's import or runtime check failed silently.
-  //        This step imports onnxruntime-node directly and reports what
-  //        actually happens — distinguishing 'package not deployed' from
-  //        'binary loaded but rejected' from 'module loaded but constructing
-  //        a session throws'.
-  try {
-    const t0 = Date.now();
-    const ortNode = await import("onnxruntime-node");
-    const importMs = Date.now() - t0;
-    const exports = Object.keys(ortNode).filter((k) => !k.startsWith("_")).slice(0, 12);
-
-    let sessionTest: Record<string, unknown> = { skipped: "no test model file available" };
-    // We don't bundle a tiny ONNX model to test session creation, but we
-    // can probe whether InferenceSession is constructable and whether
-    // backends.length > 0 (the runtime registers backends on first use).
-    try {
-      const ISClass = (ortNode as unknown as { InferenceSession?: unknown }).InferenceSession;
-      const env     = (ortNode as unknown as { env?: { backends?: unknown; logLevel?: unknown } }).env;
-      sessionTest = {
-        InferenceSession_present: typeof ISClass === "function" || typeof ISClass === "object",
-        env_present:              !!env,
-        backends_registered:      env?.backends ? Object.keys(env.backends as object).length : 0,
-        backends_keys:            env?.backends ? Object.keys(env.backends as object) : [],
-      };
-    } catch (e) {
-      sessionTest = { error: e instanceof Error ? e.message : String(e) };
-    }
-
-    checks.onnxruntime_node = {
-      ok:           true,
-      duration_ms:  importMs,
-      exports_seen: exports,
-      session_test: sessionTest,
-      interpretation:
-        "OK — package loaded. If transformers still picks onnxruntime-web, the issue is transformers' backend selection, not our deploy.",
-    };
-  } catch (e) {
-    const err = e instanceof Error ? e : new Error(String(e));
-    checks.onnxruntime_node = {
-      ok:    false,
-      error: err.message,
-      name:  err.name,
-      stack: err.stack?.split("\n").slice(0, 8),
-      hint:
-        err.message.includes("Cannot find module") || err.message.includes("ENOENT")
-          ? "Native .node binary or supporting files weren't traced into the function. Check outputFileTracingIncludes covers ./node_modules/onnxruntime-node/**."
-          : err.message.includes("invalid ELF") || err.message.includes("not a dynamic")
-            ? "Wrong architecture for the native binary. Vercel's Lambda is linux x64."
-            : err.message.includes("GLIBC")
-              ? "GLIBC version mismatch — the native binary expects a newer libc than the Lambda has."
-              : "Read the stack — top frame names the failing module.",
-    };
-    failures.push(`onnxruntime-node import failed: ${err.message}`);
-  }
-
   // ── 0. Direct import + model load — captures the actual exception that
   //       getTextModel() swallows with `console.error + return null`. If
   //       embedTextQuery is returning [], it's because one of these threw.

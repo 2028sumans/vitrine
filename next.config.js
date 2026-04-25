@@ -11,7 +11,6 @@ const nextConfig = {
     // silently returned no results.
     serverComponentsExternalPackages: [
       "@xenova/transformers",
-      "onnxruntime-node",
       "@pinecone-database/pinecone",
     ],
     // Force-include the @xenova/transformers WASM binaries into every
@@ -22,6 +21,16 @@ const nextConfig = {
     //   "ENOENT: no such file or directory, open
     //    '/var/task/node_modules/@xenova/transformers/dist/ort-wasm-simd.wasm'"
     // and CLIPTextModelWithProjection.from_pretrained throws.
+    //
+    // We tried installing onnxruntime-node (the native ORT backend) for
+    // faster, more reliable model loads. It works, but it ships pre-
+    // built binaries for every platform — Linux x64, Linux arm64,
+    // macOS x64, macOS arm64, Windows — totalling 354 MB. Vercel's
+    // tracer can't statically tell which platform the function will run
+    // on, so it includes them all and the function bundle blows past
+    // the 250 MB Pro hard ceiling. Build fails. We're back on
+    // onnxruntime-web (WASM) which is what these globs serve. See
+    // commit history near the rollback for the full story.
     outputFileTracingIncludes: {
       "/api/**/*": [
         "./node_modules/@xenova/transformers/dist/*.wasm",
@@ -30,12 +39,6 @@ const nextConfig = {
         // Vercel's tracer occasionally drops dynamic-imported packages.
         // Glob the entire Pinecone SDK (~1.5 MB) to guarantee inclusion.
         "./node_modules/@pinecone-database/pinecone/**",
-        // onnxruntime-node ships a Linux-x64 .node binary @xenova/transformers
-        // auto-detects in preference to onnxruntime-web (WASM). Trace it
-        // explicitly because the .node file is loaded via require() which
-        // Vercel sometimes misses.
-        "./node_modules/onnxruntime-node/bin/napi-v3/linux/x64/*.node",
-        "./node_modules/onnxruntime-node/dist/**",
       ],
     },
   },
