@@ -1865,7 +1865,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
           {step === "shopping" ? (
             <button
               onClick={persistThenClear}
-              className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors"
+              className="font-sans text-xs tracking-widest uppercase text-muted hover:text-foreground transition-colors"
             >
               ← Go back
             </button>
@@ -2197,16 +2197,16 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
               )}
 
               <div className="fade-in-up">
-                <div className="flex items-start justify-between mb-8 gap-6">
+                <div className="flex items-end justify-between mb-8 gap-6 flex-wrap">
                   <div>
-                    <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">
-                      {selectedBoard?.name ?? "Your search"}
-                    </p>
                     <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight">
                       {sortedProducts.length} picks
                     </h1>
                   </div>
-                  <div className="flex flex-col gap-2 items-end flex-shrink-0 mt-1">
+                  {/* View toggle + sort toggle on a single row, right-aligned.
+                      Used to stack vertically; merging them onto one line keeps
+                      the toolbar compact and frees the heading area visually. */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     {/* View toggle — Grid / Scroll, applies to the picks
                         below (and the ProductScrollView modal). */}
                     <div className="flex border border-border overflow-hidden">
