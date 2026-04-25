@@ -39,6 +39,17 @@ import {
   type AgeRangeKey,
 } from "@/lib/onboarding-memory";
 
+// FashionCLIP cold-start (model download + ONNX init) + per-image inference
+// for 4-8 uploads can exceed Vercel's 10s Hobby-tier default. 60s is the
+// Hobby max; bump as needed on Pro (up to 300s). Hobby plans accept this
+// value too — they just clamp at their own ceiling.
+export const maxDuration = 60;
+
+// Force the route onto the Node.js runtime — @xenova/transformers + ONNX
+// runtime aren't available on Edge. Default for Next.js API routes is
+// "nodejs" but being explicit guards against accidental runtime changes.
+export const runtime = "nodejs";
+
 // Guard against abuse / accidental huge uploads. The client caps at 1-2 per
 // of 4 categories = 8 images; we give ourselves 2x headroom.
 const MAX_IMAGES = 16;

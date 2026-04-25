@@ -131,16 +131,76 @@ function clearDraft() {
 }
 
 /**
- * Read a File into a data: URL. Stored as-is for previews; the base64 portion
- * is stripped off server-side before embedding.
+ * Read a File, downscale to a max long-edge size, and return a JPEG data URL.
+ *
+ * Why
+ * ---
+ * Three problems this solves at once:
+ *   1. iPhone screenshots are routinely 1290×2796 ≈ 5 MB raw. base64-encoded
+ *      they're 7 MB; 4-8 of them in one POST body easily blows past Vercel's
+ *      4.5 MB request limit on the Hobby tier.
+ *   2. FashionCLIP processes at 224×224 anyway, so any resolution above
+ *      ~512px on the long edge is wasted bytes. 1024 leaves headroom for
+ *      higher-quality CLIP variants without bloating the payload.
+ *   3. iOS Safari can decode HEIC into a canvas; canvas.toDataURL("image/jpeg")
+ *      then exports as JPEG regardless of input format. So this function
+ *      transparently converts HEIC → JPEG without us having to detect it.
+ *
+ * Falls back to the raw File-as-data-URL path on any error so a corrupted
+ * image or an exotic format that the canvas can't load still has a chance
+ * to flow through the original FileReader pipeline (and the server-side
+ * embedder will surface the failure with proper logging).
  */
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
+async function fileToDataUrl(file: File, maxDim = 1024): Promise<string> {
+  // Fast path: read as a data URL via FileReader. We always have this as
+  // a fallback so non-image-decodable bytes still produce a valid string.
+  const rawDataUrl = await new Promise<string>((resolve, reject) => {
     const fr = new FileReader();
     fr.onload  = () => resolve(String(fr.result ?? ""));
     fr.onerror = () => reject(fr.error ?? new Error("read failed"));
     fr.readAsDataURL(file);
   });
+
+  // Try to load the data URL into an Image — this is what triggers the
+  // browser's native decoder for HEIC, WebP, AVIF, etc. If it fails we
+  // return the raw bytes and let the server tell the user what's wrong.
+  let img: HTMLImageElement;
+  try {
+    img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload  = () => resolve(i);
+      i.onerror = (ev) => reject(new Error(`image decode failed: ${String(ev)}`));
+      i.src = rawDataUrl;
+    });
+  } catch {
+    return rawDataUrl;
+  }
+
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) return rawDataUrl;
+
+  // Skip resizing when already small — saves a canvas round-trip on tiny
+  // crops or already-downsampled images.
+  if (Math.max(w, h) <= maxDim) return rawDataUrl;
+
+  const scale = maxDim / Math.max(w, h);
+  const tw = Math.round(w * scale);
+  const th = Math.round(h * scale);
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width  = tw;
+    canvas.height = th;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return rawDataUrl;
+    ctx.drawImage(img, 0, 0, tw, th);
+    // Export as JPEG q=0.85 — visually indistinguishable from PNG for
+    // photographic content, ~5x smaller, and FashionCLIP doesn't care.
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch {
+    return rawDataUrl;
+  }
 }
 
 /** Extract the raw base64 payload from a `data:image/...;base64,AAAA...` URL. */
