@@ -1014,7 +1014,14 @@ function ShopPageContent() {
       const res = await fetch("/api/steer-interpret", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ text: trimmed }),
+        // Pass the user identity + current category so the server can pull
+        // recent steer history for coreference resolution ("more like the
+        // last one") and persist this submission to user_steer_history.
+        body:    JSON.stringify({
+          text: trimmed,
+          userToken,
+          categorySlug: categoryFilter || null,
+        }),
       });
       if (res.ok) rich = (await res.json()) as SteerInterpretation;
     } catch (err) {
