@@ -60,16 +60,24 @@ export async function getPreviousStyleDNAs(
 }
 
 // ── Board → StyleDNA read cache ───────────────────────────────────────────────
-// Pinterest boards rarely change materially inside a day. When the same user
-// re-analyzes the same board, we skip the Sonnet-vision + Haiku-synthesis
-// phase entirely — typically the largest chunk of the "Finding your picks"
-// loading screen (~2–3 s saved).
+// Pinterest boards rarely change materially. When the same user re-analyzes
+// the same board, we skip the Sonnet-vision + Haiku-synthesis phase entirely
+// — typically the largest chunk of the "Finding your picks" loading screen
+// (~2–3 s saved per cache hit) and ~$0.02 in Claude API spend per hit.
 //
-// TTL: 24 hours. Long enough to make repeat visits feel instant, short
-// enough that the user can force a refresh by waiting a day. For now, the
-// only invalidation path is the TTL; future work can wire a manual refresh
-// button.
-const STYLE_DNA_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// TTL: 14 days. The previous 24h TTL only served users who came back within
+// the same day; the realistic re-engagement window for a fashion shopping
+// product is days-to-weeks, so 24h was effectively giving us a 0% hit rate
+// on returning users. Empirically Pinterest boards don't get curated weekly
+// — pin sprees happen once a month at most. 14 days hits the sweet spot:
+// long enough that 80%+ of returning-user visits land on a warm cache,
+// short enough that anyone who deliberately reorganized a board sees the
+// new aesthetic on next visit without waiting a quarter.
+//
+// If a user wants to force a refresh sooner, they can swap to a different
+// board and back, or wait the TTL out. Future work: a manual "re-analyze"
+// button + content-hash invalidation when pin URL set changes meaningfully.
+const STYLE_DNA_CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export async function getStyleDNAByBoard(
   userToken: string,
