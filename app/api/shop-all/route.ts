@@ -782,6 +782,18 @@ function personalizationParams(userToken: string): Record<string, unknown> {
   };
 }
 
+// NeuralSearch / AI Search opt-in. Algolia bills semantic queries
+// separately from keyword queries on most plans, so we only flip the mode
+// when the request actually benefits — i.e., the user typed a free-text
+// steer, not just a category browse. The env var lets us gate the feature
+// even if the index is provisioned for it: when ALGOLIA_NEURAL_SEARCH is
+// false, the toggle is a no-op and we fall back to pure keyword search.
+function neuralSearchParams(steerQuery: string): Record<string, unknown> {
+  const enabled = process.env.ALGOLIA_NEURAL_SEARCH === "true";
+  if (!enabled || !steerQuery.trim()) return {};
+  return { mode: "neuralSearch" };
+}
+
 // Stamp _queryID on each hit so the frontend can fire trackProductClick /
 // trackProductConversion with provenance. Position is filled in just before
 // returning to the client (once we know the final ranked order).
@@ -1054,6 +1066,7 @@ export async function POST(request: Request) {
                   page,
                   attributesToRetrieve,
                   ...personalizationParams(userToken),
+                  ...neuralSearchParams(steerQuery),
                 },
               });
               const queryID = (r as unknown as { queryID?: string }).queryID;
@@ -1157,6 +1170,7 @@ export async function POST(request: Request) {
                   page:        0,
                   attributesToRetrieve,
                   ...personalizationParams(userToken),
+                  ...neuralSearchParams(steerQuery),
                 },
               });
               const queryID = (r as unknown as { queryID?: string }).queryID;
@@ -1200,6 +1214,7 @@ export async function POST(request: Request) {
             page,
             attributesToRetrieve,
             ...personalizationParams(userToken),
+            ...neuralSearchParams(steerQuery),
           },
         });
         const queryID = (res as unknown as { queryID?: string }).queryID;
@@ -1389,6 +1404,7 @@ export async function POST(request: Request) {
           page,
           attributesToRetrieve,
           ...personalizationParams(userToken),
+          ...neuralSearchParams(steerQuery),
         },
       });
 
@@ -1554,6 +1570,7 @@ export async function POST(request: Request) {
               page:        sliceIdx * SLICE_SPAN_PAGES + page,
               attributesToRetrieve,
               ...personalizationParams(userToken),
+              ...neuralSearchParams(steerQuery),
             },
           })
           .catch(() => ({ hits: [] as Array<Record<string, unknown>>, nbHits: 0, queryID: undefined })),

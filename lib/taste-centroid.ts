@@ -236,3 +236,38 @@ export function scoreAxisMatch(
   }
   return count > 0 ? total / count : 0.5;
 }
+
+/**
+ * Apply signed deltas from a Steer interpretation onto an existing axis
+ * profile. Used when the user types "more minimalist, less edgy" — Claude
+ * emits `style_axes: { minimalism: +0.35, edge: -0.2 }` which we layer on
+ * top of the user's learned baseline to compute a shifted target the
+ * ranker should match against.
+ *
+ * Three cases per axis:
+ *   - Profile + delta both present  → target = clamp(profile + delta, 0, 1)
+ *   - Delta only (no profile)        → target = clamp(0.5 + delta, 0, 1)
+ *     (assume neutral baseline; covers anon / new users who haven't
+ *      saved enough for buildAxisProfile to populate that axis)
+ *   - Profile only                   → unchanged
+ *
+ * Deltas larger than ~0.5 in absolute value are unusual; Claude tends to
+ * emit 0.2-0.4 for typical phrasings. We don't clamp the delta input — only
+ * the resulting target — so `axes: { edge: -1.0 }` stays meaningful as
+ * "drive me as soft as possible."
+ */
+export function applyAxisDeltas(
+  profile: AxisRecord,
+  deltas:  Partial<Record<AxisKey, number>>,
+): AxisRecord {
+  if (!deltas || Object.keys(deltas).length === 0) return profile;
+  const out: AxisRecord = { ...profile };
+  for (const k of AXIS_KEYS) {
+    const d = deltas[k];
+    if (typeof d !== "number" || !Number.isFinite(d)) continue;
+    const baseline = typeof out[k] === "number" ? out[k]! : 0.5;
+    const shifted  = Math.max(0, Math.min(1, baseline + d));
+    out[k] = shifted;
+  }
+  return out;
+}

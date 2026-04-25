@@ -108,7 +108,18 @@ Return ONLY valid JSON, no preamble:
   "intent":       "one sentence plaintext interpretation"
 }`;
 
-export async function interpretSteerText(text: string): Promise<SteerInterpretation> {
+export interface InterpretOptions {
+  /** Most-recent-first list of the user's previous steers in the current
+   *  context. Optionally injected into the prompt as one-line history so
+   *  Claude can resolve "more like before" / "less of what I asked for"
+   *  references. Empty / missing array → no history block in the prompt. */
+  recentSteers?: string[];
+}
+
+export async function interpretSteerText(
+  text:    string,
+  options: InterpretOptions = {},
+): Promise<SteerInterpretation> {
   const trimmed = text.trim();
   if (!trimmed) return EMPTY;
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -118,11 +129,22 @@ export async function interpretSteerText(text: string): Promise<SteerInterpretat
   }
 
   try {
-    const client  = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    // Build the prompt with optional recent-steer history.
+    // The history block is intentionally compact — Claude doesn't need
+    // structured interps, just the raw lines for coreference resolution.
+    const recent = (options.recentSteers ?? []).filter(Boolean).slice(0, 3);
+    const historyBlock = recent.length > 0
+      ? `\nThe user's most recent prior steers in this session (most recent first):\n${recent.map((s, i) => `  ${i + 1}. "${s}"`).join("\n")}\nIf the current input refers back ("more like the last one", "less of what I just asked"), interpret in that context.\n`
+      : "";
+
+    const filledPrompt = PROMPT.replace("{{TEXT}}", trimmed) + historyBlock;
+
     const message = await client.messages.create({
       model:      "claude-haiku-4-5",
       max_tokens: 500,
-      messages:   [{ role: "user", content: PROMPT.replace("{{TEXT}}", trimmed) }],
+      messages:   [{ role: "user", content: filledPrompt }],
     });
 
     const raw  = message.content[0]?.type === "text" ? message.content[0].text : "";
