@@ -1294,6 +1294,30 @@ export async function POST(request: Request) {
         }
       }
 
+      // Session-centroid semantic candidate augmentation — extends the
+      // CLIP-as-source pattern above to the like/save case. boostIds
+      // already has the top-K from rankBySessionCentroid (recency-weighted
+      // positive centroid minus negative, blended with persistent taste
+      // vector). Without this hop, those IDs only re-ranked Algolia's pool
+      // — a CLIP-similar item Algolia hadn't surfaced on this page never
+      // appeared. Now they enter the pool the same way text-steer
+      // candidates do, get post-filtered by category-scope-enforce, and
+      // compete with Algolia hits on equal footing.
+      // Capped at 150 IDs so the merged pool stays a sensible size for
+      // downstream interleaving / spreading.
+      if (boostIds.length > 0 && !seedProductId) {
+        try {
+          const seenAlgolia = new Set(products.map((p) => String(p.objectID ?? "")));
+          const newIds      = boostIds.slice(0, 150).filter((id) => !seenAlgolia.has(id));
+          if (newIds.length > 0) {
+            const semProducts = await getProductsByIds(newIds);
+            products = [...products, ...(semProducts as unknown as typeof products)];
+          }
+        } catch (e) {
+          console.warn("[shop-all] session-centroid candidate augmentation failed:", e instanceof Error ? e.message : e);
+        }
+      }
+
       // Implicit avoid_terms — patterns showing up repeatedly in dislikes
       // get folded into the steer post-filter without making the user type.
       const implicitAvoid = inferImplicitAvoidTerms(dislikedMetadata);
@@ -1510,6 +1534,23 @@ export async function POST(request: Request) {
           }
         } catch (e) {
           console.warn("[shop-all] FashionCLIP candidate augmentation (query-driven) failed:", e instanceof Error ? e.message : e);
+        }
+      }
+
+      // Session-centroid semantic candidate augmentation. Mirror of the
+      // scoped path's hop: boostIds (recency-weighted positive centroid
+      // minus negative, blended with the persistent taste vector) become
+      // pool candidates instead of just re-ranking signal. Capped at 150.
+      if (boostIds.length > 0 && !seedProductId) {
+        try {
+          const seenAlgolia = new Set(products.map((p) => String(p.objectID ?? "")));
+          const newIds      = boostIds.slice(0, 150).filter((id) => !seenAlgolia.has(id));
+          if (newIds.length > 0) {
+            const semProducts = await getProductsByIds(newIds);
+            products = [...products, ...(semProducts as unknown as typeof products)];
+          }
+        } catch (e) {
+          console.warn("[shop-all] session-centroid candidate augmentation (query-driven) failed:", e instanceof Error ? e.message : e);
         }
       }
 
