@@ -300,7 +300,12 @@ export async function embedImageUrls(urls: string[]): Promise<number[][]> {
       const inputs = await processor(image);
       // @ts-expect-error — dynamic model call
       const { image_embeds } = await model(inputs);
-      return Array.from(image_embeds.data as Float32Array) as number[];
+      // L2-normalize to match how scripts/embed-with-qc.mjs stored these.
+      // Pinecone's cosine metric handles non-unit, but downstream client-
+      // side cosine (centroid blend, distinctness, taste-head projection)
+      // assumes unit input. Normalize at the boundary so every consumer
+      // gets a unit vector.
+      return normalize(Array.from(image_embeds.data as Float32Array) as number[]);
     } catch (err) {
       console.error("[embeddings] embedImageUrls failed for", url, err);
       return [] as number[];
@@ -338,7 +343,8 @@ export async function embedBase64Images(images: VisionImage[]): Promise<number[]
       const inputs = await processor(image);
       // @ts-expect-error — dynamic model call
       const { image_embeds } = await model(inputs);
-      return Array.from(image_embeds.data as Float32Array) as number[];
+      // L2-normalize — see embedImageUrls comment for rationale.
+      return normalize(Array.from(image_embeds.data as Float32Array) as number[]);
     } catch (err) {
       // Surface per-image failures — silent catches turn "model not on this
       // host" into "user gets cryptic error message." Each line includes the
@@ -390,7 +396,15 @@ export async function embedTextQuery(
     const inputs = await tokenizer(applyTemplate(text, template), { padding: true, truncation: true });
     // @ts-expect-error — dynamic model call
     const { text_embeds } = await model(inputs);
-    return Array.from(text_embeds.data as Float32Array);
+    // L2-normalize. FashionCLIP's text projection head outputs raw
+    // (non-unit) vectors — norms typically land 7–9. Stored Pinecone
+    // vectors are unit (see scripts/embed-with-qc.mjs blendVectors).
+    // Pinecone's cosine search is magnitude-invariant so the query
+    // ranks correctly without this, but every client-side cosine in
+    // the pipeline (centroid blend, distinctness, taste-head matrix
+    // multiply) silently misbehaves on non-unit input. Normalize once
+    // here and every downstream consumer is correct.
+    return normalize(Array.from(text_embeds.data as Float32Array) as number[]);
   } catch {
     return [];
   }

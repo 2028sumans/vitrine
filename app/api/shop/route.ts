@@ -15,7 +15,6 @@ import {
   clusterEmbeddings,
   embedImageUrls,
   embedBase64Images,
-  embedTextQuery,
   warmupEmbeddingModels,
 }                                               from "@/lib/embeddings";
 import { hybridSearch }                         from "@/lib/hybrid-search";
@@ -421,38 +420,43 @@ export async function POST(request: Request) {
           // here was 20 → 6 × 20 = 120 raw → ~70 after filters, vs the 50
           // we use elsewhere.
           //
-          // Now: text-encode the user's query (or a synthesized aesthetic
-          // string for quiz mode) and run the same hybridSearch the image
-          // path uses, with strict=true so the Algolia keyword voter is
-          // de-weighted and the Pinecone min-score floor tightens. Falls
-          // back to the original Algolia-only path if encoding fails.
-          let queryForClip = "";
-          if (mode === "text") {
-            queryForClip = (contexts[0].textQuery ?? "").trim();
-          } else {
-            // Quiz mode has no free text — synthesize one from the
-            // aesthetic's strongest descriptors so CLIP still has signal.
-            queryForClip = [
-              ...(aesthetic?.style_keywords ?? []).slice(0, 5),
-              ...(aesthetic?.color_palette  ?? []).slice(0, 3),
-            ].filter(Boolean).join(" ").trim();
-          }
-
+          // We use buildTextQueryVectors instead of a single
+          // embedTextQuery on the literal user input. FashionCLIP was
+          // trained on captions like "a photo of a chunky cable knit
+          // turtleneck in cream", not 2-token queries like "y2k party".
+          // Encoding the literal query lands the vector in a generic
+          // region and Pinecone returns generic-feminine items that
+          // happen to be nearby (eyeshadow palettes, plain bralettes,
+          // basic swimsuits — observed in /api/debug/clip output).
+          //
+          // buildTextQueryVectors instead encodes Claude's
+          // `retrieval_phrases` (5-8 full sentences in FashionCLIP-native
+          // garment+fabric+color vocabulary), each `category_queries`
+          // bucket, and an aesthetic summary phrase. Pinecone clusters
+          // these under the hood so the candidate set is category-
+          // balanced and pulled from FashionCLIP's high-density caption
+          // region of the latent space. Negative subtraction also
+          // applies — `avoids` are encoded and pushed against each
+          // positive vector. Falls back to Algolia-only if encoding
+          // fails entirely.
           let embeddings: number[][] = [];
-          if (queryForClip) {
-            try {
-              const emb = await embedTextQuery(queryForClip);
-              if (emb && emb.length > 0) embeddings = [emb];
-            } catch (e) {
-              console.warn(`[shop] text embedding failed (mode=${mode}); falling back to algolia-only:`, e instanceof Error ? e.message : e);
-            }
+          try {
+            embeddings = await buildTextQueryVectors(
+              aesthetic!,
+              tasteMemory.softAvoids,
+            );
+          } catch (e) {
+            console.warn(
+              `[shop] buildTextQueryVectors failed (mode=${mode}); falling back to algolia-only:`,
+              e instanceof Error ? e.message : e,
+            );
           }
 
           if (embeddings.length > 0) {
-            console.log(`[shop] Hybrid search: text query "${queryForClip.slice(0, 60)}" (mode=${mode}, strict)`);
+            console.log(`[shop] Hybrid search: ${embeddings.length} text-query vectors (mode=${mode}, strict)`);
             rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead, strict: true });
           } else {
-            console.log(`[shop] Algolia-only fallback (mode=${mode}, no text embedding)`);
+            console.log(`[shop] Algolia-only fallback (mode=${mode}, no text embeddings)`);
             rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
           }
 
