@@ -884,7 +884,7 @@ function ShopPageContent() {
             visible area until the user clicks "← Clear search". Pinterest
             tab is hidden for anon users (sign in via the nav to enable). */}
         {(isCategoryMode || isAllMode) && (
-          <section className="mb-12 border border-border-mid">
+          <section className="mb-6 border border-border-mid">
             <TasteShopFlow
               categoryFilter={isCategoryMode ? categoryFilter : undefined}
               callbackUrl={`${pathname}${searchParams?.toString() ? "?" + searchParams.toString() : ""}`}

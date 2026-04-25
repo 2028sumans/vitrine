@@ -1804,22 +1804,26 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
       <div className="max-w-5xl mx-auto px-8 py-5">
 
         {/* ── Search hub (boards step) ──
-            Inline above the category grid — kept deliberately compact so
-            product tiles peek under the fold. Anything bigger than this
-            hides the actual catalog. */}
+            Inline above the category grid. Sizing is the editorial-minimal
+            middle ground: generous enough that the heading reads as a
+            heading and the cards have breathing room, compact enough that
+            the first row of products is still visible under the fold on a
+            laptop. The earlier pass collapsed everything to form-field
+            scale and the panel started reading as utility chrome instead
+            of a deliberate prompt. */}
         {step === "boards" && (
           <div className="fade-in-up">
-            <div className="mb-3">
-              <h2 className="font-display font-light text-lg sm:text-xl text-foreground leading-tight mb-1">
+            <div className="mb-5">
+              <h2 className="font-display font-light text-xl sm:text-2xl text-foreground leading-tight mb-1.5">
                 What are we shopping for?
               </h2>
-              <p className="font-sans text-[11px] text-muted-strong max-w-md leading-relaxed">
+              <p className="font-sans text-sm text-muted-strong max-w-lg leading-relaxed">
                 Describe the vibe, share a Pinterest board, or upload a few shots.
               </p>
             </div>
 
             {/* Context blocks */}
-            <div className="flex flex-col gap-2 mb-3 max-w-xl">
+            <div className="flex flex-col gap-3 mb-5 max-w-xl">
               {contextBlocks.map((block) => (
                 <div key={block.id} className="border border-border">
                   {/* Block type selector row */}
@@ -1843,7 +1847,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                   </div>
 
                   {/* Block form */}
-                  <div className="p-3">
+                  <div className="p-4">
                     {/* Pinterest block */}
                     {block.type === "pinterest" && (() => {
                       const pinterestToken = (session as { accessToken?: string } | null)?.accessToken;
@@ -1916,7 +1920,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                         value={block.textQuery}
                         onChange={(e) => updateBlock(block.id, { textQuery: e.target.value })}
                         placeholder="e.g. rooftop birthday dinner in LA, want to look effortless but elevated, warm weather, not too formal…"
-                        rows={3}
+                        rows={2}
                         className="w-full bg-transparent font-sans text-sm text-foreground placeholder-muted/50 focus:outline-none resize-none leading-relaxed"
                       />
                     )}
@@ -1934,27 +1938,36 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
               ))}
             </div>
 
-            {/* Add more context */}
-            {contextBlocks.length < 4 && (
-              <button onClick={addBlock}
-                className="mb-3 font-sans text-[9px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border border-dashed border-border-mid px-3 py-1.5">
-                + Add more context
-              </button>
-            )}
+            {/* Bottom toolbar — Add-more / Price / Build all on one
+                horizontal row so the panel ends in a single visual line
+                instead of three stacked rows of chrome. Wraps gracefully
+                on mobile (flex-wrap), keeps Build right-aligned via
+                ml-auto so it reads as the primary action. Total panel
+                height drops ~150 px vs the previous stacked layout —
+                enough that the first row of products peeks under the
+                fold on a 1280×800 viewport. */}
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 max-w-xl">
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+                {contextBlocks.length < 4 && (
+                  <button onClick={addBlock}
+                    className="font-sans text-[10px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border border-dashed border-border-mid px-4 py-2">
+                    + Add more context
+                  </button>
+                )}
 
-            {/* Price constraint — applied before Claude's aesthetic analysis
-                so every downstream step (candidate fetch, curation) works
-                within the user's chosen price range. Optional — default "All"
-                lets Claude infer tier from the board. */}
-            <div className="mb-3">
-              <label className="block font-sans text-[9px] tracking-widest uppercase text-muted-strong mb-1.5">
-                Price range
-              </label>
-              <PriceFilterBar tier={intakePriceTier} onChange={setIntakePriceTier} />
-            </div>
+                {/* Price constraint — applied before Claude's aesthetic analysis
+                    so every downstream step (candidate fetch, curation) works
+                    within the user's chosen price range. Optional — default
+                    "All" lets Claude infer tier from the board. */}
+                <div>
+                  <label className="block font-sans text-[9px] tracking-widest uppercase text-muted-dim mb-1.5">
+                    Price
+                  </label>
+                  <PriceFilterBar tier={intakePriceTier} onChange={setIntakePriceTier} />
+                </div>
+              </div>
 
-            {/* Submit */}
-            <div>
+              {/* Submit — primary action, sits at the right edge of the toolbar */}
               <button
                 onClick={handleShopMulti}
                 disabled={!contextBlocks.some((b) =>
@@ -1963,7 +1976,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                   (b.type === "images" && b.uploadedFiles.length > 0) ||
                   (b.type === "quiz" && !!b.answers)
                 )}
-                className="px-5 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
+                className="ml-auto px-6 py-2.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
                 Build my feed →
               </button>
             </div>
