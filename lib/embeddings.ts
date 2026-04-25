@@ -576,6 +576,66 @@ export async function searchByLikedProductIds(
   return ids.filter((id) => !excluded.has(id)).slice(0, totalK);
 }
 
+/**
+ * Fetch raw FashionCLIP vectors and structured metadata (StyleAxes +
+ * StyleAttributes + brand/category/etc.) for a list of objectIDs.
+ * Preserves input order — useful when the caller needs to apply a
+ * recency-weighted decay across the result.
+ *
+ * Used by app/api/shop-all/route.ts to build the session centroid
+ * (vectors → lib/taste-centroid) and the user's axis profile (metadata
+ * → lib/taste-centroid.buildAxisProfile).
+ */
+export async function fetchProductsForCentroid(
+  objectIDs: string[],
+): Promise<Array<{ id: string; vector: number[] | null; metadata: Record<string, unknown> | null }>> {
+  if (objectIDs.length === 0) return [];
+  const index   = await getPineconeIndex();
+  const fetched = await index.fetch({ ids: objectIDs });
+  const records = fetched.records ?? {};
+  return objectIDs.map((id) => {
+    const r = records[id] as { values?: number[]; metadata?: Record<string, unknown> } | undefined;
+    return {
+      id,
+      vector:   Array.isArray(r?.values) && r!.values.length > 0 ? Array.from(r!.values) : null,
+      metadata: r?.metadata ?? null,
+    };
+  });
+}
+
+/**
+ * Single-vector Pinecone query that also returns metadata. Used for the
+ * StyleAxes-aware ranking step where we need to score the result set's
+ * axes against the user's profile.
+ *
+ * Returns ranked (id, score, metadata) tuples — caller does the rest.
+ */
+export async function searchByCentroidWithMetadata(
+  centroid: number[],
+  topK     = 200,
+  options:  SearchOptions = {},
+): Promise<Array<{ id: string; score: number; metadata: Record<string, unknown> }>> {
+  if (!centroid || centroid.length === 0) return [];
+  const index = await getPineconeIndex();
+  const target = options.namespace ? index.namespace(options.namespace) : index;
+  const filter = mergeFilters(options.priceRange, options.axes);
+  const result = await target.query({
+    vector:          centroid,
+    topK,
+    includeMetadata: true,
+    ...(filter ? { filter } : {}),
+  });
+  const minScore = options.minScore ?? 0;
+  type PineconeMatch = { id: string; score?: number; metadata?: Record<string, unknown> };
+  return ((result.matches ?? []) as PineconeMatch[])
+    .filter((m: PineconeMatch) => (m.score ?? 0) >= minScore)
+    .map((m: PineconeMatch) => ({
+      id:       m.id,
+      score:    m.score ?? 0,
+      metadata: (m.metadata ?? {}) as Record<string, unknown>,
+    }));
+}
+
 // ── Price filter helper ───────────────────────────────────────────────────────
 
 function buildPriceFilter(priceRange?: string): Record<string, unknown> | null {

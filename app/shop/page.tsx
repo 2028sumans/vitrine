@@ -182,6 +182,12 @@ function ShopPageContent() {
   const clickHistoryRef               = useRef<ClickSignalLike[]>([]);
   const dislikedSignalsRef            = useRef<ClickSignalLike[]>([]);
   const activeScrollIdxRef            = useRef(0);
+  // Per-event timestamps so the server can recency-decay session signals.
+  // Most-recent-first; capped at 30 each by buildSignals on send.
+  // (Saves get their timestamps from lib/saved.ts; we don't duplicate them
+  // here — readSaved() already returns savedAt.)
+  const likedAtRef                    = useRef<Array<{ id: string; ts: number }>>([]);
+  const dislikedAtRef                 = useRef<Array<{ id: string; ts: number }>>([]);
   // Mirrored ref of viewMode so refreshBiasedAhead can branch on the current
   // view without re-creating the callback (and re-firing in-flight checks)
   // on every grid/scroll toggle.
@@ -360,6 +366,23 @@ function ShopPageContent() {
     };
   }, []);
 
+  // New signals payload — sent alongside the legacy bias keywords. Lets
+  // /api/shop-all do recency-weighted centroid math (saves > likes,
+  // negative centroid from dislikes, etc.) instead of just keyword bias.
+  // Saves come from the persistent shortlist (lib/saved.ts) so they
+  // survive across sessions; likes/dislikes are session-scoped via refs.
+  const buildServerSignals = useCallback(() => {
+    const saves = readSaved()
+      .map((s) => ({ id: s.objectID, ts: s.savedAt }))
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 20);
+    const likes = likedAtRef.current
+      .slice() // ref is already most-recent-first via unshift in handlers
+      .slice(0, 20);
+    const dislikes = dislikedAtRef.current.slice(0, 20);
+    return { saved: saves, liked: likes, disliked: dislikes };
+  }, []);
+
   // Catalog fetch. Scope is brand / category / steered-taste-query, resolved
   // server-side. Session-bias signals (likes/dislikes so far) rank-boost the
   // results. Pagination continues until the server says hasMore=false.
@@ -375,6 +398,7 @@ function ShopPageContent() {
           page,
           bias:            buildBias(),
           likedProductIds: Array.from(likedIds),
+          signals:         buildServerSignals(),
           userToken,
           brandFilter:     brandFilter    ?? "",
           categoryFilter:  categoryFilter ?? "",
@@ -448,6 +472,7 @@ function ShopPageContent() {
             page:            0,
             bias:            buildBias(),
             likedProductIds: Array.from(likedIds),
+          signals:         buildServerSignals(),
             userToken,
             brandFilter:     brandFilter    ?? "",
             categoryFilter:  categoryFilter ?? "",
@@ -515,6 +540,7 @@ function ShopPageContent() {
           page: 0,
           bias,
           likedProductIds: Array.from(likedIds),
+          signals:         buildServerSignals(),
           userToken,
           brandFilter,
           categoryFilter,
@@ -570,6 +596,56 @@ function ShopPageContent() {
     }
   }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds, userToken]);
 
+  // "More like this" — fire a seed-mode fetch with the active product's
+  // ID. Server queries Pinecone with that single product's vector and
+  // returns the top neighbours. Splice in at activeIdx + 2 so the next
+  // swipe lands on something tightly similar to the seed. Distinct from
+  // refreshBiasedAhead, which uses the full session centroid; seed mode
+  // bypasses everything and trusts THIS one piece.
+  const handleMoreLikeThis = useCallback(async (productId: string) => {
+    if (biasRefetchInFlightRef.current) return;
+    biasRefetchInFlightRef.current = true;
+    try {
+      const res = await fetch(`/api/shop-all`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          page: 0,
+          bias: buildBias(),
+          signals:         buildServerSignals(),
+          likedProductIds: Array.from(likedIds),
+          userToken,
+          brandFilter,
+          categoryFilter,
+          priceMax,
+          steerQuery,
+          steerInterp,
+          seedProductId:   productId,
+        }),
+      });
+      if (!res.ok) return;
+      const data  = await res.json();
+      const fresh = (data.products ?? []) as Product[];
+      if (fresh.length === 0) return;
+
+      setProducts((prev) => {
+        const insertAt = Math.min(activeScrollIdxRef.current + 2, prev.length);
+        const keep     = prev.slice(0, insertAt);
+        const keepIds  = new Set(keep.map((p) => p.objectID));
+        const freshUnseen = fresh.filter((p) => !keepIds.has(p.objectID));
+        freshUnseen.forEach((p) => seenIdsRef.current.add(p.objectID));
+        return [...keep, ...freshUnseen];
+      });
+      setToast("more like this");
+      setPage(1);
+      setHasMore(true);
+    } catch (err) {
+      console.warn("[shop] handleMoreLikeThis failed:", err);
+    } finally {
+      biasRefetchInFlightRef.current = false;
+    }
+  }, [buildBias, buildServerSignals, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, likedIds, userToken]);
+
   // Toggle-save handler. Saves are a strong, deliberate taste signal:
   //   1. Contribute to the shortlist-derived bias on future /api/shop-all
   //      fetches (via getShortlistSignals in buildBias).
@@ -615,6 +691,15 @@ function ShopPageContent() {
     // heavy shortlist session doesn't drown recent likes.
     const signal = productToSignal(product);
     clickHistoryRef.current = [signal, ...clickHistoryRef.current].slice(0, 30);
+    // Cross-session drift: persist the save server-side so the user's
+    // long-term taste vector picks it up.
+    if (userToken && userToken !== "anon") {
+      void fetch("/api/taste/click", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ userToken, product: { ...product, objectID: productId } }),
+      }).catch(() => { /* tracking is non-critical */ });
+    }
     setProducts((prev) => {
       const signals: ScoringSignals = {
         likedProductIds: new Set([...Array.from(likedIds), productId]),
@@ -656,11 +741,22 @@ function ShopPageContent() {
     // New like → record signal + re-rank upcoming
     const signal = productToSignal(product);
     clickHistoryRef.current = [signal, ...clickHistoryRef.current].slice(0, 30);
+    likedAtRef.current = [{ id: productId, ts: Date.now() }, ...likedAtRef.current].slice(0, 30);
     setLikedIds((prev) => {
       const next = new Set(prev);
       next.add(productId);
       return next;
     });
+    // Cross-session drift: fire-and-forget persistence so a returning user's
+    // taste vector picks up where this session left off. /api/taste/click
+    // dedupes server-side, so re-saving the same product is a no-op.
+    if (userToken && userToken !== "anon") {
+      void fetch("/api/taste/click", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ userToken, product: { ...product, objectID: productId } }),
+      }).catch(() => { /* tracking is non-critical */ });
+    }
     setProducts((prev) => {
       const signals: ScoringSignals = {
         likedProductIds: new Set(Array.from(likedIds).concat(productId)),
@@ -689,6 +785,9 @@ function ShopPageContent() {
       const product = products.find((p) => p.objectID === productId);
       if (product && !likedIds.has(productId)) {
         dislikedSignalsRef.current = [productToSignal(product), ...dislikedSignalsRef.current].slice(0, 40);
+        // Track timestamp so the server can recency-decay dislikes the same
+        // way it does positive signals.
+        dislikedAtRef.current = [{ id: productId, ts: Date.now() }, ...dislikedAtRef.current].slice(0, 30);
       }
     }
 
@@ -1071,6 +1170,7 @@ function ShopPageContent() {
           steerQuery={steerQuery}
           savedIds={savedIds}
           onSave={handleSave}
+          onMoreLikeThis={handleMoreLikeThis}
         />
       )}
 
@@ -1335,6 +1435,7 @@ function ProductScrollView({
   likedIds, onLike, onDwell, onScrollBack, onActiveChange,
   onSteer, steerQuery,
   savedIds, onSave,
+  onMoreLikeThis,
 }: {
   products:       Product[];
   onNearEnd:      () => void;
@@ -1350,6 +1451,7 @@ function ProductScrollView({
   steerQuery:     string;
   savedIds:       Set<string>;
   onSave:         (productId: string) => void;
+  onMoreLikeThis: (productId: string) => void;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const isScrolling   = useRef(false);
@@ -1591,16 +1693,50 @@ function ProductScrollView({
             className="no-scrollbar w-full h-full sm:w-[440px] sm:max-w-[92vw] sm:h-[88vh] overflow-y-scroll overflow-x-hidden bg-background shadow-2xl"
             style={{ scrollSnapType: "y mandatory" }}
           >
-            {products.map((p, i) => (
-              <ProductScrollCard
-                key={p.objectID}
-                product={p}
-                index={i}
-                activeIdx={activeIdx}
-                onDoubleTap={handleDoubleTap}
-                showLikedPulse={pulseProductId === p.objectID}
-              />
-            ))}
+            {/* Render. Every PAIR_INTERVAL slots after position 6, the next
+                two products are merged into a single side-by-side "active
+                learning" pair card. The user picks one, which fires onLike
+                on the chosen side AND advances past both — strong taste
+                signal in a single tap. Only kicks in once the user has at
+                least 5 likes (warm-up: don't ask binary preference
+                questions before they've shown any taste at all). */}
+            {(() => {
+              const PAIR_INTERVAL = 8;
+              const PAIR_START    = 6;
+              const enabled       = likedIds.size >= 5;
+              const out: React.ReactNode[] = [];
+              let i = 0;
+              while (i < products.length) {
+                const isPairSlot = enabled && i >= PAIR_START && (i - PAIR_START) % PAIR_INTERVAL === 0 && i + 1 < products.length;
+                if (isPairSlot) {
+                  const left  = products[i];
+                  const right = products[i + 1];
+                  out.push(
+                    <ProductPairCard
+                      key={`pair-${left.objectID}-${right.objectID}`}
+                      left={left}
+                      right={right}
+                      onPick={(pickedId) => onLike(pickedId)}
+                    />,
+                  );
+                  i += 2;
+                } else {
+                  const p = products[i];
+                  out.push(
+                    <ProductScrollCard
+                      key={p.objectID}
+                      product={p}
+                      index={i}
+                      activeIdx={activeIdx}
+                      onDoubleTap={handleDoubleTap}
+                      showLikedPulse={pulseProductId === p.objectID}
+                    />,
+                  );
+                  i += 1;
+                }
+              }
+              return out;
+            })()}
             {loading && (
               <div className="w-full flex items-center justify-center bg-background" style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}>
                 <p className="font-display italic text-xl text-muted">Loading more…</p>
@@ -1701,6 +1837,25 @@ function ProductScrollView({
             </svg>
           </RailButton>
 
+          {/* "More like this" — pulls 24 items biased entirely on the
+              active product's vector (skips the centroid blend) and splices
+              them in at activeIdx + 2 so the next swipe lands on items the
+              catalog itself thinks match THIS one piece. The clearest taste
+              shortcut available — when the user sees something that nails
+              their feeling, this gives them the rest of that feeling. */}
+          <RailButton
+            label="More like"
+            onClick={() => { if (activeProduct) onMoreLikeThis(activeProduct.objectID); }}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5"
+              fill="none" stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+              <path d="M11 8v6 M8 11h6" />
+            </svg>
+          </RailButton>
+
           <RailButton
             label={showSayMore ? "Cancel" : "Steer"}
             onClick={() => setShowSayMore((v) => !v)}
@@ -1756,6 +1911,75 @@ function RailButton({
         {label}
       </span>
     </button>
+  );
+}
+
+// ── Active-learning pair card ────────────────────────────────────────────────
+// Side-by-side product card that asks "this or this?". Tapping a side fires
+// onPick(productId) which the parent maps to onLike — a deliberate "this one
+// over that one" signal carries roughly 2x the information of an isolated
+// like. Inserted into the scroll queue every PAIR_INTERVAL slots after the
+// user has 5+ likes (see ProductScrollView render).
+
+function ProductPairCard({
+  left,
+  right,
+  onPick,
+}: {
+  left:   Product;
+  right:  Product;
+  onPick: (productId: string) => void;
+}) {
+  return (
+    <div
+      className="relative w-full bg-background"
+      style={{ height: "100%", minHeight: "100%", scrollSnapAlign: "start" }}
+    >
+      {/* Eyebrow — small label so the user knows this is intentional, not
+          two products that broke into one slot. */}
+      <p className="absolute top-4 left-1/2 -translate-x-1/2 z-10 font-sans text-[9px] tracking-widest uppercase text-foreground/60 bg-background/80 px-3 py-1 rounded-full backdrop-blur-sm">
+        Which feels more you?
+      </p>
+
+      <div className="grid grid-cols-2 h-full divide-x divide-border">
+        {[left, right].map((p) => (
+          <button
+            key={p.objectID}
+            onClick={() => onPick(p.objectID)}
+            className="group relative flex flex-col items-stretch justify-stretch overflow-hidden hover:bg-foreground/5 transition-colors"
+          >
+            <div className="relative flex-1 overflow-hidden bg-[rgba(42,51,22,0.04)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {p.image_url ? (
+                <img
+                  src={p.image_url}
+                  alt={p.title}
+                  className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-[1.03] transition-transform duration-700"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : null}
+            </div>
+            <div className="px-3 py-3 text-left">
+              <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1 line-clamp-1">
+                {p.brand || p.retailer || ""}
+              </p>
+              <p className="font-sans text-xs text-foreground line-clamp-2 leading-snug mb-1">
+                {p.title}
+              </p>
+              {p.price != null && (
+                <span className="font-sans text-xs font-medium text-foreground">
+                  ${Math.round(p.price).toLocaleString("en-US")}
+                </span>
+              )}
+            </div>
+            <div className="absolute bottom-3 right-3 px-2 py-1 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+              Pick
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

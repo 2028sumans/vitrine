@@ -20,11 +20,27 @@
 
 import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
-import { searchByEmbeddings, searchByLikedProductIds } from "@/lib/embeddings";
-import { loadUserTasteVector } from "@/lib/taste-profile";
-import { applyBrandAgePenalty } from "@/lib/brand-age-affinity";
-import { slugFromFilter } from "@/lib/category-taxonomy";
-import type { AgeRangeKey } from "@/lib/onboarding-memory";
+import {
+  searchByEmbeddings,
+  searchByLikedProductIds,
+  fetchProductsForCentroid,
+  searchByCentroidWithMetadata,
+  embedTextQuery,
+} from "@/lib/embeddings";
+import { loadUserTasteVector }       from "@/lib/taste-profile";
+import { applyBrandAgePenalty }      from "@/lib/brand-age-affinity";
+import { slugFromFilter }            from "@/lib/category-taxonomy";
+import type { AgeRangeKey }          from "@/lib/onboarding-memory";
+import {
+  buildPositiveCentroid,
+  buildNegativeCentroid,
+  applyNegativeSubtraction,
+  blendWithSteerText,
+  buildAxisProfile,
+  scoreAxisMatch,
+  AXIS_KEYS,
+  type AxisRecord,
+} from "@/lib/taste-centroid";
 
 export const revalidate = 60;
 
@@ -348,8 +364,9 @@ async function tasteVectorRanking(
 // in both get their ranks averaged (boosted by consensus); items in only
 // one keep their original rank. Result is a single sorted list of unique
 // IDs preserving rank order of "strongest fusion signal first."
-// Used when we have both a liked-products CLIP boost AND a taste-vector
-// boost and want one merged boost list for `boostByClipSimilarity`.
+// Kept around for the legacy call paths; the new rankBySessionCentroid
+// folds CLIP + taste-vector into one query so this is no longer needed
+// on the live surfaces.
 function mergeRankedIds(a: string[], b: string[]): string[] {
   if (a.length === 0) return b;
   if (b.length === 0) return a;
@@ -359,6 +376,243 @@ function mergeRankedIds(a: string[], b: string[]): string[] {
   return Array.from(score.entries())
     .sort((x, y) => y[1] - x[1])
     .map(([id]) => id);
+}
+
+// ── Unified session-aware ranking ─────────────────────────────────────────
+// Single function that subsumes clipSimilarityRanking + tasteVectorRanking
+// and adds: saves-weighted-2x, recency decay, negative centroid from
+// dislikes, multi-modal text+image steer, per-category centroids, and a
+// StyleAxes-aware re-rank.
+
+interface RankableSignal { id: string; ts: number; }
+
+interface SessionRankingInput {
+  saved:        RankableSignal[];
+  liked:        RankableSignal[];
+  disliked:     RankableSignal[];
+  steerQuery:   string;
+  userToken:    string;
+  categorySlug: string | null;
+  totalK?:      number;
+}
+
+interface SessionRankingResult {
+  ids:                 string[];
+  axisProfile:         AxisRecord;
+  hasVector:           boolean;
+  userAge:             AgeRangeKey | null;
+  dislikedMetadata:    Array<Record<string, unknown> | null>;
+}
+
+// Persistent taste-vector blend weight. The user's onboarding + cross-
+// session vector is mixed into the per-session centroid at this weight,
+// so a returning user's stored taste pulls the feed toward what worked
+// last time without overwriting the live session's signal.
+const TASTE_VECTOR_BLEND_WEIGHT = 0.4;
+
+async function rankBySessionCentroid(input: SessionRankingInput): Promise<SessionRankingResult> {
+  const totalK = input.totalK ?? 300;
+  const empty: SessionRankingResult = {
+    ids: [], axisProfile: {}, hasVector: false, userAge: null, dislikedMetadata: [],
+  };
+
+  // Order each list most-recent-first and clip the long tail.
+  const sortDesc = (xs: RankableSignal[]) =>
+    [...xs].sort((a, b) => b.ts - a.ts).slice(0, 20);
+  const savedDesc    = sortDesc(input.saved);
+  const likedDesc    = sortDesc(input.liked);
+  const dislikedDesc = sortDesc(input.disliked);
+
+  // One Pinecone fetch covers everything (saves + likes + dislikes) so we
+  // can build the positive and negative centroids in the same pass.
+  type Rec = { id: string; vector: number[] | null; metadata: Record<string, unknown> | null };
+  const allIds = [
+    ...savedDesc.map((s) => s.id),
+    ...likedDesc.map((l) => l.id),
+    ...dislikedDesc.map((d) => d.id),
+  ];
+
+  let savedRecords:    Rec[] = [];
+  let likedRecords:    Rec[] = [];
+  let dislikedRecords: Rec[] = [];
+  if (allIds.length > 0) {
+    try {
+      const fetched = await fetchProductsForCentroid(allIds);
+      const byId = new Map(fetched.map((r) => [r.id, r]));
+      savedRecords    = savedDesc   .map((s) => byId.get(s.id)).filter((r): r is Rec => !!r);
+      likedRecords    = likedDesc   .map((l) => byId.get(l.id)).filter((r): r is Rec => !!r);
+      dislikedRecords = dislikedDesc.map((d) => byId.get(d.id)).filter((r): r is Rec => !!r);
+    } catch (e) {
+      console.warn("[shop-all] Pinecone fetch for centroid failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Per-category filter for positives. When browsing a category, prefer
+  // the user's taste IN that category over a blurred global average.
+  // Falls back to global if fewer than 2 in-category signals exist —
+  // a slightly off-category centroid beats no centroid.
+  const slug = input.categorySlug;
+  const filterByCat = (records: Rec[]): Rec[] => {
+    if (!slug) return records;
+    const matches = records.filter((r) => {
+      const cat = String((r.metadata ?? {}).category ?? "").toLowerCase();
+      return cat && cat === slug;
+    });
+    return matches.length >= 2 ? matches : records;
+  };
+  const savedFiltered = filterByCat(savedRecords);
+  const likedFiltered = filterByCat(likedRecords);
+  // Dislikes are not filtered by category — "I'm tired of florals" is a
+  // signal that should travel across categories, not be confined to the
+  // category where the user happened to be when they swiped past.
+
+  const savedVecs    = savedFiltered  .map((r) => r.vector ?? []).filter((v) => v.length > 0);
+  const likedVecs    = likedFiltered  .map((r) => r.vector ?? []).filter((v) => v.length > 0);
+  const dislikedVecs = dislikedRecords.map((r) => r.vector ?? []).filter((v) => v.length > 0);
+
+  // Positive centroid (saves × 2, recency-decayed) - α × negative centroid.
+  let centroid: number[] | null = buildPositiveCentroid(savedVecs, likedVecs);
+  const negCentroid = buildNegativeCentroid(dislikedVecs);
+  if (centroid) centroid = applyNegativeSubtraction(centroid, negCentroid);
+
+  // Multi-modal text+image: embed the steer text via CLIP's text encoder
+  // and blend with the visual centroid. 70/30 visual:text — visual stays
+  // the anchor, text refines direction.
+  if (input.steerQuery) {
+    try {
+      const textEmb = await embedTextQuery(input.steerQuery);
+      if (textEmb && textEmb.length > 0) {
+        centroid = blendWithSteerText(centroid, textEmb, 0.3);
+      }
+    } catch (e) {
+      console.warn("[shop-all] steer text embedding failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Cross-session drift: blend the user's persistent taste vector
+  // (onboarding + accumulated session clicks via lib/taste-profile).
+  let userAge: AgeRangeKey | null = null;
+  let hasVector = false;
+  if (input.userToken && input.userToken !== "anon") {
+    try {
+      const profile = await loadUserTasteVector(input.userToken, { category: input.categorySlug });
+      userAge = profile.sources.age;
+      if (profile.vector && profile.vector.length > 0) {
+        hasVector = true;
+        centroid = centroid
+          ? blendWithSteerText(centroid, profile.vector, TASTE_VECTOR_BLEND_WEIGHT)
+          : profile.vector;
+      }
+    } catch (e) {
+      console.warn("[shop-all] taste-vector load failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  if (!centroid || centroid.length === 0) {
+    return { ...empty, userAge, dislikedMetadata: dislikedRecords.map((r) => r.metadata) };
+  }
+
+  // Build the axis profile from positive metadata for the soft re-rank.
+  const axisProfile = buildAxisProfile(
+    savedFiltered.map((r) => extractAxes(r.metadata)),
+    likedFiltered.map((r) => extractAxes(r.metadata)),
+  );
+
+  // Single Pinecone query with the unified centroid; metadata included so
+  // we can axis-rerank without a second round-trip.
+  let candidates: Array<{ id: string; score: number; metadata: Record<string, unknown> }> = [];
+  try {
+    candidates = await searchByCentroidWithMetadata(centroid, totalK);
+  } catch (e) {
+    console.warn("[shop-all] centroid query failed:", e instanceof Error ? e.message : e);
+    return { ...empty, userAge, hasVector, dislikedMetadata: dislikedRecords.map((r) => r.metadata) };
+  }
+
+  // Don't re-show the user's own positives.
+  const exclude = new Set([...savedDesc.map((s) => s.id), ...likedDesc.map((l) => l.id)]);
+  candidates = candidates.filter((c) => !exclude.has(c.id));
+
+  // Fused score: 70% Pinecone cosine + 30% StyleAxes match. CLIP stays
+  // dominant; axes pull near-tied items toward the user's structural taste.
+  const ranked = candidates
+    .map((c) => {
+      const axisScore = scoreAxisMatch(extractAxes(c.metadata), axisProfile);
+      return { id: c.id, fused: 0.7 * c.score + 0.3 * axisScore };
+    })
+    .sort((a, b) => b.fused - a.fused)
+    .map((c) => c.id);
+
+  return {
+    ids:              ranked,
+    axisProfile,
+    hasVector,
+    userAge,
+    dislikedMetadata: dislikedRecords.map((r) => r.metadata),
+  };
+}
+
+function extractAxes(metadata: Record<string, unknown> | null): AxisRecord {
+  if (!metadata) return {};
+  const out: AxisRecord = {};
+  for (const k of AXIS_KEYS) {
+    const v = metadata[k];
+    if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
+
+// ── Implicit avoid_terms from skip patterns ───────────────────────────────
+// Mine the user's disliked metadata for repeated terms (category, color,
+// aesthetic_tags, pattern). Anything appearing in ≥ 40% of disliked items
+// (floor 3) is added to avoid_terms — invisibly, without making the user
+// type a steer. Unioned with steerInterp.avoid_terms when it exists.
+
+function inferImplicitAvoidTerms(
+  dislikedMetadata: Array<Record<string, unknown> | null>,
+): string[] {
+  if (dislikedMetadata.length < 3) return [];
+  const counts = new Map<string, number>();
+  const stash = (s: unknown) => {
+    const v = String(s ?? "").toLowerCase().trim();
+    if (v && v.length > 2) counts.set(v, (counts.get(v) ?? 0) + 1);
+  };
+  for (const md of dislikedMetadata) {
+    if (!md) continue;
+    stash(md.category);
+    stash(md.color);
+    stash(md.pattern);
+    const tags = md.aesthetic_tags;
+    if (Array.isArray(tags)) for (const t of tags) stash(t);
+  }
+  const threshold = Math.max(3, Math.floor(dislikedMetadata.length * 0.4));
+  return Array.from(counts.entries())
+    .filter(([, n]) => n >= threshold)
+    .map(([term]) => term)
+    .slice(0, 5);
+}
+
+// ── Diversity injection ──────────────────────────────────────────────────
+// Reserve the tail of the page for exploration items so a strong CLIP
+// boost doesn't collapse the queue into 48 near-identical pieces. The
+// caller passes a separately-fetched exploratory pool (random offset
+// across the catalog, no centroid). From slot `startAt` onward we
+// inject one exploration item every 3 slots.
+
+function injectDiversitySlots<T extends Record<string, unknown>>(
+  boosted:    T[],
+  exploratory: T[],
+  startAt    = 16,
+): T[] {
+  if (exploratory.length === 0) return boosted;
+  if (boosted.length <= startAt) return boosted; // page too short to inject
+  const out: T[] = boosted.slice(0, startAt);
+  let bIdx = startAt;
+  let eIdx = 0;
+  while (bIdx < boosted.length || eIdx < exploratory.length) {
+    for (let i = 0; i < 3 && bIdx < boosted.length; i++) out.push(boosted[bIdx++]);
+    if (eIdx < exploratory.length) out.push(exploratory[eIdx++]);
+  }
+  return out;
 }
 
 // Boost products whose objectID appears in `clipIds` to the front of the
@@ -524,17 +778,52 @@ export async function POST(request: Request) {
     ? buildSteerQuery(steerInterp)
     : steerQueryRaw;
 
-  // Object IDs the user has liked this session (+ carried over from
-  // localStorage across sessions). Drives the FashionCLIP similarity boost
-  // — the centroid of these vectors becomes the similarity query against
-  // Pinecone, and matches re-rank the Algolia output. Capped to the 20
-  // most-recent so a long-running session doesn't inflate the Pinecone
-  // fetch payload.
-  const likedProductIds: string[] = Array.isArray(body?.likedProductIds)
-    ? (body.likedProductIds as unknown[])
-        .filter((v): v is string => typeof v === "string" && v.length > 0)
-        .slice(0, 20)
-    : [];
+  // ── Session signals ────────────────────────────────────────────────
+  // New shape: { saved, liked, disliked } each as [{ id, ts }]. Lets us
+  // weight saves > likes (2× in the centroid), apply recency decay, and
+  // build a negative centroid from dislikes. Falls back to the legacy
+  // `likedProductIds: string[]` for any clients still on the old payload —
+  // each id is treated as a like with ts=now() in fallback.
+  type IncomingSignal = { id?: unknown; ts?: unknown };
+  function parseSignals(raw: unknown): RankableSignal[] {
+    if (!Array.isArray(raw)) return [];
+    return (raw as IncomingSignal[])
+      .map((s) => {
+        const id = typeof s?.id === "string" ? s.id : "";
+        const ts = typeof s?.ts === "number" && Number.isFinite(s.ts) ? s.ts : Date.now();
+        return id ? { id, ts } : null;
+      })
+      .filter((s): s is RankableSignal => s !== null);
+  }
+  const sig = body?.signals ?? {};
+  let savedSignals    = parseSignals(sig.saved   );
+  let likedSignals    = parseSignals(sig.liked   );
+  let dislikedSignals = parseSignals(sig.disliked);
+  if (savedSignals.length === 0 && likedSignals.length === 0 && Array.isArray(body?.likedProductIds)) {
+    const now = Date.now();
+    likedSignals = (body.likedProductIds as unknown[])
+      .filter((v): v is string => typeof v === "string" && v.length > 0)
+      .map((id, i) => ({ id, ts: now - i })); // preserve order
+  }
+  // Cap each list — pinecone fetch grows linearly with input, and after
+  // ~20 the recency decay has trimmed them to noise anyway.
+  savedSignals    = savedSignals   .slice(0, 30);
+  likedSignals    = likedSignals   .slice(0, 30);
+  dislikedSignals = dislikedSignals.slice(0, 30);
+
+  // Backwards-compat: many helpers below still expect the flat string[] form.
+  const likedProductIds: string[] = [
+    ...savedSignals.map((s) => s.id),
+    ...likedSignals.map((s) => s.id),
+  ];
+
+  // Optional one-shot "More like this" seed: when set, the centroid is
+  // replaced by this single product's vector for one request. Used by the
+  // long-press / "more like this" UI in scroll view.
+  const seedProductId: string | null =
+    typeof body?.seedProductId === "string" && body.seedProductId.length > 0
+      ? body.seedProductId
+      : null;
 
   // Diversify-by-brand mode (set by the /admin/label labeling tool). When
   // true the scoped path replaces its single big top-of-ranking fetch with
@@ -813,22 +1102,54 @@ export async function POST(request: Request) {
         nbHits   = res.nbHits ?? 0;
       }
 
-      // CLIP similarity + taste-vector similarity run in parallel. The
-      // CLIP lane needs liked-product vectors; the taste-vector lane hits
-      // Pinecone directly against the user's composed onboarding centroid.
-      // Both return ranked objectID lists; `mergeRankedIds` fuses them by
-      // reciprocal rank so items surfacing in both lanes float to the top.
-      const [clipIds, taste] = await Promise.all([
-        clipSimilarityRanking(likedProductIds),
-        // Resolve the categoryFilter ("Tops", "Bags and accessories"...) into
-        // the slug taste-profile uses internally ("tops", "bags-and-accessories").
-        // Brand-mode requests have no category context, so we pass null.
-        tasteVectorRanking(userToken, slugFromFilter(categoryFilter || null)),
-      ]);
-      const boostIds = mergeRankedIds(clipIds, taste.ids);
+      // Unified session-aware ranking. Replaces the old
+      // [clipSimilarityRanking + tasteVectorRanking] split with one call
+      // that folds in saves > likes weighting, recency decay, the negative
+      // centroid from dislikes, multi-modal text+image steer blending,
+      // per-category centroids (when scope is a category), the user's
+      // persistent taste vector, and a StyleAxes-aware re-rank.
+      // For one-shot "More like this", we skip the centroid build entirely
+      // and use the seed product's vector directly.
+      let boostIds: string[] = [];
+      let axisProfile: AxisRecord = {};
+      let dislikedMetadata: Array<Record<string, unknown> | null> = [];
+      let taste: { hasVector: boolean; userAge: AgeRangeKey | null } = { hasVector: false, userAge: null };
+      if (seedProductId) {
+        try {
+          boostIds = await searchByLikedProductIds([seedProductId], 100, {}, [seedProductId]);
+        } catch (e) {
+          console.warn("[shop-all] seed-product CLIP search failed:", e instanceof Error ? e.message : e);
+        }
+      } else {
+        const ranking = await rankBySessionCentroid({
+          saved:        savedSignals,
+          liked:        likedSignals,
+          disliked:     dislikedSignals,
+          steerQuery,
+          userToken,
+          categorySlug: slugFromFilter(categoryFilter || null),
+        });
+        boostIds         = ranking.ids;
+        axisProfile      = ranking.axisProfile;
+        dislikedMetadata = ranking.dislikedMetadata;
+        taste            = { hasVector: ranking.hasVector, userAge: ranking.userAge };
+      }
+
+      // Implicit avoid_terms — patterns showing up repeatedly in dislikes
+      // get folded into the steer post-filter without making the user type.
+      const implicitAvoid = inferImplicitAvoidTerms(dislikedMetadata);
+      const effectiveSteer: SteerInterp | null = (steerInterp || implicitAvoid.length > 0)
+        ? {
+            ...(steerInterp ?? {}),
+            avoid_terms: Array.from(new Set([
+              ...((steerInterp?.avoid_terms ?? []).map((s) => s.toLowerCase())),
+              ...implicitAvoid,
+            ])),
+          }
+        : null;
 
       // Structured Steer post-filter (price tier / category / color / avoid).
-      products = applySteerPostFilter(products, steerInterp);
+      products = applySteerPostFilter(products, effectiveSteer);
 
       // Lenient price-cap post-filter. Only drops rows that HAVE a price
       // above the cap — rows with a null / missing price survive so the
@@ -863,16 +1184,54 @@ export async function POST(request: Request) {
         if (!brandFilterQuery) clean = spreadByBrand(clean, 4);
       }
 
-      // Similarity boost — merged liked-products + onboarding-taste ranking.
-      // boostByClipSimilarity's historical `likedCount >= 2` floor was about
-      // trusting noisy session accumulation; a present taste vector is a
-      // deliberate signal that should fire from the first request, so we
-      // floor to 2 when the vector is available.
+      // Similarity boost — boost top items from the unified session ranking
+      // to the front of the page. Fires from the first save/like.
       clean = boostByClipSimilarity(
         clean,
         boostIds,
         Math.max(likedProductIds.length, taste.hasVector ? 1 : 0),
       );
+
+      // StyleAxes soft-rerank: nudge items whose axes match the user's
+      // profile slightly higher within their boost band. Skipped if the
+      // user has no profile yet (cold start) or in seed mode.
+      if (Object.keys(axisProfile).length > 0 && !seedProductId) {
+        clean = clean
+          .map((p) => ({ p, score: scoreAxisMatch(extractAxes(p as Record<string, unknown>), axisProfile) }))
+          .sort((a, b) => b.score - a.score)
+          .map((x) => x.p);
+      }
+
+      // Diversity injection — fetch a small "exploration" pool from random
+      // offsets across the catalog and inject one every 3 slots from slot
+      // 16 onward. Without this, a strong CLIP boost produces 48 near-
+      // identical items and the feed feels claustrophobic.
+      // Cheap: one parallel Algolia call at a random page offset, no boost.
+      if (!seedProductId && (likedSignals.length + savedSignals.length) >= 1 && !diversify) {
+        try {
+          const explorePage = Math.max(0, Math.floor(Math.random() * 50));
+          const exploreScopeFilter = brandFilterQuery || categoryScope?.filters || "";
+          const exploreRes = await client.searchSingleIndex({
+            indexName: INDEX_NAME,
+            searchParams: {
+              query:       "",
+              ...(exploreScopeFilter ? { filters: exploreScopeFilter } : {}),
+              hitsPerPage: 20,
+              page:        explorePage,
+              attributesToRetrieve,
+            },
+          });
+          const seenIds = new Set(clean.map((p) => p.objectID));
+          const exploratory = ((exploreRes.hits ?? []) as Array<Record<string, unknown>>)
+            .filter((h) => {
+              const u = h.image_url;
+              return typeof u === "string" && u.startsWith("http") && !seenIds.has(h.objectID as string);
+            });
+          clean = injectDiversitySlots(clean, exploratory, 16);
+        } catch (e) {
+          console.warn("[shop-all] diversity exploration fetch failed:", e instanceof Error ? e.message : e);
+        }
+      }
 
       // Brand-age affinity demote — pushes products from brands whose curated
       // demographic doesn't include the user's age toward the end of the
@@ -901,29 +1260,56 @@ export async function POST(request: Request) {
     }
 
     // ── Query-driven path: session signals without a hard scope ──────────
-    if (steerQuery || hasLikedSignals(bias) || likedProductIds.length > 0) {
+    if (steerQuery || hasLikedSignals(bias) || likedProductIds.length > 0 || dislikedSignals.length > 0 || seedProductId) {
       const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
       const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
       const optionalWords = q.split(/\s+/).filter(Boolean);
       const filters = composeFilters("", priceMax);
-      const [res, clipIds, taste] = await Promise.all([
-        client.searchSingleIndex({
-          indexName: INDEX_NAME,
-          searchParams: {
-            query:       q,
-            optionalWords,
-            ...(filters ? { filters } : {}),
-            hitsPerPage: HITS_PER_PAGE,
-            page,
-            attributesToRetrieve,
-          },
-        }),
-        clipSimilarityRanking(likedProductIds),
-        // Query-driven path has no hard category scope, so we pass null —
-        // taste-profile averages across populated categories for the user's age.
-        tasteVectorRanking(userToken, null),
-      ]);
-      const boostIds = mergeRankedIds(clipIds, taste.ids);
+
+      // Algolia query + unified session ranking in parallel.
+      const algoliaPromise = client.searchSingleIndex({
+        indexName: INDEX_NAME,
+        searchParams: {
+          query:       q,
+          optionalWords,
+          ...(filters ? { filters } : {}),
+          hitsPerPage: HITS_PER_PAGE,
+          page,
+          attributesToRetrieve,
+        },
+      });
+
+      let boostIds: string[] = [];
+      let axisProfile: AxisRecord = {};
+      let dislikedMetadata: Array<Record<string, unknown> | null> = [];
+      let taste: { hasVector: boolean; userAge: AgeRangeKey | null } = { hasVector: false, userAge: null };
+      let res;
+      if (seedProductId) {
+        const [algRes, seedIds] = await Promise.all([
+          algoliaPromise,
+          searchByLikedProductIds([seedProductId], 100, {}, [seedProductId]).catch(() => [] as string[]),
+        ]);
+        res = algRes;
+        boostIds = seedIds;
+      } else {
+        const [algRes, ranking] = await Promise.all([
+          algoliaPromise,
+          rankBySessionCentroid({
+            saved:        savedSignals,
+            liked:        likedSignals,
+            disliked:     dislikedSignals,
+            steerQuery,
+            userToken,
+            categorySlug: null, // Query-driven path has no category scope
+          }),
+        ]);
+        res              = algRes;
+        boostIds         = ranking.ids;
+        axisProfile      = ranking.axisProfile;
+        dislikedMetadata = ranking.dislikedMetadata;
+        taste            = { hasVector: ranking.hasVector, userAge: ranking.userAge };
+      }
+
       let products = (res.hits ?? []) as Array<Record<string, unknown>>;
 
       const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
@@ -938,7 +1324,19 @@ export async function POST(request: Request) {
         });
       }
 
-      products = applySteerPostFilter(products, steerInterp);
+      // Implicit avoid_terms — same as scoped path.
+      const implicitAvoid = inferImplicitAvoidTerms(dislikedMetadata);
+      const effectiveSteer: SteerInterp | null = (steerInterp || implicitAvoid.length > 0)
+        ? {
+            ...(steerInterp ?? {}),
+            avoid_terms: Array.from(new Set([
+              ...((steerInterp?.avoid_terms ?? []).map((s) => s.toLowerCase())),
+              ...implicitAvoid,
+            ])),
+          }
+        : null;
+
+      products = applySteerPostFilter(products, effectiveSteer);
       products = applyPriceMaxPostFilter(products, priceMax);
 
       let clean = products.filter((p) => {
@@ -952,18 +1350,50 @@ export async function POST(request: Request) {
         boostIds,
         Math.max(likedProductIds.length, taste.hasVector ? 1 : 0),
       );
+
+      // StyleAxes soft-rerank
+      if (Object.keys(axisProfile).length > 0 && !seedProductId) {
+        clean = clean
+          .map((p) => ({ p, score: scoreAxisMatch(extractAxes(p as Record<string, unknown>), axisProfile) }))
+          .sort((a, b) => b.score - a.score)
+          .map((x) => x.p);
+      }
+
+      // Diversity injection.
+      if (!seedProductId && (likedSignals.length + savedSignals.length) >= 1) {
+        try {
+          const explorePage = Math.max(0, Math.floor(Math.random() * 50));
+          const exploreRes = await client.searchSingleIndex({
+            indexName: INDEX_NAME,
+            searchParams: {
+              query:       "",
+              hitsPerPage: 12,
+              page:        explorePage,
+              attributesToRetrieve,
+            },
+          });
+          const seenIds = new Set(clean.map((p) => p.objectID));
+          const exploratory = ((exploreRes.hits ?? []) as Array<Record<string, unknown>>)
+            .filter((h) => {
+              const u = h.image_url;
+              return typeof u === "string" && u.startsWith("http") && !seenIds.has(h.objectID as string);
+            });
+          clean = injectDiversitySlots(clean, exploratory, 16);
+        } catch (e) {
+          console.warn("[shop-all] diversity exploration fetch failed:", e instanceof Error ? e.message : e);
+        }
+      }
+
       clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
 
-      // hasMore from total catalog count — Algolia's nbHits is authoritative
-      // here and lets us paginate even when the per-page hit count drops
-      // below HITS_PER_PAGE due to post-filters or the customRanking tail.
+      // hasMore from total catalog count.
       const queryNbHits = res.nbHits ?? 0;
       const queryConsumed = (page + 1) * HITS_PER_PAGE;
       return NextResponse.json({
         products: clean,
         page,
         hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= HITS_PER_PAGE / 2,
-        mode:    steerQuery ? (hasLikedSignals(bias) ? "steered+biased" : "steered") : "biased",
+        mode:    seedProductId ? "seed" : (steerQuery ? (hasLikedSignals(bias) ? "steered+biased" : "steered") : "biased"),
         query:   q,
       });
     }
