@@ -362,7 +362,11 @@ export async function POST(request: Request) {
           console.log("[shop] Hybrid search: uploaded images (with aesthetic anchor)");
           const rawEmb = await embedBase64Images(uploadedImages.slice(0, 10));
           const anchored = await anchorImageVectorsWithAesthetic(rawEmb, aesthetic!, tasteMemory.softAvoids);
-          rawCandidates  = await hybridSearch(anchored, aesthetic!, token, 20, { useTasteHead });
+          // 50 per category × 6 categories = 300 candidates before filters
+          // (was 20 → ~120 → ~70 after avoids/mens-only filters). 50 lines
+          // up with the CLIP centroid topK = 300 the rest of the pipeline
+          // is sized around.
+          rawCandidates  = await hybridSearch(anchored, aesthetic!, token, 50, { useTasteHead });
 
         } else if (USE_VISUAL_SEARCH && mode === "pinterest" && pinImageUrls?.length) {
           console.log("[shop] Hybrid search: Pinterest board images (parallel-embedded)");
@@ -397,7 +401,7 @@ export async function POST(request: Request) {
             tasteMemory.softAvoids,
           );
 
-          rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 20, { useTasteHead });
+          rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead });
 
         } else if (mode === "text" || mode === "quiz") {
           // Text / quiz mode: skip FashionCLIP entirely. For a typed query

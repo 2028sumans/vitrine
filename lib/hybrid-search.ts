@@ -123,13 +123,19 @@ export async function hybridSearch(
   const valid   = embeddings.filter((e) => e.length > 0);
   const phrases = vibePhrases(aesthetic);
 
+  // Pinecone topK feeds the per-category RRF merge below. 200 was sized
+  // for maxPerCategory=20; with maxPerCategory now defaulting to 50 the
+  // merge needs ~6×50×2 = 600 candidate IDs to draw from, so each lane
+  // pulls 500. The bigger fetch is bandwidth-cheap (just IDs) and the
+  // RRF merge is O(N) anyway.
+  const PINECONE_TOPK = Math.max(200, maxPerCategory * 10);
   const [pineconeIds, vibeIds, tasteIds, algoliaCandidates] = await Promise.all([
     valid.length > 0
-      ? searchByEmbeddings(valid, 200, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
+      ? searchByEmbeddings(valid, PINECONE_TOPK, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     phrases.length > 0
-      ? searchByVibeText(phrases, 200, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
+      ? searchByVibeText(phrases, PINECONE_TOPK, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     // Taste head: learned projection on top of FashionCLIP. Only fires when
@@ -138,7 +144,7 @@ export async function hybridSearch(
     // (Also drops out silently when no head is trained or no vectors in the
     // `taste` namespace.)
     useTasteHead && valid.length > 0
-      ? searchByTasteEmbeddings(valid, 200, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
+      ? searchByTasteEmbeddings(valid, PINECONE_TOPK, { priceRange: aesthetic.price_range, minScore }).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
 
     searchByCategory(
