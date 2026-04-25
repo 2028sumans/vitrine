@@ -1,0 +1,1227 @@
+{
+  "version": 1,
+  "labels": {
+    "shpfy-oakandfortcom-9137071423727": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-dippindaisyscom-8383880560811": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-oneractivecom-15506852249987": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-motherdenimcom-8425412460632": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-manukaglobalco-7446280503374": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-tigermistcom-8028759294091": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-nobodyschildcom-15300356243841": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-disshcom-15043068428656": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-baobabstorecom-7529137963073": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-baumundpferdgartencom-10026464805159": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-ava-becom-9670415647055": [
+      "age-18-25"
+    ],
+    "shpfy-deijistudioscom-10319536849188": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-becandbridgecom-7187039289399": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-stagnicom-7515722154066": [
+      "age-25-32"
+    ],
+    "shpfy-staudclothing-8243012141229": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-therowcom-14736967598452": [
+      "age-25-32",
+      "age-32-plus",
+      "age-18-25"
+    ],
+    "shpfy-tovestudiocom-8453145592100": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-marcellanyccom-7825125802063": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-dhruvkapoorcom-9733153489178": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-stjohnknitscom-10080236699936": [
+      "age-32-plus"
+    ],
+    "shpfy-imnotamorningpersonstore-7900686614701": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-indigolunastore-7198958223431": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-roheframescom-15672181784925": [
+      "age-32-plus"
+    ],
+    "shpfy-loveandnostalgiacom-8344340693026": [
+      "age-18-25"
+    ],
+    "shpfy-modemischiefstudioscom-9266380439720": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32"
+    ],
+    "shpfy-shonajoycom-7056361848916": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-byebambicom-7032997609577": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-sohaistoremyshopifycom-15097647825281": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-holichiccom-9712037626152": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-moomodacom-9960368177479": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-elioucom-10273252540733": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-atoircom-10234628800834": [
+      "age-18-25"
+    ],
+    "html-nourhammourcom-miloleatherpantsnoirclassique34": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-motionalmusecom-8965822218428": [
+      "age-18-25"
+    ],
+    "shpfy-camilactgcom-10418071798096": [
+      "age-18-25"
+    ],
+    "shpfy-4028couk-9697636286728": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-littleyarncomau-9664618529081": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-othernormalco-8340226146500": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-clothfoundrycom-2280185102395": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-khanumsco-7921992073305": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-hermanoskoumoricom-8211435094131": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-tigermistcom-7924086472843": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-iamgiacom-8372666433707": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-baobabstorecom-7503234433089": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-baumundpferdgartencom-9821953360167": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-kookaicom-8273405378630": [
+      "age-25-32"
+    ],
+    "shpfy-lesetcom-9348404117735": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-stagnicom-7515722219602": [
+      "age-32-plus"
+    ],
+    "shpfy-therowcom-14737002004852": [
+      "age-25-32",
+      "age-18-25",
+      "age-32-plus"
+    ],
+    "shpfy-kallmeyernyc-10135994302776": [
+      "age-32-plus"
+    ],
+    "shpfy-onemilethelabelcom-9353862316288": [
+      "age-18-25",
+      "age-25-32",
+      "age-13-18"
+    ],
+    "shpfy-imnotamorningpersonstore-8319554945197": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-loveandnostalgiacom-7977147564066": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-indigolunastore-7198958190663": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-damsonmaddercom-15746819424643": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-aninebingcom-7032331731016": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-modemischiefstudioscom-9266380079272": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-beareparkcom-9388689228019": [
+      "age-25-32"
+    ],
+    "shpfy-rixocouk-15063885021570": [
+      "age-32-plus"
+    ],
+    "shpfy-colomascom-10409164833115": [
+      "age-32-plus"
+    ],
+    "shpfy-huongboutiquecom-9902857257267": [
+      "age-32-plus"
+    ],
+    "shpfy-byebambicom-7144544108649": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-arthurapparelcom-9038558462167": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-coucouintimatescom-8501311013042": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-moomodacom-9960328757575": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-elioucom-10273249919293": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-8rb4com-9539794534680": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-littleyarncomau-10113568375097": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-4028couk-10728649982216": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-othernormalco-8477237739716": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-dearromecomau-9854435983607": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-bristowecomau-8320563642505": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-amrheacom-9389613678867": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-lagunacocomau-15207207305376": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-flore-florecom-8638099292489": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-retrofetecom-6946458271795": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-showpocom-10405282840886": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-baumundpferdgartencom-10026470441255": [
+      "age-32-plus"
+    ],
+    "shpfy-deijistudioscom-10185674555684": [
+      "age-18-25",
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-imnotamorningpersonstore-8027913420973": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-bohemiabychlocom-10093783613715": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-roheframescom-15931236909405": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-indigolunastore-7277363757127": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-modemischiefstudioscom-8731726250152": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-ronnykobocom-10490004373809": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-olgajoanco-8853341241404": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-contessamillscom-8630948823268": [
+      "age-32-plus"
+    ],
+    "shpfy-lisayangcom-9537874067804": [
+      "age-32-plus",
+      "age-25-32"
+    ],
+    "shpfy-byebambicom-7748690444393": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-peachydencouk-15620637098371": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-guestinresidencecom-9688549916912": [
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-blonditacom-9900824035621": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-princssclubcom-10164045545751": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-mistystoragecom-7370883399838": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-elioucom-10108572139837": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-arcinaoricom-8814041039012": [
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-littleyarncomau-9864681849145": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-4028couk-11603144933640": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-awareofficialcom-8747990352122": [
+      "age-18-25",
+      "age-13-18"
+    ],
+    "shpfy-duciecouk-14752766591352": [
+      "age-25-32",
+      "age-18-25"
+    ],
+    "shpfy-othernormalco-8366672740548": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-kajalnewyorkcom-7477385593032": [
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-inyourtwentiescom-10168813027622": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32"
+    ],
+    "shpfy-dearromecomau-9854314283255": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-clothfoundrycom-2280170848315": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-bristowecomau-8060464562313": [
+      "age-18-25",
+      "age-13-18",
+      "age-25-32",
+      "age-32-plus"
+    ],
+    "shpfy-aroomlondoncom-15512555585885": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-atyrstudiocom-8029381230707": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-maemdiskocom-8145979932867": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-dippindaisyscom-8465698193579": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-tigermistcom-7924083916939": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-baobabstorecom-7854257176641": [
+      "age-13-18",
+      "age-18-25"
+    ],
+    "shpfy-seafollycom-8762643284020": [
+      "age-13-18",
+      "age-18-25",
+      "age-25-32"
+    ],
+    "shpfy-totemestudiocom-14645896085874": [
+      "age-32-plus"
+    ],
+    "shpfy-nefsfindscom-8409990824165": [
+      "age-32-plus"
+    ],
+    "shpfy-kallmeyernyc-10306248671544": [
+      "age-32-plus"
+    ],
+    "shpfy-spelldesignscom-15463863976009": [
+      "age-32-plus"
+    ],
+    "shpfy-pixiemarketcom-7405986185321": [
+      "age-32-plus"
+    ],
+    "shpfy-imnotamorningpersonstore-7900686287021": [
+      "age-18-25",
+      "age-25-32",
+      "age-13-18",
+      "age-32-plus"
+    ],
+    "shpfy-moderncitizencom-7852166086719": [
+      "age-32-plus",
+      "age-25-32"
+    ]
+  },
+  "products": {
+    "shpfy-oakandfortcom-9137071423727": {
+      "title": "BLACK WASH CORDUROY STRAIGHT LEG JEAN",
+      "brand": "Oak + Fort",
+      "image_url": "https://cdn.shopify.com/s/files/1/0697/9102/3343/files/Denim-16259_Black_Wash-1.jpg?v=1764776486",
+      "category": "bottom"
+    },
+    "shpfy-dippindaisyscom-8383880560811": {
+      "title": "Hydra Pant",
+      "brand": "Dippin Daisys",
+      "image_url": "https://cdn.shopify.com/s/files/1/1427/1236/files/HYRDA-PANTS-LAGOON.webp?v=1750318109",
+      "category": "bottom"
+    },
+    "shpfy-oneractivecom-15506852249987": {
+      "title": "SoftMotion™ Contrast Scoop Back Flared All in One with White Logo | Espresso Brown",
+      "brand": "Oner Active",
+      "image_url": "https://cdn.shopify.com/s/files/1/0429/6120/7445/files/12DAYSONER_SOFTMOTION_CONTRAST_SCOOP_BACK_FLARED_ALL_IN_ONE_ESPRESSOBROWN_251007_PDP_1440x1800_01.jpg?v=1764672765",
+      "category": "bottom"
+    },
+    "shpfy-motherdenimcom-8425412460632": {
+      "title": "SABLYN Naomi Pant - Oak Tree",
+      "brand": "Mother Denim",
+      "image_url": "https://cdn.shopify.com/s/files/1/2094/5935/files/T2873-611-NOC_VW-A-FullBodyFront_40623.jpg?v=1760382058",
+      "category": "bottom"
+    },
+    "shpfy-manukaglobalco-7446280503374": {
+      "title": "Limited Edition Lace Skirt Black",
+      "brand": "Manuka Global",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/6642/7214/files/81757_d82386c1-645b-4d97-880c-ae63fa0a19d6.jpg?v=1773299921",
+      "category": "bottom"
+    },
+    "shpfy-tigermistcom-8028759294091": {
+      "title": "RIONA JEAN - MIDWASH",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/TM18169_RIONATOP_MIDWASH_8_89698fe9-b381-4b06-80ab-260bb1ea3d6e.png?v=1772149595",
+      "category": "bottom"
+    },
+    "shpfy-nobodyschildcom-15300356243841": {
+      "title": "Brown Suede Flare Trousers",
+      "brand": "Nobody's Child",
+      "image_url": "https://cdn.shopify.com/s/files/1/0640/7005/8155/files/NC_WEB_2616095001_1017.jpg?v=1770733515",
+      "category": "bottom"
+    },
+    "shpfy-disshcom-15043068428656": {
+      "title": "COOPER BLACK LEATHER MIDI SKIRT",
+      "brand": "Dissh",
+      "image_url": "https://cdn.shopify.com/s/files/1/0265/5590/8132/files/DSI05006BK.600.jpg?v=1773187217",
+      "category": "bottom"
+    },
+    "shpfy-baobabstorecom-7529137963073": {
+      "title": "Jasmin Mini Skirt",
+      "brand": "Baobab Store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0634/8701/7025/files/b15copy_4f29eb0b-c2ee-4921-add6-9915bfc5d2ae.webp?v=1773502862",
+      "category": "bottom"
+    },
+    "shpfy-baumundpferdgartencom-10026464805159": {
+      "title": "SHARA SKIRT | Black",
+      "brand": "Baum Und Pferdgarten",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/7030/1735/files/24717_9999_1.jpg?v=1768289183",
+      "category": "bottom"
+    },
+    "shpfy-ava-becom-9670415647055": {
+      "title": "Ensemble Jeanne",
+      "brand": "Ava Be",
+      "image_url": "https://cdn.shopify.com/s/files/1/0496/2621/8653/files/1546ED7F-31E4-4EF8-A267-001621529309.jpg?v=1730132342",
+      "category": "bottom"
+    },
+    "shpfy-deijistudioscom-10319536849188": {
+      "title": "Bind Pant - Charred Black Stripe",
+      "brand": "Deiji Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/1287/7907/files/R0012929.jpg?v=1774483790",
+      "category": "bottom"
+    },
+    "shpfy-becandbridgecom-7187039289399": {
+      "title": "LYON PANT - CHOC",
+      "brand": "Bec + Bridge",
+      "image_url": "https://cdn.shopify.com/s/files/1/2994/5224/files/W25-21853-DARKCHOCW2540694-CHOC_1222_34c22ddb-57e1-4c53-bc1d-48faec10e696.jpg?v=1776040641",
+      "category": "bottom"
+    },
+    "shpfy-stagnicom-7515722154066": {
+      "title": "Fawn Pencil Skirt - Almond",
+      "brand": "St. Agni",
+      "image_url": "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_131_BAMBI_SKIRT_5679-1.jpg?v=1770874138",
+      "category": "bottom"
+    },
+    "shpfy-staudclothing-8243012141229": {
+      "title": "GUS STUDDED RELAXED JEAN | BLACK",
+      "brand": "STAUD",
+      "image_url": "https://cdn.shopify.com/s/files/1/1689/2633/files/11-GUS_RELAXED_STUDDED_01_0044.jpg?v=1753478355",
+      "category": "bottom"
+    },
+    "shpfy-therowcom-14736967598452": {
+      "title": "Lettie Pants",
+      "brand": "The Row",
+      "image_url": "https://cdn.shopify.com/s/files/1/0552/0313/5593/files/10032Y914BLKF.jpg?v=1752716244",
+      "category": "bottom"
+    },
+    "shpfy-tovestudiocom-8453145592100": {
+      "title": "Yeal Leather Trouser Dark Brown",
+      "brand": "Tove",
+      "image_url": "https://cdn.shopify.com/s/files/1/0155/8868/7920/files/Yael_trs_tove_brown.jpg?v=1694217889",
+      "category": "bottom"
+    },
+    "shpfy-marcellanyccom-7825125802063": {
+      "title": "Linda Jeans",
+      "brand": "Marcella NYC",
+      "image_url": "https://cdn.shopify.com/s/files/1/0930/7312/files/HERO1_MP2772-H-010-DARKBLUE_PDP_006.jpg?v=1756841903",
+      "category": "bottom"
+    },
+    "shpfy-dhruvkapoorcom-9733153489178": {
+      "title": "TIE-UP LOUNGE PANTS",
+      "brand": "Dhruv Kapoor",
+      "image_url": "https://cdn.shopify.com/s/files/1/0500/0173/9971/files/DK201322089B-1.jpg?v=1706113562",
+      "category": "bottom"
+    },
+    "shpfy-stjohnknitscom-10080236699936": {
+      "title": "Rowan Skirt In Nappa Leather",
+      "brand": "St. John",
+      "image_url": "https://cdn.shopify.com/s/files/1/0884/4155/3184/files/k71nc71-mahg-brown-skirt-re26-6-CROP.jpg?v=1762997061",
+      "category": "bottom"
+    },
+    "shpfy-imnotamorningpersonstore-7900686614701": {
+      "title": "imnot jeans - Vintage Sand Wash",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/014A3827_2.jpg?v=1726341849",
+      "category": "bottom"
+    },
+    "shpfy-indigolunastore-7198958223431": {
+      "title": "Devotion Pants Arona",
+      "brand": "Indigo Luna",
+      "image_url": "https://cdn.shopify.com/s/files/1/1963/6793/files/RITUALTOPPEARL_DEVOTIONPANTSARONA-0785_b0048e32-1e75-4fac-b9cf-72bff0dc2510.jpg?v=1754872864",
+      "category": "bottom"
+    },
+    "shpfy-roheframescom-15672181784925": {
+      "title": "Sculptural suede trousers | tobacco",
+      "brand": "Róhe",
+      "image_url": "https://cdn.shopify.com/s/files/1/0567/3136/9633/files/418-30-122_206_003_5ecd1b40-dc1a-48e4-aa06-be883cb761cf.jpg?v=1763565852",
+      "category": "bottom"
+    },
+    "shpfy-loveandnostalgiacom-8344340693026": {
+      "title": "Little Wildflower Denim Midi Skirt - Blue PRE ORDER",
+      "brand": "Love And Nostalgia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0046/5020/5218/files/AC_7514_5948ab92-dc64-43ef-bf56-6a7160d62fac.jpg?v=1774841357",
+      "category": "bottom"
+    },
+    "shpfy-modemischiefstudioscom-9266380439720": {
+      "title": "VERA SILK SKIRT",
+      "brand": "Mode Mischief Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/0592/4959/0440/files/StripeCorset5Artboard1-80_aec8bec4-3757-4cd8-b6ef-8d981c8bdd59.jpg?v=1770007633",
+      "category": "bottom"
+    },
+    "shpfy-shonajoycom-7056361848916": {
+      "title": "ASTERI MAXI SKIRT",
+      "brand": "Shona Joy",
+      "image_url": "https://cdn.shopify.com/s/files/1/2158/0979/files/223_1244528_asteri_maxi_skirt_silver_1R.jpg?v=1773028346",
+      "category": "bottom"
+    },
+    "shpfy-byebambicom-7032997609577": {
+      "title": "BARBIE JEAN - BLACK",
+      "brand": "Bye Bambi",
+      "image_url": "https://cdn.shopify.com/s/files/1/0028/0713/6345/files/1_8b74fbba-1938-469e-a98e-3a5ccd04e9ff.jpg?v=1739090924",
+      "category": "bottom"
+    },
+    "shpfy-sohaistoremyshopifycom-15097647825281": {
+      "title": "Soma Trousers in Ivory",
+      "brand": "Hai",
+      "image_url": "https://cdn.shopify.com/s/files/1/0580/2193/7361/files/HAI_Reshoot0009_-_Copy.png?v=1758641206",
+      "category": "bottom"
+    },
+    "shpfy-holichiccom-9712037626152": {
+      "title": "Isha Maxi Skirt",
+      "brand": "Holichic",
+      "image_url": "https://cdn.shopify.com/s/files/1/0792/2875/files/isha-maxi-skirt-4679264.jpg?v=1759352817",
+      "category": "bottom"
+    },
+    "shpfy-moomodacom-9960368177479": {
+      "title": "Ida Trousers - Baby Blue",
+      "brand": "Moo Moda",
+      "image_url": "https://cdn.shopify.com/s/files/1/0797/9778/0807/files/7337F93E-EF1A-4926-873A-8D221752FF56.jpg?v=1738791806",
+      "category": "bottom"
+    },
+    "shpfy-elioucom-10273252540733": {
+      "title": "Vitoria Skirt",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/vitoria_white.jpg?v=1774377275",
+      "category": "bottom"
+    },
+    "shpfy-atoircom-10234628800834": {
+      "title": "Chloe Midi Skirt",
+      "brand": "Atoir",
+      "image_url": "https://cdn.shopify.com/s/files/1/0620/0862/3289/files/Chloe_Midi_Skirt_in_White_ATOIR.jpg?v=1774325950",
+      "category": "bottom"
+    },
+    "html-nourhammourcom-miloleatherpantsnoirclassique34": {
+      "title": "Milo",
+      "brand": "Nour Hammour",
+      "image_url": "https://cdn.shopify.com/s/files/1/0030/2946/7203/files/MILO_NOIR_PACKSHOT.jpg",
+      "category": "bottom"
+    },
+    "shpfy-motionalmusecom-8965822218428": {
+      "title": "Bea Skirt",
+      "brand": "Motional Muse",
+      "image_url": "https://cdn.shopify.com/s/files/1/0622/7610/8476/files/bea_skirt_dusty_pink.jpg?v=1758208602",
+      "category": "bottom"
+    },
+    "shpfy-camilactgcom-10418071798096": {
+      "title": "BOTTOM CAPRI RIZO MINI",
+      "brand": "Camilactg",
+      "image_url": "https://cdn.shopify.com/s/files/1/0602/5258/6237/files/Capri_Rizo_mini_2.jpg?v=1772638807",
+      "category": "bottom"
+    },
+    "shpfy-4028couk-9697636286728": {
+      "title": "'AM I AWAKE OR AM I DREAMING?' JOGGERS",
+      "brand": "4028",
+      "image_url": "https://cdn.shopify.com/s/files/1/0738/3600/3592/files/fronmt_jogog.png?v=1775839753",
+      "category": "bottom"
+    },
+    "shpfy-littleyarncomau-9664618529081": {
+      "title": "Ringo Eyelet Jeans",
+      "brand": "Little Yarn",
+      "image_url": "https://cdn.shopify.com/s/files/1/0770/1132/1145/files/8CFF03D9-6947-4101-9928-3E21EA004701.jpg?v=1763878786",
+      "category": "bottom"
+    },
+    "shpfy-othernormalco-8340226146500": {
+      "title": "Studio Pants",
+      "brand": "Othernormal",
+      "image_url": "https://cdn.shopify.com/s/files/1/0707/8281/2356/files/IMG_6205.heic?v=1768968327",
+      "category": "bottom"
+    },
+    "shpfy-clothfoundrycom-2280185102395": {
+      "title": "A Healthy Wardrobe® Pant",
+      "brand": "California Cloth Foundry",
+      "image_url": "https://cdn.shopify.com/s/files/1/0094/4914/4379/products/biowhite_1_24d1ad56-986c-40ce-a18c-6835dcf2cf1d.jpg?v=1588877176",
+      "category": "bottom"
+    },
+    "shpfy-khanumsco-7921992073305": {
+      "title": "Kastrid Trousers - Black",
+      "brand": "Khanum's",
+      "image_url": "https://cdn.shopify.com/s/files/1/2984/7182/files/Kastrid_Trousers_Black_2_f85b0403-59f9-4ced-8661-07fa83432ca5.jpg?v=1760373403",
+      "category": "bottom"
+    },
+    "shpfy-hermanoskoumoricom-8211435094131": {
+      "title": "Training Short After Dark / Quail",
+      "brand": "Hermanos Koumori",
+      "image_url": "https://cdn.shopify.com/s/files/1/0065/5641/8163/files/SHORTCAFEMUJER1.jpg?v=1775605678",
+      "category": "bottom"
+    },
+    "shpfy-tigermistcom-7924086472843": {
+      "title": "CL - REMINI SKORT",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/SHARAHTOP_DARKGREY_1_9043690c-1a89-44f0-b36e-781dbc12c373.png?v=1759210636",
+      "category": "bottom"
+    },
+    "shpfy-iamgiacom-8372666433707": {
+      "title": "MASON MINI SKIRT - TAN",
+      "brand": "I AM GIA",
+      "image_url": "https://cdn.shopify.com/s/files/1/0130/3137/4906/files/I_AM_GIA_0312202513014.jpg?v=1746505892",
+      "category": "bottom"
+    },
+    "shpfy-baobabstorecom-7503234433089": {
+      "title": "Lula Bikini Bottom",
+      "brand": "Baobab Store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0634/8701/7025/files/baobab37_d46fbe67-0ba7-4088-82f5-c7d7671d1e23.jpg?v=1773503015",
+      "category": "bottom"
+    },
+    "shpfy-baumundpferdgartencom-9821953360167": {
+      "title": "NILE TROUSERS | Dark Grey",
+      "brand": "Baum Und Pferdgarten",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/7030/1735/files/24615_9097_1.jpg?v=1768289169",
+      "category": "bottom"
+    },
+    "shpfy-kookaicom-8273405378630": {
+      "title": "Bergen Low Rise Pant",
+      "brand": "Kookai",
+      "image_url": "https://cdn.shopify.com/s/files/1/0915/5382/files/KK3019_GENEVATANK_COCONUTMARLE_01_0a6bc7aa-6bb4-4ee5-81fd-357cd29f7d62.jpg?v=1772496647",
+      "category": "bottom"
+    },
+    "shpfy-lesetcom-9348404117735": {
+      "title": "Noah Wrap Skirt",
+      "brand": "Leset",
+      "image_url": "https://cdn.shopify.com/s/files/1/1286/8573/files/LESET_NOAH_NOAHWRAPSKIRT_BORDEAUX_ONMODEL_1_d6777035-aa2e-4c14-ac9e-bd9aeef031d4.jpg?v=1759444283",
+      "category": "bottom"
+    },
+    "shpfy-stagnicom-7515722219602": {
+      "title": "Woven Leather Skirt - Black",
+      "brand": "St. Agni",
+      "image_url": "https://cdn.shopify.com/s/files/1/1139/4362/files/20250723_StAgni_S26_Ecom_SH_126_S26-21176BLK-S26-26095BLK_5446copy.jpg?v=1771979194",
+      "category": "bottom"
+    },
+    "shpfy-therowcom-14737002004852": {
+      "title": "Arlan Pant",
+      "brand": "The Row",
+      "image_url": "https://cdn.shopify.com/s/files/1/0552/0313/5593/files/1029Y751GYMF.jpg?v=1752715604",
+      "category": "bottom"
+    },
+    "shpfy-kallmeyernyc-10135994302776": {
+      "title": "Emilee Pencil Skirt in Lambskin",
+      "brand": "Kallmeyer",
+      "image_url": "https://cdn.shopify.com/s/files/1/0743/5708/0376/files/FW25_3537.jpg?v=1755367373",
+      "category": "bottom"
+    },
+    "shpfy-onemilethelabelcom-9353862316288": {
+      "title": "Suri Maxi Skirt Sienna",
+      "brand": "One Mile The Label",
+      "image_url": "https://cdn.shopify.com/s/files/1/0334/8171/9945/files/Artboard1_5992653d-280a-4353-8c6e-b1f2251b1712.jpg?v=1771389663",
+      "category": "bottom"
+    },
+    "shpfy-imnotamorningpersonstore-8319554945197": {
+      "title": "IMNOT JEANS - RAW DENIM",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/l1_14_2x-100_0.jpg?v=1758220497",
+      "category": "bottom"
+    },
+    "shpfy-loveandnostalgiacom-7977147564066": {
+      "title": "Bob Barrel Leg Jean",
+      "brand": "Love And Nostalgia",
+      "image_url": "https://cdn.shopify.com/s/files/1/0046/5020/5218/files/Joelle_Parisotto_L_N_20255copy_392735ad-888d-441c-8d30-62620e017c64.jpg?v=1774960686",
+      "category": "bottom"
+    },
+    "shpfy-indigolunastore-7198958190663": {
+      "title": "Devotion Pants Fawn",
+      "brand": "Indigo Luna",
+      "image_url": "https://cdn.shopify.com/s/files/1/1963/6793/files/RITUALTOPPEARL_DEVOTIONPANTSFAWN-0688_a10a9cfc-5d0c-4cde-a8a3-e84c475ed116.jpg?v=1754364547",
+      "category": "bottom"
+    },
+    "shpfy-damsonmaddercom-15746819424643": {
+      "title": "laura workwear denim zip off jeans",
+      "brand": "Damson Madder",
+      "image_url": "https://cdn.shopify.com/s/files/1/0320/4907/0220/files/BLAKEHOODEDTOP-SAGE_AMKLAURAJEAN_199.jpg?v=1774262323",
+      "category": "bottom"
+    },
+    "shpfy-aninebingcom-7032331731016": {
+      "title": "Lou Trouser - Ecru",
+      "brand": "Anine Bing",
+      "image_url": "https://cdn.shopify.com/s/files/1/0150/1528/files/AB-LOU_TROUSER_-_ECRU_A-03-12198-WHT02_123.jpg?v=1772054233",
+      "category": "bottom"
+    },
+    "shpfy-modemischiefstudioscom-9266380079272": {
+      "title": "VERA SILK SKIRT",
+      "brand": "Mode Mischief Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/0592/4959/0440/files/Cream_Slip_4Artboard_1-80_d7a7a8a8-a686-4f91-83a3-d6f771a1ebd0.jpg?v=1770007889",
+      "category": "bottom"
+    },
+    "shpfy-beareparkcom-9388689228019": {
+      "title": "Delphine Skirt",
+      "brand": "Beare Park",
+      "image_url": "https://cdn.shopify.com/s/files/1/0602/1300/2483/files/S59-DELPHINESKIRT_IVY-26101-BearePark-0689_307ec021-a21e-4732-b386-0f42374a8246.jpg?v=1771901323",
+      "category": "bottom"
+    },
+    "shpfy-rixocouk-15063885021570": {
+      "title": "Edwina - Black",
+      "brand": "RIXO",
+      "image_url": "https://cdn.shopify.com/s/files/1/0327/1609/5533/files/020.03172.325.06001_Edwina_Skirt_Solid_Black_1.jpg?v=1759308518",
+      "category": "bottom"
+    },
+    "shpfy-colomascom-10409164833115": {
+      "title": "Loreto Black Skirt",
+      "brand": "Colomas",
+      "image_url": "https://cdn.shopify.com/s/files/1/0821/5268/5915/files/LOOK7_1_77961e41-8ce4-406b-aa17-1009d3d0b389.jpg?v=1775515059",
+      "category": "bottom"
+    },
+    "shpfy-huongboutiquecom-9902857257267": {
+      "title": "Noir Skirt",
+      "brand": "Huong Boutique",
+      "image_url": "https://cdn.shopify.com/s/files/1/0937/8696/4275/files/1_52ed7170-e298-4303-a185-432b62a25b8c.jpg?v=1760374103",
+      "category": "bottom"
+    },
+    "shpfy-byebambicom-7144544108649": {
+      "title": "BARBIE JEAN - DIRTY WASH",
+      "brand": "Bye Bambi",
+      "image_url": "https://cdn.shopify.com/s/files/1/0028/0713/6345/files/1_71d17101-8563-4a91-bdcd-6989d882c4cb.jpg?v=1741831781",
+      "category": "bottom"
+    },
+    "shpfy-arthurapparelcom-9038558462167": {
+      "title": "Slouchy Spike Jeans in Worn Blue",
+      "brand": "Arthur Apparel",
+      "image_url": "https://cdn.shopify.com/s/files/1/0990/0506/files/KFPNT2503_10WB_1.jpg?v=1762840239",
+      "category": "bottom"
+    },
+    "shpfy-coucouintimatescom-8501311013042": {
+      "title": "The Pant 2-Pack: Cotton Voile Black & White",
+      "brand": "Cou Cou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0539/8924/5106/files/VOILEPANT-WHITE_b6697d26-bf89-4648-b06e-981f6f6aea55.jpg?v=1748337845",
+      "category": "bottom"
+    },
+    "shpfy-moomodacom-9960328757575": {
+      "title": "Ida Trousers - Soft Grey",
+      "brand": "Moo Moda",
+      "image_url": "https://cdn.shopify.com/s/files/1/0797/9778/0807/files/74F11455-A5C3-4E5B-A465-4B315E541450.jpg?v=1738791226",
+      "category": "bottom"
+    },
+    "shpfy-elioucom-10273249919293": {
+      "title": "Track Pant",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/TrackPant.jpg?v=1774287364",
+      "category": "bottom"
+    },
+    "shpfy-8rb4com-9539794534680": {
+      "title": "BLUE JEANS",
+      "brand": "8rb4",
+      "image_url": "https://cdn.shopify.com/s/files/1/0709/4412/9304/files/BLUE_JEANS.jpg?v=1744039134",
+      "category": "bottom"
+    },
+    "shpfy-littleyarncomau-10113568375097": {
+      "title": "Weave Low Rise Pant - black",
+      "brand": "Little Yarn",
+      "image_url": "https://cdn.shopify.com/s/files/1/0770/1132/1145/files/03C23D73-C810-4991-97F5-80F0643932CB.jpg?v=1770544359",
+      "category": "bottom"
+    },
+    "shpfy-4028couk-10728649982216": {
+      "title": "BLOCKA DENIM JEANS",
+      "brand": "4028",
+      "image_url": "https://cdn.shopify.com/s/files/1/0738/3600/3592/files/BACKOFJEANS.png?v=1771965084",
+      "category": "bottom"
+    },
+    "shpfy-othernormalco-8477237739716": {
+      "title": "Track Shorts - Vintage Black",
+      "brand": "Othernormal",
+      "image_url": "https://cdn.shopify.com/s/files/1/0707/8281/2356/files/IMG_3513.heic?v=1773969848",
+      "category": "bottom"
+    },
+    "shpfy-dearromecomau-9854435983607": {
+      "title": "Alba Midi Skirt- Camellia",
+      "brand": "Dearrome",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/3612/4663/files/Tezza-3582.jpg?v=1764153594",
+      "category": "bottom"
+    },
+    "shpfy-bristowecomau-8320563642505": {
+      "title": "Mademoiselle Mini Short",
+      "brand": "Bristowe",
+      "image_url": "https://cdn.shopify.com/s/files/1/0662/8209/4729/files/IMG_4582.jpg?v=1773021714",
+      "category": "bottom"
+    },
+    "shpfy-amrheacom-9389613678867": {
+      "title": "SELENIA PANTS",
+      "brand": "Amrhea",
+      "image_url": "https://cdn.shopify.com/s/files/1/0753/3471/3619/files/LUWM0WMGJY_1.jpg?v=1721466696",
+      "category": "bottom"
+    },
+    "shpfy-lagunacocomau-15207207305376": {
+      "title": "Oversized track pants in 'Midnight'",
+      "brand": "Laguna Co",
+      "image_url": "https://cdn.shopify.com/s/files/1/0589/9809/6032/files/IMG_9151.jpg?v=1760936189",
+      "category": "bottom"
+    },
+    "shpfy-flore-florecom-8638099292489": {
+      "title": "LIV SKIRT | Black",
+      "brand": "Flore Flore",
+      "image_url": "https://cdn.shopify.com/s/files/1/0574/1474/6297/files/240526_FLORE_FLORE_E-Comm__ESME_TANK_BLACK_LIV_SKIRT_BLACK_CORE_FLORE_FLORE__0914_53.jpg?v=1732698245",
+      "category": "bottom"
+    },
+    "shpfy-retrofetecom-6946458271795": {
+      "title": "Vero Embellished Denim Pant",
+      "brand": "Retrofete",
+      "image_url": "https://cdn.shopify.com/s/files/1/0024/5936/9523/files/Ecommerce_Crop-24-03-27_CLEATANK_WHITE_VEROPANT_TANGIER__1905_ECOMM.jpg?v=1712065929",
+      "category": "bottom"
+    },
+    "shpfy-showpocom-10405282840886": {
+      "title": "Leauna Jeans - Rhinestone Embellished High Waist Wide Leg Jeans in Mid Blue Wash",
+      "brand": "Showpo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0917/0154/3222/files/25.11.25_-_EVE_EDIT0776_567f9afa-4f6d-4291-83d2-2d9109ece9b7.jpg?v=1765232063",
+      "category": "bottom"
+    },
+    "shpfy-baumundpferdgartencom-10026470441255": {
+      "title": "SABRINNA SKIRT | Grey Stripes",
+      "brand": "Baum Und Pferdgarten",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/7030/1735/files/24757_9147_1.jpg?v=1768289190",
+      "category": "bottom"
+    },
+    "shpfy-deijistudioscom-10185674555684": {
+      "title": "Wool Belt Pant - Grey Blue Stripe",
+      "brand": "Deiji Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/1287/7907/files/IMG_4409_1.heic?v=1762393254",
+      "category": "bottom"
+    },
+    "shpfy-imnotamorningpersonstore-8027913420973": {
+      "title": "IMNOT JEANS - VINTAGE LIGHT BLUE WASH",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/Artboard_1_20_2x-100.jpg?v=1746607107",
+      "category": "bottom"
+    },
+    "shpfy-bohemiabychlocom-10093783613715": {
+      "title": "Micah Patchwork Trousers",
+      "brand": "Bohemia By Chlo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0838/1831/6051/files/Screenshot2025-08-10at9.28.26AM.png?v=1772737539",
+      "category": "bottom"
+    },
+    "shpfy-roheframescom-15931236909405": {
+      "title": "Deconstructed trench skirt | sand",
+      "brand": "Róhe",
+      "image_url": "https://cdn.shopify.com/s/files/1/0567/3136/9633/files/418-32-123_272_008_1eefeb71-e350-411e-967c-dc5ac1f1935f.jpg?v=1771408340",
+      "category": "bottom"
+    },
+    "shpfy-indigolunastore-7277363757127": {
+      "title": "Flow Pants Mauve",
+      "brand": "Indigo Luna",
+      "image_url": "https://cdn.shopify.com/s/files/1/1963/6793/files/IMG_1594.jpg?v=1774331245",
+      "category": "bottom"
+    },
+    "shpfy-modemischiefstudioscom-8731726250152": {
+      "title": "LUMA SEQUIN SKIRT",
+      "brand": "Mode Mischief Studios",
+      "image_url": "https://cdn.shopify.com/s/files/1/0592/4959/0440/files/100028620028.jpg?v=1775018565",
+      "category": "bottom"
+    },
+    "shpfy-ronnykobocom-10490004373809": {
+      "title": "Alory Skirt",
+      "brand": "Ronny Kobo",
+      "image_url": "https://cdn.shopify.com/s/files/1/0058/5413/4332/files/ALORYSKIRT_IVORY_SIDE_f61a0b77-8cf9-457e-bb31-052423f3c65d.jpg?v=1767888999",
+      "category": "bottom"
+    },
+    "shpfy-olgajoanco-8853341241404": {
+      "title": "Belted Capri Pant Ciocco",
+      "brand": "Olga Joan",
+      "image_url": "https://cdn.shopify.com/s/files/1/0254/2790/2524/files/OlgaJoan_B22_29.jpg?v=1772514026",
+      "category": "bottom"
+    },
+    "shpfy-contessamillscom-8630948823268": {
+      "title": "Aconitum Trouser in Grey",
+      "brand": "Contessa Mills",
+      "image_url": "https://cdn.shopify.com/s/files/1/0693/0058/4676/files/ContessaMillsHiRes-189_1.jpg?v=1747770950",
+      "category": "bottom"
+    },
+    "shpfy-lisayangcom-9537874067804": {
+      "title": "The Asta Skirt",
+      "brand": "Lisa Yang",
+      "image_url": "https://cdn.shopify.com/s/files/1/0550/4407/9778/files/2023317_2023317UZ_Asta_Skirt_Cloudy_Brushed_Batch_1_014.jpg?v=1729509755",
+      "category": "bottom"
+    },
+    "shpfy-o-filescom-8820368507217": {
+      "title": "CARGO DENIM JEAN",
+      "brand": "O. Files",
+      "image_url": "https://cdn.shopify.com/s/files/1/0656/0150/3476/files/DENIM-CARGO-FRONT.jpg?v=1699468419",
+      "category": "bottom"
+    },
+    "shpfy-byebambicom-7748690444393": {
+      "title": "LOLA STRIPE TRACK PANT - KHAKI",
+      "brand": "Bye Bambi",
+      "image_url": "https://cdn.shopify.com/s/files/1/0028/0713/6345/files/pantse0copm.jpg?v=1775783223",
+      "category": "bottom"
+    },
+    "shpfy-peachydencouk-15620637098371": {
+      "title": "The Pamela Tuck Jeans, Raw Indigo",
+      "brand": "Peachy Den",
+      "image_url": "https://cdn.shopify.com/s/files/1/0570/3503/0699/files/PeachyDen_SS26_Shot_7_067_1.jpg?v=1771513523",
+      "category": "bottom"
+    },
+    "shpfy-guestinresidencecom-9688549916912": {
+      "title": "Tailored Cable Trouser - Taupe",
+      "brand": "Guest In Residence",
+      "image_url": "https://cdn.shopify.com/s/files/1/0641/5613/9760/files/CopyofTAILOREDCABLETROUSER_TAUPE_05.jpg?v=1760459634",
+      "category": "bottom"
+    },
+    "shpfy-blonditacom-9900824035621": {
+      "title": "Sailor Bloomer Shorts Noir",
+      "brand": "Blondita",
+      "image_url": "https://cdn.shopify.com/s/files/1/0783/9134/5445/files/Screenshot2025-07-02at5.14.19PM.png?v=1774730692",
+      "category": "bottom"
+    },
+    "shpfy-princssclubcom-10164045545751": {
+      "title": "\"ANTI-DOTE\" SILKY SKIRT",
+      "brand": "Princssclub",
+      "image_url": "https://cdn.shopify.com/s/files/1/0905/2451/6631/files/Thi_tk_ch_acoten_9.jpg?v=1769802978",
+      "category": "bottom"
+    },
+    "shpfy-mistystoragecom-7370883399838": {
+      "title": "MIST CARGO DENIM",
+      "brand": "Mistystorage",
+      "image_url": "https://cdn.shopify.com/s/files/1/0595/4833/6286/products/A38AA51D-364D-4AAE-B99A-88F985334A22.jpg?v=1666155916",
+      "category": "bottom"
+    },
+    "shpfy-elioucom-10108572139837": {
+      "title": "Track Pants",
+      "brand": "Éliou",
+      "image_url": "https://cdn.shopify.com/s/files/1/0031/8016/7279/files/24861.jpg?v=1761090658",
+      "category": "bottom"
+    },
+    "shpfy-arcinaoricom-8814041039012": {
+      "title": "JULIETTE SKIRT RED",
+      "brand": "Arcina Ori",
+      "image_url": "https://cdn.shopify.com/s/files/1/0004/8863/6475/files/5.7-JULIETTE-RED-07_f2743d9d-21cb-4c9a-9872-d9a630a520b5.jpg?v=1762236124",
+      "category": "bottom"
+    },
+    "shpfy-littleyarncomau-9864681849145": {
+      "title": "Ryder pocket shorts",
+      "brand": "Little Yarn",
+      "image_url": "https://cdn.shopify.com/s/files/1/0770/1132/1145/files/1E90DBEF-DF9D-4E08-8B89-50ECF2EE5C8D.jpg?v=1750288866",
+      "category": "bottom"
+    },
+    "shpfy-4028couk-11603144933640": {
+      "title": "BLOCKA PLAID JOGGERS - GREY",
+      "brand": "4028",
+      "image_url": "https://cdn.shopify.com/s/files/1/0738/3600/3592/files/pljggr.png?v=1775698726",
+      "category": "bottom"
+    },
+    "shpfy-awareofficialcom-8747990352122": {
+      "title": "DYED BLACK DENIM",
+      "brand": "Aware Official",
+      "image_url": "https://cdn.shopify.com/s/files/1/0684/3065/9834/files/AW2025_Ecom-01.jpg?v=1759381832",
+      "category": "bottom"
+    },
+    "shpfy-duciecouk-14752766591352": {
+      "title": "Chicago Leather Maxi Skirt",
+      "brand": "Ducie",
+      "image_url": "https://cdn.shopify.com/s/files/1/0017/5430/0527/files/230721DUCIE_6Black_4d75d636-5cb5-4c49-93c3-59c930161fa1.jpg?v=1761058167",
+      "category": "bottom"
+    },
+    "shpfy-othernormalco-8366672740548": {
+      "title": "Asymmetric Stripe Shorts",
+      "brand": "Othernormal",
+      "image_url": "https://cdn.shopify.com/s/files/1/0707/8281/2356/files/IMG_6270.heic?v=1775061533",
+      "category": "bottom"
+    },
+    "shpfy-kajalnewyorkcom-7477385593032": {
+      "title": "Two-Tone Chain Pant",
+      "brand": "Kajal New York",
+      "image_url": "https://cdn.shopify.com/s/files/1/0554/4869/9080/files/new4_27fac8fa-7419-42c1-b708-c1f123ad15ab.jpg?v=1743746707",
+      "category": "bottom"
+    },
+    "shpfy-inyourtwentiescom-10168813027622": {
+      "title": "the iris skirt velvet rose",
+      "brand": "In Your Twenties",
+      "image_url": "https://cdn.shopify.com/s/files/1/0833/9429/8150/files/IMG_45367.jpg?v=1768048350",
+      "category": "bottom"
+    },
+    "shpfy-dearromecomau-9854314283255": {
+      "title": "Mira Maxi skirt",
+      "brand": "Dearrome",
+      "image_url": "https://cdn.shopify.com/s/files/1/0873/3612/4663/files/Tezza-1095.jpg?v=1765676506",
+      "category": "bottom"
+    },
+    "shpfy-clothfoundrycom-2280170848315": {
+      "title": "A Healthy Wardrobe® Track Short",
+      "brand": "California Cloth Foundry",
+      "image_url": "https://cdn.shopify.com/s/files/1/0094/4914/4379/products/coral_1.jpg?v=1573174010",
+      "category": "bottom"
+    },
+    "shpfy-bristowecomau-8060464562313": {
+      "title": "Madame Mini Short",
+      "brand": "Bristowe",
+      "image_url": "https://cdn.shopify.com/s/files/1/0662/8209/4729/files/IMG_3627.jpg?v=1762485533",
+      "category": "bottom"
+    },
+    "shpfy-aroomlondoncom-15512555585885": {
+      "title": "Diane Lace Skirt | White Cotton",
+      "brand": "A Room London",
+      "image_url": "https://cdn.shopify.com/s/files/1/0885/1023/4973/files/2025.26.03_A_Room_London_524_0416d16d-7094-4f97-ac2e-8dcb953f34bb.jpg?v=1753802768",
+      "category": "bottom"
+    },
+    "shpfy-atyrstudiocom-8029381230707": {
+      "title": "THE LAYLA SHORTS",
+      "brand": "Atyrstudio",
+      "image_url": "https://cdn.shopify.com/s/files/1/0633/3730/0083/files/Shorts_13_1.jpg?v=1755000569",
+      "category": "bottom"
+    },
+    "shpfy-maemdiskocom-8145979932867": {
+      "title": "Daphne Brief Bottoms - Polka",
+      "brand": "Maem Disko",
+      "image_url": "https://cdn.shopify.com/s/files/1/0551/2452/5251/files/IMG_5870.jpg?v=1744094843",
+      "category": "bottom"
+    },
+    "shpfy-dippindaisyscom-8465698193579": {
+      "title": "Champagne Skirt",
+      "brand": "Dippin Daisys",
+      "image_url": "https://cdn.shopify.com/s/files/1/1427/1236/files/CHAMPAGNE-SKIRT-CHEERS.webp?v=1771364292",
+      "category": "bottom"
+    },
+    "shpfy-tigermistcom-7924083916939": {
+      "title": "CL - BLARE TRACKPANT",
+      "brand": "Tiger Mist",
+      "image_url": "https://cdn.shopify.com/s/files/1/0029/3106/4943/files/GIA12253_BLARETRACKPANT_BLACK_3_8d26cb7a-1d48-4871-bfc6-2be432b07a9d.png?v=1759208874",
+      "category": "bottom"
+    },
+    "shpfy-baobabstorecom-7854257176641": {
+      "title": "Gaia Bikini Bottom",
+      "brand": "Baobab Store",
+      "image_url": "https://cdn.shopify.com/s/files/1/0634/8701/7025/files/b249_9f623772-d9f3-4200-b384-a14b788c07fa.webp?v=1773503318",
+      "category": "bottom"
+    },
+    "shpfy-seafollycom-8762643284020": {
+      "title": "Beachedit Drawstring Lace Pant",
+      "brand": "Seafolly",
+      "image_url": "https://cdn.shopify.com/s/files/1/1879/3419/files/1-261400.jpg?v=1771464774",
+      "category": "bottom"
+    },
+    "shpfy-totemestudiocom-14645896085874": {
+      "title": "Paneled leather skirt black",
+      "brand": "Totême",
+      "image_url": "https://cdn.shopify.com/s/files/1/0452/1374/5316/files/TOTEME_ECOM_GARDEROB_GARDEROB_SKIRTS_252-WRZ0049-FB0026-001__PANELED_LEATHER_SKIRT_BLACK__1865_A.jpg?v=1768484488",
+      "category": "bottom"
+    },
+    "shpfy-nefsfindscom-8409990824165": {
+      "title": "COCO TROUSERS",
+      "brand": "Nefsfinds",
+      "image_url": "https://cdn.shopify.com/s/files/1/0622/2679/2677/files/15_5551a8da-e1eb-483d-9f77-ad67c0dbe8bd.png?v=1700820937",
+      "category": "bottom"
+    },
+    "shpfy-kallmeyernyc-10306248671544": {
+      "title": "Freja Skirt in Rose Brocade",
+      "brand": "Kallmeyer",
+      "image_url": "https://cdn.shopify.com/s/files/1/0743/5708/0376/files/SS26_ECOM-DKSS263013FREJASKIRT_STERLING-8628.jpg?v=1769723193",
+      "category": "bottom"
+    },
+    "shpfy-spelldesignscom-15463863976009": {
+      "title": "Labyrinth Lace Maxi Skirt",
+      "brand": "Spell",
+      "image_url": "https://cdn.shopify.com/s/files/1/0216/3104/files/LaceMaxiSkirt_0001_SPELL_FESTIVALSTYLE31602.jpg?v=1775000062",
+      "category": "bottom"
+    },
+    "shpfy-pixiemarketcom-7405986185321": {
+      "title": "Brown Wide-Leg Pants",
+      "brand": "Pixie Market",
+      "image_url": "https://cdn.shopify.com/s/files/1/2037/5461/files/87141740b.jpg?v=1725716607",
+      "category": "bottom"
+    },
+    "shpfy-imnotamorningpersonstore-7900686287021": {
+      "title": "imnot jeans - Vintage White Bleach",
+      "brand": "Imnotamorningperson",
+      "image_url": "https://cdn.shopify.com/s/files/1/0583/3316/7789/files/014A3348_2.jpg?v=1726341707",
+      "category": "bottom"
+    },
+    "shpfy-moderncitizencom-7852166086719": {
+      "title": "Parmer Wool-Blend Stretch-Waist Pant",
+      "brand": "Modern Citizen",
+      "image_url": "https://cdn.shopify.com/s/files/1/0272/6277/files/parmer-lightweight-wool-blend-pant-black-0_ee707cc8-31f2-49b8-a334-4855959167d8.jpg?v=1762985980",
+      "category": "bottom"
+    }
+  },
+  "updatedAt": "2026-04-25T02:25:36.820Z",
+  "category": "bottoms"
+}
