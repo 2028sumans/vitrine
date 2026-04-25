@@ -291,10 +291,14 @@ export async function GET() {
 
   // ── 6. Environment hints ──────────────────────────────────────────────────
   checks.env = {
-    region:     process.env.VERCEL_REGION ?? "local",
-    runtime:    process.env.NEXT_RUNTIME  ?? "nodejs",
-    pinecone:   !!process.env.PINECONE_API_KEY,
+    region:        process.env.VERCEL_REGION ?? "local",
+    runtime:       process.env.NEXT_RUNTIME  ?? "nodejs",
+    pinecone:      !!process.env.PINECONE_API_KEY,
     pinecone_index: process.env.PINECONE_INDEX ?? null,
+    // Commit SHA stamp so the caller can verify which deployment they hit.
+    // VERCEL_GIT_COMMIT_SHA is set on every Vercel build; first 7 chars
+    // line up with the short hash git log shows.
+    commit:        (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7),
   };
 
   return NextResponse.json({
