@@ -132,16 +132,16 @@ function BoardCard({ board, selected, onClick }: {
           : "border-border hover:border-border-mid bg-white/[0.02] hover:bg-white/[0.04]"
       }`}
     >
-      <div className="px-5 py-5 flex items-center justify-between">
-        <p className="font-display font-light text-lg text-foreground leading-snug">
+      <div className="px-4 py-2.5 flex items-center justify-between">
+        <p className="font-display font-light text-sm text-foreground leading-snug truncate pr-3">
           {board.name}
         </p>
-        <div className={`w-5 h-5 border flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+        <div className={`w-4 h-4 border flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
           selected ? "border-foreground/60 bg-foreground/10" : "border-border group-hover:border-border-mid"
         }`}>
           {selected && (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M1.5 5l2.5 2.5L8.5 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+              <path d="M1.5 5l2.5 2.5L8.5 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
             </svg>
           )}
         </div>
@@ -1884,7 +1884,12 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                           ) : (
                             <div>
                               <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Your boards</p>
-                              <div className="flex flex-col gap-px border border-border max-h-64 overflow-y-auto">
+                              {/* Constrained height so only ~1 board peeks
+                                  before the user scrolls. Was max-h-64
+                                  (256 px ≈ 4 cards); now max-h-12 (48 px)
+                                  with skinnier card padding so exactly one
+                                  card sits in the viewport. */}
+                              <div className="flex flex-col gap-px border border-border max-h-12 overflow-y-auto">
                                 {boardsLoading ? (
                                   <div className="px-5 py-6 text-center">
                                     <p className="font-sans text-xs text-muted">Loading your boards…</p>
