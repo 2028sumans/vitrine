@@ -115,15 +115,20 @@ function ShopPageContent() {
   // tile — which does a soft navigation to /shop?category=X — actually
   // updates the rendered mode without a full page reload.
   //   ?brand=X    → brand mode (linked from /brands)
-  //   ?category=X → category mode (linked from the tiles on /shop)
-  //   neither     → category-picker mode (no products, just the 8 tiles)
+  //   ?category=X → category mode (linked from category tiles on /shop)
+  //   ?all=1      → all-products mode (the "Shop all" tile — no scope
+  //                 filter, the API falls into its flat-pagination lane and
+  //                 walks the whole catalog)
+  //   neither     → category-picker mode (no products, just the tiles)
   const searchParams = useSearchParams();
   const brandFilter    = useMemo(() => searchParams?.get("brand")    ?? "", [searchParams]);
   const categoryFilter = useMemo(() => searchParams?.get("category") ?? "", [searchParams]);
+  const allFlag        = useMemo(() => searchParams?.get("all")      ?? "", [searchParams]);
   const isBrandMode    = !!brandFilter;
   const isCategoryMode = !isBrandMode && !!categoryFilter;
-  const isPickerMode   = !isBrandMode && !isCategoryMode;
-  const scopeLabel     = brandFilter || categoryFilter || "";
+  const isAllMode      = !isBrandMode && !isCategoryMode && allFlag === "1";
+  const isPickerMode   = !isBrandMode && !isCategoryMode && !isAllMode;
+  const scopeLabel     = brandFilter || categoryFilter || (isAllMode ? "Shop all" : "");
 
   // Signed-in session — feeds `userToken` through to /api/shop-all so the
   // server can blend the user's onboarding taste vector into the ranking.
@@ -1134,7 +1139,13 @@ function GridTile({ product }: { product: Product }) {
 // Clicking a tile deep-links to /shop?category=NAME which switches this same
 // page into category-scope product mode.
 
+// "Shop all" is rendered first so it's the most prominent tile — clicking
+// it lands on /shop?all=1 which bypasses the category scope and walks the
+// full catalog. Renders as a blank cream card (no hero image, no count
+// badge) so it reads as a deliberate "everything" entry rather than
+// pretending to feature a single product.
 const CATEGORY_LABELS = [
+  "Shop all",
   "Tops",
   "Dresses",
   "Bottoms",
@@ -1199,10 +1210,32 @@ function CategoryCard({
   loaded:  boolean;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const src = sample?.imageUrl ?? null;
+  // "Shop all" is a special tile: blank cream card, no hero image, no count
+  // badge, and a different deep-link (?all=1 instead of ?category=…). The
+  // rest of the tiles fall through to the normal image-with-gradient layout.
+  const isShopAll = label === "Shop all";
+  const href      = isShopAll ? "/shop?all=1" : `/shop?category=${encodeURIComponent(label)}`;
+  const src       = isShopAll ? null : (sample?.imageUrl ?? null);
+
+  if (isShopAll) {
+    return (
+      <Link
+        href={href}
+        className="group relative aspect-[3/4] overflow-hidden bg-background border border-border shadow-card hover:shadow-card-hover hover:border-border-mid transition-all duration-300 flex flex-col items-center justify-center text-center"
+      >
+        <h3 className="font-display font-light text-2xl text-foreground leading-tight">
+          {label}
+        </h3>
+        <p className="font-sans text-[9px] tracking-widest uppercase text-muted mt-3">
+          Browse everything
+        </p>
+      </Link>
+    );
+  }
+
   return (
     <Link
-      href={`/shop?category=${encodeURIComponent(label)}`}
+      href={href}
       className="group relative aspect-[3/4] overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card hover:shadow-card-hover transition-all duration-300 block"
     >
       {src && !imgFailed ? (
