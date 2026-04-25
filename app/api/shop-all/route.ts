@@ -534,6 +534,14 @@ export async function POST(request: Request) {
         .slice(0, 20)
     : [];
 
+  // Diversify-by-brand mode (set by the /admin/label labeling tool). When
+  // true the scoped path replaces its single big top-of-ranking fetch with
+  // multiple parallel offset queries spread through the catalog, then
+  // round-robin interleaves by brand. Surfaces a much wider brand spread
+  // in the first batch — without this, the first 384 results are the top
+  // of desc(price) and naturally clump into 3-5 luxury brands.
+  const diversify: boolean = body?.diversify === true;
+
   // Signed-in user token — drives the taste-vector boost (onboarding age
   // centroid + upload centroid + session centroid, blended per
   // lib/taste-profile.loadUserTasteVector). Empty/anon means no taste
@@ -681,6 +689,70 @@ export async function POST(request: Request) {
         for (let i = 0; i < PER_BAND; i++) {
           for (let j = 0; j < results.length; j++) {
             const hit = results[j]?.hits?.[i];
+            if (hit) products.push(hit);
+          }
+        }
+      } else if (diversify) {
+        // Multi-offset spread for the labeling tool. The default single
+        // hitsPerPage=384 fetch returns the top of desc(price) within the
+        // category — naturally clumps into 3-5 luxury brands. Splitting
+        // into 4 parallel queries at evenly-spaced offsets walks the entire
+        // price range in one batch, surfacing far more brand variety. The
+        // 1000-offset Algolia cap is respected (last offset is 750 + 96 = 846).
+        const NUM_DIVERSE_SLICES = 4;
+        const PER_SLICE          = Math.ceil(SCOPED_FETCH / NUM_DIVERSE_SLICES);
+        const MAX_OFFSET         = 1000 - PER_SLICE; // headroom against Algolia's 1000 cap
+
+        // Probe nbHits first so we don't issue queries past the actual
+        // catalog depth (a niche category might have <1000 items total).
+        const probe = await client.searchSingleIndex({
+          indexName: INDEX_NAME,
+          searchParams: {
+            query:       q,
+            ...(optionalWords ? { optionalWords } : {}),
+            ...(filters ? { filters } : {}),
+            hitsPerPage: 1,
+            page:        0,
+            attributesToRetrieve: ["objectID"],
+          },
+        });
+        nbHits = probe.nbHits ?? 0;
+
+        const usableHits = Math.min(nbHits, MAX_OFFSET);
+        const stride     = Math.max(PER_SLICE, Math.floor(usableHits / NUM_DIVERSE_SLICES));
+        const pageOffset = page * PER_SLICE;
+
+        const slices = await Promise.all(
+          Array.from({ length: NUM_DIVERSE_SLICES }, async (_, i) => {
+            const sliceOffset = Math.min(i * stride + pageOffset, MAX_OFFSET);
+            if (sliceOffset >= usableHits) return [] as Array<Record<string, unknown>>;
+            try {
+              const r = await client.searchSingleIndex({
+                indexName: INDEX_NAME,
+                searchParams: {
+                  query:       q,
+                  ...(optionalWords ? { optionalWords } : {}),
+                  ...(filters ? { filters } : {}),
+                  offset:  sliceOffset,
+                  length:  PER_SLICE,
+                  attributesToRetrieve,
+                },
+              });
+              return (r.hits ?? []) as Array<Record<string, unknown>>;
+            } catch (e) {
+              console.warn(`[shop-all] diversify slice failed (offset=${sliceOffset}):`, e instanceof Error ? e.message : e);
+              return [] as Array<Record<string, unknown>>;
+            }
+          }),
+        );
+
+        // Round-robin interleave across slices — first item of each slice,
+        // then second of each, and so on. Mixes products from different
+        // price tiers (and therefore different brand cohorts) up front.
+        products = [];
+        for (let i = 0; i < PER_SLICE; i++) {
+          for (let j = 0; j < NUM_DIVERSE_SLICES; j++) {
+            const hit = slices[j]?.[i];
             if (hit) products.push(hit);
           }
         }

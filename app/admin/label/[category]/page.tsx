@@ -179,6 +179,12 @@ function Labeler({ category }: { category: CategoryRow }) {
           likedProductIds: [],
           steerQuery:      "",
           steerInterp:     null,
+          // Diversify-by-brand: server fires multiple offset queries within
+          // the scope and round-robins so the first batch isn't dominated
+          // by the 3-5 brands at the top of desc(price). Critical for
+          // labeling — we need to SEE the full brand variety per category,
+          // not just the luxury subset.
+          diversify:       true,
         }),
       });
       if (!res.ok) { setHasMore(false); return; }
