@@ -1803,15 +1803,19 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
 
       <div className="max-w-5xl mx-auto px-8 py-10">
 
-        {/* ── Search hub (boards step) ── */}
+        {/* ── Search hub (boards step) ──
+            Compact heading + tighter copy so the intake fits inline above
+            the default category feed without dominating the viewport. The
+            standalone /dashboard hosted a hero-sized prompt; embedded inline
+            on /shop, that scale was too much. */}
         {step === "boards" && (
           <div className="fade-in-up">
-            <div className="mb-10">
-              <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-[1.05] mb-4">
-                What are we<br />shopping for?
-              </h1>
-              <p className="font-sans text-base text-muted-strong max-w-sm leading-relaxed">
-                Describe the vibe, share a Pinterest board, or upload a few shots. We'll pull from hundreds of sustainable, vintage, preloved, and small-batch labels that fit.
+            <div className="mb-6">
+              <h2 className="font-display font-light text-2xl sm:text-3xl text-foreground leading-tight mb-2">
+                What are we shopping for?
+              </h2>
+              <p className="font-sans text-sm text-muted-strong max-w-md leading-relaxed">
+                Describe the vibe, share a Pinterest board, or upload a few shots.
               </p>
             </div>
 
