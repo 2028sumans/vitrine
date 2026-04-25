@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   rankCards,
@@ -21,6 +21,7 @@ import {
   flushSessionSignals,
 } from "@/lib/session-signals";
 import { MobileMenu } from "../_components/MobileMenu";
+import { TasteShopFlow } from "../_components/TasteShopFlow";
 import { displayTitle } from "@/lib/algolia";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -121,6 +122,7 @@ function ShopPageContent() {
   //                 walks the whole catalog)
   //   neither     → category-picker mode (no products, just the tiles)
   const searchParams = useSearchParams();
+  const pathname     = usePathname() ?? "/shop";
   const brandFilter    = useMemo(() => searchParams?.get("brand")    ?? "", [searchParams]);
   const categoryFilter = useMemo(() => searchParams?.get("category") ?? "", [searchParams]);
   const allFlag        = useMemo(() => searchParams?.get("all")      ?? "", [searchParams]);
@@ -810,7 +812,7 @@ function ShopPageContent() {
           MUSE
         </Link>
         <div className="hidden sm:flex items-center gap-8 font-sans text-[10px] tracking-widest uppercase">
-          <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">Tailor to my taste →</Link>
+          <Link href="/shop?all=1" className="text-muted hover:text-foreground transition-colors">Get started →</Link>
           <Link href="/shop"   className="text-foreground hover:text-accent transition-colors">Shop</Link>
           <Link href="/brands" className="text-muted hover:text-foreground transition-colors">Brands</Link>
           <Link href="/twin"   className="text-muted hover:text-foreground transition-colors">TwinFinder</Link>
@@ -819,7 +821,7 @@ function ShopPageContent() {
         <MobileMenu
           variant="cream"
           links={[
-            { href: "/dashboard", label: "Tailor to my taste →" },
+            { href: "/shop?all=1", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
             { href: "/twin",      label: "TwinFinder" },
@@ -868,15 +870,26 @@ function ShopPageContent() {
               </>
             )}
           </div>
-          {!isBrandMode && !isCategoryMode && (
-            <Link
-              href="/dashboard"
-              className="inline-block self-start sm:self-end px-6 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 whitespace-nowrap"
-            >
-              Tailor to your taste →
-            </Link>
-          )}
+          {/* "Tailor to your taste" used to live as a separate /dashboard
+              page with its own intake (Pinterest / Describe / Upload). It's
+              now embedded inline below as <TasteShopFlow /> on every
+              category and "Shop all" page, so the standalone CTA is gone. */}
         </div>
+
+        {/* Inline TasteShopFlow — same intake → musing → scroll experience as
+            the old /dashboard, but scoped to the page's category. Sits ABOVE
+            the default category feed; submitting a search takes over the
+            visible area until the user clicks "← Clear search". Pinterest
+            tab is hidden for anon users (sign in via the nav to enable). */}
+        {(isCategoryMode || isAllMode) && (
+          <section className="mb-12 border border-border-mid">
+            <TasteShopFlow
+              categoryFilter={isCategoryMode ? categoryFilter : undefined}
+              callbackUrl={`${pathname}${searchParams?.toString() ? "?" + searchParams.toString() : ""}`}
+              allowPinterest={!!userToken}
+            />
+          </section>
+        )}
 
         {/* Category picker — home view only */}
         {isPickerMode && <CategoryPickerGrid />}

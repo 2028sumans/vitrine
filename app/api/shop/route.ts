@@ -108,6 +108,36 @@ export async function POST(request: Request) {
     rawTier === "over1000"   ? "luxury" :
     null;
 
+  // Optional category scope. When the search runs from a /shop category page
+  // (Tops, Dresses, etc.), the caller passes the display label here. We map
+  // it to the catalog's ClothingCategory key and force focus_categories on
+  // the StyleDNA so all downstream retrieval (Pinecone, Algolia) returns
+  // only that category, regardless of what Claude inferred from the brief.
+  // This makes the dashboard intake usable as an in-page search bar on each
+  // category page without leaking off-category results.
+  //
+  // "Knits" maps to {top, jacket} — there's no knit category in the catalog,
+  // so we widen to the two categories where knit garments live and rely on
+  // Claude's keywords to surface knits within those buckets. "Shop all"
+  // (or undefined / "all") bypasses scoping entirely.
+  const rawCategory: string = typeof body.categoryFilter === "string"
+    ? body.categoryFilter.trim()
+    : "";
+  type ClothingCategoryKey = "top" | "dress" | "bottom" | "jacket" | "shoes" | "bag";
+  function mapCategoryFilter(label: string): ClothingCategoryKey[] {
+    switch (label.toLowerCase()) {
+      case "tops":                 return ["top"];
+      case "dresses":              return ["dress"];
+      case "bottoms":              return ["bottom"];
+      case "outerwear":            return ["jacket"];
+      case "shoes":                return ["shoes"];
+      case "bags and accessories": return ["bag"];
+      case "knits":                return ["top", "jacket"];
+      default:                     return [];        // "shop all" / unknown
+    }
+  }
+  const forcedFocusCategories = mapCategoryFilter(rawCategory);
+
   // Support both new multi-context format { contexts: [...] } and legacy single-mode format
   const contexts: ContextPayload[] = Array.isArray(body.contexts)
     ? body.contexts
@@ -306,6 +336,16 @@ export async function POST(request: Request) {
         if (priceOverride) {
           console.log(`[shop] priceTier override: ${aesthetic.price_range} → ${priceOverride}`);
           aesthetic = { ...aesthetic, price_range: priceOverride };
+        }
+
+        // Category-filter hard override — when the search came from a
+        // /shop category page (Tops, Dresses, etc.), force Claude's
+        // focus_categories to the page's category. applyFocusSkew below
+        // then drops every other bucket so the user gets only the
+        // category they were browsing.
+        if (forcedFocusCategories.length > 0) {
+          console.log(`[shop] categoryFilter override: focus_categories → ${JSON.stringify(forcedFocusCategories)} (was ${JSON.stringify(aesthetic.focus_categories ?? null)})`);
+          aesthetic = { ...aesthetic, focus_categories: forcedFocusCategories };
         }
 
         // ── EMIT: aesthetic phase ────────────────────────────────────────────

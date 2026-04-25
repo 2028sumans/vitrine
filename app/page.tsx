@@ -116,7 +116,7 @@ export default function HomePage() {
         {/* Desktop links — hidden on mobile, replaced by the hamburger below. */}
         <div className="hidden sm:flex items-center gap-8">
           <Link
-            href="/dashboard"
+            href="/shop?all=1"
             className="font-sans text-[10px] tracking-widest uppercase hover:opacity-100 transition-opacity duration-200"
             style={{ color: `${HERO_TEXT}b3` /* ~70% alpha */ }}
           >
@@ -187,7 +187,7 @@ export default function HomePage() {
         <MobileMenu
           variant="olive"
           links={[
-            { href: "/dashboard", label: "Get started →" },
+            { href: "/shop?all=1", label: "Get started →" },
             { href: "/shop",      label: "Shop" },
             { href: "/brands",    label: "Brands" },
             { href: "/twin",      label: "TwinFinder" },
@@ -238,15 +238,18 @@ export default function HomePage() {
             </p>
 
             <div className="fade-in-up delay-400 flex flex-col items-center justify-center gap-3">
+              {/* "Tailor to your taste" used to live as a separate page —
+                  it's now an inline search bar on every /shop category and
+                  on Shop all, so a single CTA into /shop covers both. */}
               <Link
-                href="/dashboard"
+                href="/shop"
                 className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase hover:opacity-90 transition-opacity duration-200 min-w-[220px] text-center"
                 style={{ backgroundColor: HERO_TEXT, color: HERO_BG }}
               >
-                Tailor to your taste →
+                Start shopping →
               </Link>
               <Link
-                href="/shop"
+                href="/shop?all=1"
                 className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase border hover:bg-[rgba(237,229,208,0.1)] transition-colors duration-200 min-w-[220px] text-center"
                 style={{ borderColor: HERO_TEXT, color: HERO_TEXT }}
               >
