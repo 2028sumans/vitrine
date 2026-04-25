@@ -23,10 +23,12 @@ import { algoliasearch } from "algoliasearch";
 import {
   searchByEmbeddings,
   searchByLikedProductIds,
+  searchByTextQuery,
   fetchProductsForCentroid,
   searchByCentroidWithMetadata,
   embedTextQuery,
 } from "@/lib/embeddings";
+import { getProductsByIds }          from "@/lib/algolia";
 import { loadUserTasteVector }       from "@/lib/taste-profile";
 import { applyBrandAgePenalty }      from "@/lib/brand-age-affinity";
 import { slugFromFilter }            from "@/lib/category-taxonomy";
@@ -1253,6 +1255,45 @@ export async function POST(request: Request) {
         taste            = { hasVector: ranking.hasVector, userAge: ranking.userAge };
       }
 
+      // FashionCLIP semantic candidate augmentation — for abstract steers
+      // ("dad chic", "office siren", "blokette") Algolia keyword recall is
+      // structurally weak: a peak-dad-chic faded crewneck titled "Crew Tee
+      // Wash 12" never enters Algolia's pool because the title shares no
+      // tokens with the steer. Without this hop, the existing FashionCLIP
+      // path only re-ranks Algolia's pool — semantic items can't be promoted
+      // because they were never candidates.
+      //
+      // Fix: text-encode the raw steer through FashionCLIP (the same
+      // encoder that produced every product's image embedding), search
+      // the visual Pinecone namespace for the top-K most similar items,
+      // hydrate them via Algolia getObjects, and merge into the candidate
+      // pool BEFORE post-filter. The category-scope enforce below catches
+      // any wrong-category Pinecone hits the same way it catches mis-tagged
+      // Algolia rows. minScore=0.18 from embeddings.ts comments — the
+      // empirical floor below which CLIP nearest-neighbours start drifting
+      // off-aesthetic on this catalog.
+      //
+      // Skipped on seed-mode (one-shot "more like this" already does CLIP).
+      if (steerQuery && !seedProductId) {
+        try {
+          const semIds = await searchByTextQuery(steerQuery, 200, { minScore: 0.18 });
+          if (semIds.length > 0) {
+            const seenAlgolia = new Set(products.map((p) => String(p.objectID ?? "")));
+            const newIds      = semIds.filter((id) => !seenAlgolia.has(id));
+            if (newIds.length > 0) {
+              const semProducts = await getProductsByIds(newIds);
+              // Annotate with the same queryID stamp so click events still
+              // attribute correctly. They came from Pinecone, not Algolia,
+              // so the queryID is undefined — frontend insights treats that
+              // as "no Algolia attribution available," which is correct.
+              products = [...products, ...(semProducts as unknown as typeof products)];
+            }
+          }
+        } catch (e) {
+          console.warn("[shop-all] FashionCLIP candidate augmentation failed:", e instanceof Error ? e.message : e);
+        }
+      }
+
       // Implicit avoid_terms — patterns showing up repeatedly in dislikes
       // get folded into the steer post-filter without making the user type.
       const implicitAvoid = inferImplicitAvoidTerms(dislikedMetadata);
@@ -1276,9 +1317,21 @@ export async function POST(request: Request) {
       products = applyPriceMaxPostFilter(products, priceMax);
 
       // Strict category-scope enforcement — defensive against mis-tagged rows
-      // in the Algolia index (e.g. hoodies slipping into Shoes).
+      // in the Algolia index (e.g. hoodies slipping into Shoes). Also catches
+      // wrong-category items from the FashionCLIP augmentation above.
       if (categoryScope?.enforce) {
-        products = products.filter(categoryScope.enforce);
+        const scopeFilters = categoryScope.filters ?? "";
+        const expectedCat  = scopeFilters.match(/category:"([^"]+)"/)?.[1] ?? null;
+        products = products.filter((p) => {
+          // Pinecone-hydrated rows weren't filtered by Algolia's category
+          // facet, so check it explicitly here. Algolia rows already passed
+          // the facet — checking again is a cheap no-op for them.
+          if (expectedCat) {
+            const c = String(p.category ?? "").toLowerCase().trim();
+            if (c && c !== expectedCat) return false;
+          }
+          return categoryScope.enforce!(p);
+        });
       }
 
       let clean = products.filter((h) => {
@@ -1438,6 +1491,27 @@ export async function POST(request: Request) {
         (res.hits ?? []) as Array<Record<string, unknown>>,
         queryDrivenQID,
       );
+
+      // FashionCLIP semantic candidate augmentation — same logic as the
+      // scoped path. Pinecone-hydrated items don't go through Algolia's
+      // facet filters, but query-driven mode has no category scope so
+      // there's no facet to honour. The disliked-brands / disliked-categories
+      // filter below applies uniformly to both Algolia and Pinecone hits.
+      if (steerQuery && !seedProductId) {
+        try {
+          const semIds = await searchByTextQuery(steerQuery, 200, { minScore: 0.18 });
+          if (semIds.length > 0) {
+            const seenAlgolia = new Set(products.map((p) => String(p.objectID ?? "")));
+            const newIds      = semIds.filter((id) => !seenAlgolia.has(id));
+            if (newIds.length > 0) {
+              const semProducts = await getProductsByIds(newIds);
+              products = [...products, ...(semProducts as unknown as typeof products)];
+            }
+          }
+        } catch (e) {
+          console.warn("[shop-all] FashionCLIP candidate augmentation (query-driven) failed:", e instanceof Error ? e.message : e);
+        }
+      }
 
       const dislikedBrands     = new Set((bias.dislikedBrands     ?? []).map((s) => s.toLowerCase()));
       const dislikedCategories = new Set((bias.dislikedCategories ?? []).map((s) => s.toLowerCase()));
