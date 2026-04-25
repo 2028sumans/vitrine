@@ -169,6 +169,25 @@ export function subtractCentroid(
   return normalize(positive.map((v, i) => v - weight * (negMean[i] ?? 0)));
 }
 
+// ── ONNX runtime configuration ────────────────────────────────────────────────
+// @xenova/transformers v2 talks to ONNX Runtime through a `env.backends.onnx`
+// config object. The defaults assume a browser with Cross-Origin Isolation
+// (so SharedArrayBuffer / WASM threading works) — Vercel Lambdas don't have
+// that, so the WASM threaded backend silently fails with "Can't create a
+// session" during model load. Forcing single-threaded WASM (numThreads = 1)
+// and disabling the worker-proxy path makes the load reliable on Vercel
+// without changing anything for the local dev path (which has full COI).
+//
+// Set BEFORE the first `from_pretrained` call so the session-creation code
+// reads the patched values. Idempotent — safe to call from both
+// getVisionModel and getTextModel.
+function configureOnnxRuntime(env: { backends?: { onnx?: { wasm?: { numThreads?: number; proxy?: boolean } } } }): void {
+  const wasm = env?.backends?.onnx?.wasm;
+  if (!wasm) return;
+  wasm.numThreads = 1;
+  wasm.proxy      = false;
+}
+
 // ── Vision model singleton ─────────────────────────────────────────────────────
 
 let _visionProcessorPromise: Promise<unknown> | null = null;
@@ -183,6 +202,7 @@ async function getVisionModel(): Promise<{ processor: unknown; model: unknown } 
     // Vercel's filesystem is read-only except for `/tmp`; local dev writes
     // alongside the repo for a warmer next-boot experience.
     env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
+    configureOnnxRuntime(env);
 
     if (!_visionProcessorPromise) _visionProcessorPromise = AutoProcessor.from_pretrained(MODEL_ID);
     if (!_visionModelPromise)
@@ -210,6 +230,7 @@ async function getTextModel(): Promise<{ tokenizer: unknown; model: unknown } | 
     // Vercel's filesystem is read-only except for `/tmp`; local dev writes
     // alongside the repo for a warmer next-boot experience.
     env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
+    configureOnnxRuntime(env);
 
     if (!_textTokenizerPromise) _textTokenizerPromise = AutoTokenizer.from_pretrained(MODEL_ID);
     if (!_textModelPromise)
