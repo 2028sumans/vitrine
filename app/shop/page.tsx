@@ -411,8 +411,12 @@ function ShopPageContent() {
     // we setHasMore(true) + invoke loadMore() in the same tick. Inlining
     // sidesteps that timing hazard cleanly.
     // Price cap joins the scope key so changing the cap forces a fresh fetch
-    // (same as flipping category / brand / steer).
-    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}|${priceMax ?? ""}`;
+    // (same as flipping category / brand / steer). The all-mode flag also
+    // joins it: navigating /shop → /shop?all=1 leaves brand+category+steer
+    // empty in both, so without including `allFlag` the scope key stays
+    // "|||" and initStartedRef would block the fetch — the catalog walk
+    // never fires and the user lands on an empty Shop all page.
+    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}|${priceMax ?? ""}|${allFlag}`;
     if (lastScopeRef.current === scope && initStartedRef.current) return;
     lastScopeRef.current   = scope;
     initStartedRef.current = true;
@@ -468,7 +472,7 @@ function ShopPageContent() {
       }
     })();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken]);
+  }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken, allFlag]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
