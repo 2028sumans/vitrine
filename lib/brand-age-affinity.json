@@ -1,0 +1,9 @@
+{
+  "_comment": "Per-brand demographic priors. The product catalog's FashionCLIP vectors don't encode 'who actually wears this', so similarity to the age centroid sometimes surfaces brand-age mismatches (e.g., Dhruv Kapoor's distressed denim scoring high on the 13-18 centroid even though the brand's natural buyer is 25-32+). When a user's age doesn't intersect a brand's preferredAges, we soft-demote the product in ranking — it stays visible at the end of the list, never blacklisted. Add brands here as you spot mismatches in your own browsing.",
+  "version": 1,
+  "biases": {
+    "Dhruv Kapoor": {
+      "preferredAges": ["age-25-32", "age-32-40", "age-40-60"]
+    }
+  }
+}

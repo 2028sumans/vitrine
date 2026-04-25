@@ -22,6 +22,8 @@ import { NextResponse }  from "next/server";
 import { algoliasearch } from "algoliasearch";
 import { searchByEmbeddings, searchByLikedProductIds } from "@/lib/embeddings";
 import { loadUserTasteVector } from "@/lib/taste-profile";
+import { applyBrandAgePenalty } from "@/lib/brand-age-affinity";
+import type { AgeRangeKey } from "@/lib/onboarding-memory";
 
 export const revalidate = 60;
 
@@ -320,18 +322,19 @@ async function clipSimilarityRanking(likedProductIds: string[]): Promise<string[
 // same boost step as clipIds. Fires for any signed-in user with a non-null
 // centroid — no "liked >= 2" floor, because the onboarding centroid is
 // itself a deliberately-chosen signal, not accumulated click noise.
-async function tasteVectorRanking(userToken: string): Promise<{ ids: string[]; hasVector: boolean }> {
-  if (!userToken || userToken === "anon") return { ids: [], hasVector: false };
+async function tasteVectorRanking(userToken: string): Promise<{ ids: string[]; hasVector: boolean; userAge: AgeRangeKey | null }> {
+  if (!userToken || userToken === "anon") return { ids: [], hasVector: false, userAge: null };
   try {
     const profile = await loadUserTasteVector(userToken);
-    if (!profile.vector || profile.vector.length === 0) return { ids: [], hasVector: false };
+    const userAge = profile.sources.age;
+    if (!profile.vector || profile.vector.length === 0) return { ids: [], hasVector: false, userAge };
     // Single-vector Pinecone query — no clustering, the profile is already
     // one blended centroid. 300K mirrors the clip path for stable merging.
     const ids = await searchByEmbeddings([profile.vector], 300);
-    return { ids, hasVector: true };
+    return { ids, hasVector: true, userAge };
   } catch (e) {
     console.warn("[shop-all] taste-vector ranking skipped:", e instanceof Error ? e.message : e);
-    return { ids: [], hasVector: false };
+    return { ids: [], hasVector: false, userAge: null };
   }
 }
 
@@ -747,6 +750,14 @@ export async function POST(request: Request) {
         Math.max(likedProductIds.length, taste.hasVector ? 2 : 0),
       );
 
+      // Brand-age affinity demote — pushes products from brands whose curated
+      // demographic doesn't include the user's age toward the end of the
+      // list. Soft only: nothing is filtered out, just reordered. Skipped
+      // in brand-mode since the entire pool is one brand by definition.
+      if (!brandFilterQuery) {
+        clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
+      }
+
       return NextResponse.json({
         products: clean,
         page,
@@ -809,6 +820,7 @@ export async function POST(request: Request) {
         boostIds,
         Math.max(likedProductIds.length, taste.hasVector ? 2 : 0),
       );
+      clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
 
       return NextResponse.json({
         products: clean,

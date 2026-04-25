@@ -28,6 +28,7 @@
 
 import { NextResponse } from "next/server";
 import { loadUserTasteVector } from "@/lib/taste-profile";
+import { ageAffinityMultiplier } from "@/lib/brand-age-affinity";
 // Eager import — the file is built artefact JSON, not user data. Module
 // resolution happens once per server boot.
 import brandCentroids from "@/lib/brand-centroids.json";
@@ -73,7 +74,8 @@ export async function GET(request: Request) {
   } catch {
     return NextResponse.json({ brands: allBrands.sort((a, b) => a.localeCompare(b)), ordered: false });
   }
-  const taste = profile.vector;
+  const taste   = profile.vector;
+  const userAge = profile.sources.age;
 
   // No composable vector — anon effectively. Alphabetical, signal the
   // caller so it doesn't render a "sorted for you" affordance.
@@ -84,10 +86,16 @@ export async function GET(request: Request) {
   // Score each brand. Brands with no centroid (empty sample) get -Infinity
   // so they end up at the end, where the /brands UI will render them after
   // the taste-ranked run.
+  //
+  // The brand-age affinity multiplier (lib/brand-age-affinity) gates score
+  // against the user's age. Brands with a curated mismatch get their score
+  // halved — still scored, still ordered, just demoted relative to matched
+  // brands. Brands with no entry in the config are neutral (multiplier 1).
   const scored = allBrands.map((brand) => {
     const v = centroids[brand];
-    const score = v && v.length === taste.length ? cosine(taste, v) : -Infinity;
-    return { brand, score };
+    const raw = v && v.length === taste.length ? cosine(taste, v) : -Infinity;
+    const adjusted = raw === -Infinity ? raw : raw * ageAffinityMultiplier(brand, null, userAge);
+    return { brand, score: adjusted };
   });
 
   scored.sort((a, b) => {
