@@ -43,7 +43,7 @@
       "shpfy-laruiccicom-8145530650844"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-25"
   },
   {
     "slug": "streetwear",
@@ -89,7 +89,7 @@
       "shpfy-othernormalco-8477237739716"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-25"
   },
   {
     "slug": "lbd",
@@ -135,10 +135,7 @@
       "shpfy-becandbridgecom-7185212211255"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24",
-    "filter": {
-      "categoryFilter": "Dresses"
-    }
+    "published_at": "2026-04-25"
   },
   {
     "slug": "white-shirt",
@@ -184,10 +181,7 @@
       "shpfy-beareparkcom-9102579237107"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24",
-    "filter": {
-      "categoryFilter": "Tops"
-    }
+    "published_at": "2026-04-25"
   },
   {
     "slug": "trench",
@@ -233,10 +227,7 @@
       "shpfy-boyycom-7449680052302"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24",
-    "filter": {
-      "categoryFilter": "Outerwear"
-    }
+    "published_at": "2026-04-25"
   },
   {
     "slug": "slip-dress",
@@ -282,10 +273,7 @@
       "shpfy-dhruvkapoorcom-9884205842714"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24",
-    "filter": {
-      "categoryFilter": "Dresses"
-    }
+    "published_at": "2026-04-25"
   },
   {
     "slug": "cashmere",
@@ -331,10 +319,7 @@
       "shpfy-ec2ndstreetusacom-7954335006829"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24",
-    "filter": {
-      "categoryFilter": "Knits"
-    }
+    "published_at": "2026-04-25"
   },
   {
     "slug": "wide-leg-jeans",
@@ -380,15 +365,12 @@
       "shpfy-farmriocom-7654642712669"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24",
-    "filter": {
-      "categoryFilter": "Bottoms"
-    }
+    "published_at": "2026-04-25"
   },
   {
     "slug": "wedding-guest",
     "title": "Wedding Guest",
-    "subtitle": "Silk, satin, chiffon, gowns \u2014 midi to maxi",
+    "subtitle": "Silk, satin, chiffon, gowns — midi to maxi",
     "hero_image_url": "https://cdn.shopify.com/s/files/1/0248/2202/2224/files/24SS5300_RCH-MGNTA_8.jpg?v=1721630772",
     "product_ids": [
       "shpfy-ajeworldcom-6917001773136",
@@ -429,53 +411,7 @@
       "shpfy-baobabstorecom-7503232860225"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
-  },
-  {
-    "slug": "resort",
-    "title": "Resort",
-    "subtitle": "Linen, crochet, raffia, sandals, kaftans",
-    "hero_image_url": "https://cdn11.bigcommerce.com/s-c4qgcy99jk/images/stencil/500x659/products/2621/28635/J252134_03_studio_S25__77042.1738371313.jpg?c=1",
-    "product_ids": [
-      "html-aventuraclothingcom-j252134",
-      "html-aventuraclothingcom-p87468",
-      "html-aventuraclothingcom-o312426",
-      "shpfy-aninebingcom-7032333992008",
-      "shpfy-ajeworldcom-6959384920144",
-      "html-casparthelabelcouk-the-cabana-shorts-caspar-the-label",
-      "html-casparthelabelcouk-the-autumn-villa-capri-and-sarong-set-caspar-the-label",
-      "woo-maisoncleocom-383047",
-      "woo-maisoncleocom-340907",
-      "woo-maisoncleocom-355772",
-      "html-aventuraclothingcom-j281134",
-      "html-aventuraclothingcom-p875134",
-      "shpfy-annasuicom-10558008099119",
-      "shpfy-annasuicom-11253073477935",
-      "shpfy-ajeworldcom-7166157389904",
-      "shpfy-annasuicom-10460725608751",
-      "html-casparthelabelcouk-the-boardwalk-set-80s-blue-caspar-the-label",
-      "woo-maisoncleocom-383194",
-      "woo-maisoncleocom-341014",
-      "html-aventuraclothingcom-j301153",
-      "shpfy-ajeworldcom-6685561028688",
-      "shpfy-annasuicom-9606075908399",
-      "shpfy-annasuicom-11610287604015",
-      "shpfy-ajeworldcom-7184296443984",
-      "shpfy-annasuicom-10704093217071",
-      "html-casparthelabelcouk-the-poet-puff-creme-linen-spring-25-caspar-the-label",
-      "woo-maisoncleocom-341095",
-      "html-aventuraclothingcom-m243152",
-      "shpfy-ajeworldcom-6960895688784",
-      "shpfy-antikbatikcom-9305157042453",
-      "shpfy-annasuicom-11610601881903",
-      "shpfy-ajeworldcom-7184296542288",
-      "shpfy-annasuicom-11254601842991",
-      "html-casparthelabelcouk-the-poet-puff-sleeve-black-linen-caspar-the-label",
-      "woo-maisoncleocom-342592",
-      "html-aventuraclothingcom-m25157"
-    ],
-    "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-25"
   },
   {
     "slug": "office",
@@ -521,104 +457,12 @@
       "shpfy-annasuicom-8510807146799"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
-  },
-  {
-    "slug": "quiet-luxury",
-    "title": "Quiet Luxury",
-    "subtitle": "No logos. No prints. Just fit, fabric, finish.",
-    "hero_image_url": "http://static1.squarespace.com/static/627e83c45d82d12fd2a5524e/627e86ffc6738e4b6b9576e0/687e570f8a02fc221da034e4/1753110290953/C1DF3D77-9740-4529-BC66-0E02596295B4.jpeg?format=1500w",
-    "product_ids": [
-      "html-casparthelabelcouk-the-baguette-bag-caspar-the-label",
-      "html-casparthelabelcouk-corset-mini-shirt-white-caspar-the-label",
-      "html-aventuraclothingcom-o312426",
-      "html-casparthelabelcouk-the-havana-halter-dress-caspar-the-label",
-      "shpfy-agoldecom-7950154661981",
-      "html-casparthelabelcouk-deck-chair-skirt-spring-25-caspar-the-label",
-      "html-casparthelabelcouk-cashmere-1-caspar-the-label",
-      "woo-maisoncleocom-337043",
-      "woo-maisoncleocom-348763",
-      "html-casparthelabelcouk-the-squish-bag-brown-caspar-the-label",
-      "html-casparthelabelcouk-corset-shirt-long-sleeve-caspar-the-label",
-      "html-casparthelabelcouk-the-ballad-jacket-caspar-the-label",
-      "html-tl180com-14709",
-      "shpfy-aninebingcom-6962786369608",
-      "html-nourhammourcom-averyblack34",
-      "shpfy-chanluucom-1421359710307",
-      "woo-maisoncleocom-337044",
-      "woo-maisoncleocom-355772",
-      "html-nourhammourcom-winterscarfcocoaonesize",
-      "html-tl180com-14735",
-      "html-nourhammourcom-90sblazernoix34",
-      "html-tl180com-14726",
-      "shpfy-aninebingcom-6992711319624",
-      "html-nourhammourcom-barrelshortnoirclassique34",
-      "shpfy-chanluucom-4773442289763",
-      "woo-maisoncleocom-337066",
-      "shpfy-ajeworldcom-7248778428496",
-      "html-tl180com-14744",
-      "html-nourhammourcom-altheadeepleopardxs",
-      "shpfy-ajeworldcom-6960895688784",
-      "shpfy-aninebingcom-6997530771528",
-      "html-nourhammourcom-capripantsblackstretch34",
-      "shpfy-chanluucom-4773442322531",
-      "woo-maisoncleocom-370813",
-      "shpfy-ajeworldcom-7248780427344",
-      "html-tl180com-14753"
-    ],
-    "featured_on_homepage": true,
-    "published_at": "2026-04-24"
-  },
-  {
-    "slug": "old-money",
-    "title": "Old Money",
-    "subtitle": "Polo shirts, pleated skirts, loafers, pearls",
-    "hero_image_url": "https://cdn.shopify.com/s/files/1/0248/2202/2224/files/26SU6952_BLK_1.jpg?v=1768925057",
-    "product_ids": [
-      "shpfy-ajeworldcom-7218935955536",
-      "html-tl180com-14658",
-      "shpfy-ajeworldcom-7214758756432",
-      "shpfy-ajeworldcom-7189210693712",
-      "shpfy-annasuicom-9770161799471",
-      "html-aventuraclothingcom-n486962",
-      "html-aventuraclothingcom-m93424se",
-      "woo-maisoncleocom-399693",
-      "woo-maisoncleocom-392279",
-      "shpfy-ajeworldcom-7218936512592",
-      "shpfy-ajeworldcom-7189183922256",
-      "shpfy-ajeworldcom-7248078995536",
-      "shpfy-aninebingcom-6665802645576",
-      "shpfy-annasuicom-9770168975663",
-      "html-aventuraclothingcom-n493628",
-      "html-aventuraclothingcom-z62200",
-      "shpfy-ajeworldcom-7218938609744",
-      "shpfy-astrthelabelcom-7731112247472",
-      "shpfy-annasuicom-10578915164463",
-      "shpfy-annasuicom-10460797042991",
-      "shpfy-annasuicom-9770170384687",
-      "html-aventuraclothingcom-n503683",
-      "html-casparthelabelcouk-the-poet-polo-grape-caspar-the-label",
-      "shpfy-ajeworldcom-7267206725712",
-      "shpfy-astrthelabelcom-7817952198832",
-      "shpfy-annasuicom-10700241830191",
-      "shpfy-annasuicom-10578917130543",
-      "shpfy-annasuicom-9770178609455",
-      "html-aventuraclothingcom-n506279",
-      "html-casparthelabelcouk-the-poet-polo-pearly-grey-caspar-the-label",
-      "shpfy-bysimrancom-8446150279335",
-      "shpfy-becandbridgecom-7187036209207",
-      "shpfy-anniesibizacom-7543218765942",
-      "shpfy-anniesibizacom-7724463685750",
-      "shpfy-chanluucom-7520959823971",
-      "html-aventuraclothingcom-n509683"
-    ],
-    "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-25"
   },
   {
     "slug": "coastal",
     "title": "Coastal",
-    "subtitle": "Stripes, linen, raffia, rope \u2014 everywhere but the water",
+    "subtitle": "Stripes, linen, raffia, rope — everywhere but the water",
     "hero_image_url": "https://cdn11.bigcommerce.com/s-c4qgcy99jk/images/stencil/500x659/products/2620/29718/J24356YX_YX22_studio_S25__88029.1740092599.jpg?c=1",
     "product_ids": [
       "html-aventuraclothingcom-j24356yx",
@@ -659,7 +503,7 @@
       "shpfy-agoldecom-8003203137629"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-25"
   },
   {
     "slug": "linen",
@@ -705,6 +549,6 @@
       "shpfy-contessamillscom-8572990554340"
     ],
     "featured_on_homepage": true,
-    "published_at": "2026-04-24"
+    "published_at": "2026-04-25"
   }
 ]

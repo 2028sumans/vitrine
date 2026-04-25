@@ -302,30 +302,6 @@ const EDITS = [
   },
 
   {
-    slug:                "resort",
-    title:               "Resort",
-    subtitle:            "Linen, crochet, raffia, sandals, kaftans",
-    filter:              "",
-    match: (p) => {
-      const t = (p.title ?? "").toLowerCase();
-      const m = (p.material ?? "").toLowerCase();
-      const h = `${t} ${m}`;
-      // Hard rejects — warmth + structure that isn't beachy
-      if (/\b(hoodie|sweatshirt|sweater|cardigan|crewneck|jean|denim|blazer|trench|parka|puffer|fleece|henley|tweed|corduroy|velvet|leather\s*jacket|turtleneck|long\s*sleeve\s*henley|shearling|fur)\b/.test(h)) return false;
-      if (/\b(wool|cashmere|merino|mohair|alpaca|flannel)\b/.test(h))                              return false;
-      // Swim lives in its own edit
-      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|swim\s*(?:top|bottom|brief|short|set|wear|suit))\b/.test(t)) return false;
-      // Not formal / bridal
-      if (/\b(gown|bridal|wedding|tulle|ball\s*gown|tuxedo|evening\s*dress)\b/.test(t))            return false;
-      // Not kidswear / pet / housewares
-      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b|blanket|throw|pillow|napkin|towel)\b/.test(t)) return false;
-      // Positive — true resort/beach vocabulary. Dropped bare "beach" (matched
-      // e.g. "beach hoodie") and bare "resort" (too meta).
-      return /\b(linen|crochet|raffia|straw|espadrille|sandal|sundress|kaftan|caftan|cover[-\s]?up|sarong|pareo|tunic|eyelet|broderie|seersucker|cabana|poolside|boardwalk|beach\s*(?:dress|pareo|skirt|shorts|tunic|shirt))\b/.test(h);
-    },
-  },
-
-  {
     slug:                "office",
     title:               "The Office",
     subtitle:            "Tailored, confident, not corporate",
@@ -337,75 +313,6 @@ const EDITS = [
       if (/\b(hoodie|sweatpant|jogger|cargo|graphic\s*tee|tracksuit|sweatshirt|athleisure|yoga|gym|pajama|pyjama|sleep|robe|kaftan|sarong|bikini|swim)\b/.test(t)) return false;
       if (/\b(baby|infant|toddler|kids|maternity|pet)\b/.test(t)) return false;
       return true;
-    },
-  },
-
-  {
-    slug:                "quiet-luxury",
-    title:               "Quiet Luxury",
-    subtitle:            "No logos. No prints. Just fit, fabric, finish.",
-    // Accept products from anchor brands OR anything in a luxurious natural
-    // material. Then filter out loud prints/logos/graphics.
-    filter:              "", // broad — we judge in JS via material + brand
-    match: (p) => {
-      const brand = (p.brand ?? "").toLowerCase();
-      const t     = (p.title ?? "").toLowerCase();
-      const m     = (p.material ?? "").toLowerCase();
-      const h     = `${t} ${m}`;
-
-      const ANCHOR_BRANDS = new Set([
-        "st. agni", "tove", "johnstons of elgin", "ghiaia cashmere",
-        "totême", "toteme", "lemaire", "le 17 septembre", "o. files",
-        "khaite", "the row", "nour hammour", "casper the label",
-      ]);
-      const LUX_MATERIAL = /\b(cashmere|silk|wool|merino|camel\s*hair|suede|leather|linen|mohair|alpaca)\b/;
-
-      if (!ANCHOR_BRANDS.has(brand) && !LUX_MATERIAL.test(h)) return false;
-
-      // Drop loud prints, logos, graphics
-      if (/\b(rainbow|neon|fluoro|patchwork|colou?rblock|tie[-\s]?dye|tropical|leopard|zebra|camo)\b/.test(t)) return false;
-      if (/\b(logo|monogram|graphic\s*tee|graphic\s*t-shirt)\b/.test(t)) return false;
-      // Drop non-apparel household items
-      if (/\b(washcloth|dishcloth|napkin|placemat|pillow\s*case|pillowcase|duvet|doormat|blanket|throw|tablecloth|tea\s*towel|sheet\b|bedding|curtain|rug)\b/.test(t)) return false;
-      // Drop swim / resort / sleepwear / kids / pet — not the quiet-luxury lane
-      if (/\b(bikini|swimsuit|tankini|swim\s*(?:top|bottom|brief|set|suit)|sarong|kaftan|pareo|pajama|pyjama|robe|bathrobe|nightgown)\b/.test(t)) return false;
-      if (/\b(baby|infant|toddler|kids|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
-
-      return true;
-    },
-    maxPerBrand: { "Johnstons Of Elgin": 5, "Ghiaia Cashmere": 5, "St. Agni": 5, "Tove": 5 },
-  },
-
-  {
-    slug:                "old-money",
-    title:               "Old Money",
-    subtitle:            "Polo shirts, pleated skirts, loafers, pearls",
-    filter:              "",
-    // Strict Old Money: only the recognisable classics. Bare "cardigan",
-    // "blazer", "loafer", "ballet flat", "tennis" are too permissive — a
-    // "Perlie Woven Ballet Flat" read boho, not Upper East Side. Positive
-    // signals now require a material or style qualifier.
-    match: (p) => {
-      const t = (p.title ?? "").toLowerCase();
-
-      // Hard rejects first — trendy / boho / streetwear / resort / housewares / kids
-      if (/\b(woven|boho|bohemian|hippie|harem|beaded|bead\b|fringe|sequin|crochet|raffia|tie[-\s]?dye|neon|fluoro|distressed|ripped|ombre|rhinestone|embellished|mesh|sheer|lace\s*trim|coated)\b/.test(t)) return false;
-      if (/\b(hoodie|graphic\s*tee|graphic\s*t-shirt|cargo|baggy|track\s*pant|jogger|sweatshirt|sweatpant|mule\b|clog|platform|stiletto|wedge)\b/.test(t)) return false;
-      if (/\b(bikini|swimsuit|tankini|one[-\s]?piece\s*swim|kaftan|caftan|sarong|pareo|sundress|cover[-\s]?up)\b/.test(t)) return false;
-      if (/\b(washcloth|dishcloth|napkin|placemat|towel|doormat|soap|candle|blanket|pillow|throw|curtain)\b/.test(t)) return false;
-      if (/\b(baby|infant|toddler|kids|children|maternity|pet|dog\b|cat\b)\b/.test(t)) return false;
-
-      // Positive signals — must hit one of these tight classes.
-      const TOPS    = /\b(polo\b|polo\s*(?:shirt|dress|sweater|neck)|argyle|cable[-\s]?knit|cable\s*(?:cardigan|sweater)|twin[-\s]?set|boat[-\s]?neck|oxford\s*shirt|poplin\s*shirt|fair\s*isle|crew\s*cashmere|cashmere\s*(?:cardigan|sweater|crew|turtleneck))\b/;
-      const OUTER   = /\b((?:wool|tweed|cashmere|linen|navy|tailored|classic|double[-\s]?breasted|single[-\s]?breasted)\s*blazer|tweed\s*jacket|camel\s*coat|camel\s*hair\s*coat|pea\s*coat|peacoat|barbour|waxed\s*jacket|riding\s*jacket|cashmere\s*coat)\b/;
-      const BOTTOMS = /\b(pleated\s*(?:skirt|trouser|pant|kilt)|tartan\s*(?:skirt|kilt|trouser|pant)|tennis\s*(?:skirt|skort|dress)|plisse\s*skirt|a[-\s]?line\s*skirt|kilt\b|jodhpur|riding\s*pant|wool\s*trouser|wool\s*pant)\b/;
-      const SHOES   = /\b(penny\s*loafer|horsebit\s*loafer|tassel\s*loafer|classic\s*loafer|leather\s*loafer|loafer\s+(?:shoe|flat)|riding\s*boot|boat\s*shoe|moccasin|oxford\s*shoe|equestrian\s*boot)\b/;
-      const JEWELRY = /\b(pearl\s*(?:earring|necklace|bracelet|drop|stud|hoop|choker|strand|collar)|signet\s*ring|gold\s*signet)\b/;
-      const PATTERN = /\b(argyle|houndstooth|herringbone|glen\s*plaid|tattersall|nordic|cable\s*stitch)\b/;
-      const ACCESS  = /\b(silk\s*scarf|tweed\s*bag|saddle\s*bag|kelly\s*bag)\b/;
-
-      return TOPS.test(t) || OUTER.test(t) || BOTTOMS.test(t)
-          || SHOES.test(t) || JEWELRY.test(t) || PATTERN.test(t) || ACCESS.test(t);
     },
   },
 
