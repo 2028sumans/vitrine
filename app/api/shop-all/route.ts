@@ -791,29 +791,6 @@ function personalizationParams(userToken: string): Record<string, unknown> {
   };
 }
 
-// NeuralSearch / AI Search note — historically we shipped a
-// `neuralSearchParams()` helper that spread `{ mode: "neuralSearch" }`
-// onto each search request, gated by an env var. That was wrong:
-//
-//   Algolia docs (algolia.com/doc/api-reference/settings/mode):
-//     "Scope: settings"
-//
-// `mode` is an INDEX-LEVEL setting, not a per-query parameter. Sending it
-// at search time returns `400 Unknown parameter: mode`, which I confirmed
-// against this exact index (vitrine_products). The fix is to flip the
-// mode ONCE on the index itself — either in the Algolia dashboard
-// (Indices → vitrine_products → Configuration → AI tab → enable
-// NeuralSearch and set mode to "neuralSearch"), or via `setSettings`
-// in a one-shot script. After that, every search uses neural ranking
-// automatically; no per-query toggle is needed (or supported).
-//
-// Costs: with mode set at the index, EVERY query runs through neural.
-// For per-query selectivity (e.g., keep keyword for fast brand browses,
-// neural only for free-text steers), Algolia's recommended pattern is
-// index replicas — one keyword, one neural — and route per request.
-// Not implementing that yet; flip mode index-wide first and revisit if
-// op cost becomes an issue.
-
 // Stamp _queryID on each hit so the frontend can fire trackProductClick /
 // trackProductConversion with provenance. Position is filled in just before
 // returning to the client (once we know the final ranked order).
