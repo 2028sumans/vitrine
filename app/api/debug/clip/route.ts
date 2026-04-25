@@ -48,6 +48,74 @@ export async function GET() {
   const checks:    Record<string, unknown> = {};
   const failures:  string[] = [];
 
+  // ── 0. Direct import + model load — captures the actual exception that
+  //       getTextModel() swallows with `console.error + return null`. If
+  //       embedTextQuery is returning [], it's because one of these threw.
+  //       We unwrap the failure here so the JSON response shows it.
+  try {
+    const t0 = Date.now();
+    const transformers = await import(/* webpackIgnore: true */ "@xenova/transformers");
+    const importMs = Date.now() - t0;
+
+    const exports = Object.keys(transformers).filter((k) => !k.startsWith("_")).slice(0, 12);
+    checks.import_transformers = {
+      ok:           true,
+      duration_ms:  importMs,
+      exports_seen: exports,
+    };
+
+    // Try to actually instantiate the tokenizer + text model.
+    try {
+      const { env, AutoTokenizer, CLIPTextModelWithProjection } = transformers;
+      env.allowLocalModels = false;
+      env.cacheDir = process.env.VERCEL ? "/tmp/transformers" : "./.cache/transformers";
+
+      const t1 = Date.now();
+      const tokenizer = await AutoTokenizer.from_pretrained("ff13/fashion-clip");
+      const tokenizerMs = Date.now() - t1;
+      checks.tokenizer_load = {
+        ok:          !!tokenizer,
+        duration_ms: tokenizerMs,
+      };
+
+      const t2 = Date.now();
+      const model = await CLIPTextModelWithProjection.from_pretrained(
+        "ff13/fashion-clip",
+        { quantized: true },
+      );
+      const modelMs = Date.now() - t2;
+      checks.text_model_load = {
+        ok:          !!model,
+        duration_ms: modelMs,
+      };
+      if (!model) failures.push("text_model_load returned null/undefined");
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      checks.tokenizer_or_model_load = {
+        ok:    false,
+        error: err.message,
+        name:  err.name,
+        stack: err.stack?.split("\n").slice(0, 8),
+      };
+      failures.push(`model load threw: ${err.message}`);
+    }
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    checks.import_transformers = {
+      ok:    false,
+      error: err.message,
+      name:  err.name,
+      stack: err.stack?.split("\n").slice(0, 8),
+      hint:
+        err.message.includes("Cannot find module")
+          ? "Package isn't in the function bundle. Check next.config.js → experimental.serverComponentsExternalPackages includes '@xenova/transformers' AND 'onnxruntime-node'."
+          : err.message.includes("ENOENT") || err.message.includes("not found")
+            ? "A dependency file is missing. Likely the ONNX runtime native binary wasn't traced into the deployment."
+            : "Read the stack — top frame names the failing module.",
+    };
+    failures.push(`import @xenova/transformers threw: ${err.message}`);
+  }
+
   // ── 1. Text encode "black slip dress" ──────────────────────────────────────
   let baselineEmb: number[] = [];
   try {
