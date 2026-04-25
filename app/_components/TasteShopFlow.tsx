@@ -1801,26 +1801,25 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-8 py-10">
+      <div className="max-w-5xl mx-auto px-8 py-5">
 
         {/* ── Search hub (boards step) ──
-            Compact heading + tighter copy so the intake fits inline above
-            the default category feed without dominating the viewport. The
-            standalone /dashboard hosted a hero-sized prompt; embedded inline
-            on /shop, that scale was too much. */}
+            Inline above the category grid — kept deliberately compact so
+            product tiles peek under the fold. Anything bigger than this
+            hides the actual catalog. */}
         {step === "boards" && (
           <div className="fade-in-up">
-            <div className="mb-6">
-              <h2 className="font-display font-light text-2xl sm:text-3xl text-foreground leading-tight mb-2">
+            <div className="mb-3">
+              <h2 className="font-display font-light text-lg sm:text-xl text-foreground leading-tight mb-1">
                 What are we shopping for?
               </h2>
-              <p className="font-sans text-sm text-muted-strong max-w-md leading-relaxed">
+              <p className="font-sans text-[11px] text-muted-strong max-w-md leading-relaxed">
                 Describe the vibe, share a Pinterest board, or upload a few shots.
               </p>
             </div>
 
             {/* Context blocks */}
-            <div className="flex flex-col gap-4 mb-6 max-w-2xl">
+            <div className="flex flex-col gap-2 mb-3 max-w-xl">
               {contextBlocks.map((block) => (
                 <div key={block.id} className="border border-border">
                   {/* Block type selector row */}
@@ -1844,7 +1843,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                   </div>
 
                   {/* Block form */}
-                  <div className="p-5">
+                  <div className="p-3">
                     {/* Pinterest block */}
                     {block.type === "pinterest" && (() => {
                       const pinterestToken = (session as { accessToken?: string } | null)?.accessToken;
@@ -1938,7 +1937,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
             {/* Add more context */}
             {contextBlocks.length < 4 && (
               <button onClick={addBlock}
-                className="mb-8 font-sans text-[10px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border border-dashed border-border-mid px-5 py-2.5">
+                className="mb-3 font-sans text-[9px] tracking-widest uppercase text-muted-strong hover:text-foreground transition-colors border border-dashed border-border-mid px-3 py-1.5">
                 + Add more context
               </button>
             )}
@@ -1947,8 +1946,8 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                 so every downstream step (candidate fetch, curation) works
                 within the user's chosen price range. Optional — default "All"
                 lets Claude infer tier from the board. */}
-            <div className="mb-8">
-              <label className="block font-sans text-[10px] tracking-widest uppercase text-muted-strong mb-3">
+            <div className="mb-3">
+              <label className="block font-sans text-[9px] tracking-widest uppercase text-muted-strong mb-1.5">
                 Price range
               </label>
               <PriceFilterBar tier={intakePriceTier} onChange={setIntakePriceTier} />
@@ -1964,7 +1963,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                   (b.type === "images" && b.uploadedFiles.length > 0) ||
                   (b.type === "quiz" && !!b.answers)
                 )}
-                className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
+                className="px-5 py-2 bg-foreground text-background font-sans text-[9px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
                 Build my feed →
               </button>
             </div>
