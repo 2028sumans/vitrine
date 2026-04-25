@@ -1802,23 +1802,26 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
 
   return (
     <div className="taste-shop-flow">
-      {/* Lightweight chrome — surfaces the "Curating…" indicator and a
-          "← New search" button only while results are showing. The MUSE
-          wordmark / sign-out / page background are the consumer's job. */}
+      {/* Lightweight chrome — "← Go back" anchored to the LEFT, the
+          "Curating…" indicator (when refining) on the right. The button
+          unwinds the search back to the page that was up before submit:
+          on /shop that drops ?q= and re-shows the default category feed
+          (handled by onClearSearch), elsewhere it returns to the intake
+          state inside this same component. */}
       {(isRefining || step === "shopping") && (
-        <div className="flex items-center justify-end gap-6 px-8 pt-4 pb-2">
-          {isRefining && (
-            <span className="font-sans text-[10px] tracking-widest uppercase text-muted">
-              Curating<MusingDots />
-            </span>
-          )}
-          {step === "shopping" && (
+        <div className="flex items-center justify-between gap-6 px-8 pt-4 pb-2">
+          {step === "shopping" ? (
             <button
               onClick={handleClearSearch}
               className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors"
             >
-              ← {onClearSearch ? "Clear search" : "New search"}
+              ← Go back
             </button>
+          ) : <span />}
+          {isRefining && (
+            <span className="font-sans text-[10px] tracking-widest uppercase text-muted">
+              Curating<MusingDots />
+            </span>
           )}
         </div>
       )}
