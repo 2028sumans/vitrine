@@ -293,15 +293,21 @@ export async function embedImageUrls(urls: string[]): Promise<number[][]> {
 
 export async function embedBase64Images(images: VisionImage[]): Promise<number[][]> {
   const modelData = await getVisionModel();
-  if (!modelData) return [];
+  if (!modelData) {
+    console.error("[embeddings] embedBase64Images: getVisionModel returned null — model load failed (check earlier logs for the actual error from getVisionModel)");
+    return images.map(() => [] as number[]);
+  }
 
   const { RawImage } = await import(/* webpackIgnore: true */ "@xenova/transformers")
-    .catch(() => ({ RawImage: null }));
-  if (!RawImage) return [];
+    .catch((err) => {
+      console.error("[embeddings] embedBase64Images: failed to dynamic-import RawImage:", err instanceof Error ? err.message : err);
+      return { RawImage: null };
+    });
+  if (!RawImage) return images.map(() => [] as number[]);
 
   const { processor, model } = modelData;
 
-  return Promise.all(images.map(async (img) => {
+  return Promise.all(images.map(async (img, idx) => {
     try {
       const buffer = Buffer.from(img.base64, "base64");
       const blob   = new Blob([buffer], { type: img.mimeType });
@@ -312,7 +318,15 @@ export async function embedBase64Images(images: VisionImage[]): Promise<number[]
       // @ts-expect-error — dynamic model call
       const { image_embeds } = await model(inputs);
       return Array.from(image_embeds.data as Float32Array) as number[];
-    } catch {
+    } catch (err) {
+      // Surface per-image failures — silent catches turn "model not on this
+      // host" into "user gets cryptic error message." Each line includes the
+      // image index, byte size, and mime type so we can correlate with the
+      // upload payload when debugging from logs.
+      console.error(
+        `[embeddings] embedBase64Images: image[${idx}] failed (mime=${img.mimeType}, base64Bytes=${img.base64.length}):`,
+        err instanceof Error ? `${err.name}: ${err.message}` : err,
+      );
       return [] as number[];
     }
   }));

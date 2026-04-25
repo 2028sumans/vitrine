@@ -116,17 +116,59 @@ export async function POST(request: Request) {
 
   // ── Embed ───────────────────────────────────────────────────────────────
   // embedBase64Images returns one vector per input, with empty arrays for
-  // images that failed. Filter out empties before averaging.
+  // images that failed. Filter out empties before averaging. If the model
+  // isn't available on this host (e.g. @xenova/transformers can't load on
+  // a serverless cold start, ONNX init throws, etc.) we fall back to the
+  // skip path rather than blocking the user mid-onboarding — they keep
+  // their age (which still drives ranking via the age centroid).
   let vectors: number[][];
   try {
     vectors = await embedBase64Images(images);
   } catch (err) {
-    console.error("[onboarding/save] embed failed:", err);
-    return NextResponse.json({ error: "Embedding failed" }, { status: 500 });
+    console.error("[onboarding/save] embed threw — falling back to skip:", err);
+    await saveOnboarding({
+      userToken,
+      ageRange,
+      uploadCentroid: null,
+      uploadVectors:  [],
+      skipped:        true,
+    });
+    return NextResponse.json({
+      ok:          true,
+      skipped:     true,
+      embedFailed: true,
+      ageRange,
+      message:     "Saved your age — image embedding unavailable on the server right now.",
+    });
   }
   const goodVectors = vectors.filter((v) => Array.isArray(v) && v.length > 0);
   if (goodVectors.length === 0) {
-    return NextResponse.json({ error: "All images failed to embed — try different photos" }, { status: 500 });
+    // Most common cause: the FashionCLIP model didn't load on this host
+    // (Vercel serverless cold start, missing ONNX runtime, network flake
+    // fetching the weights from Hugging Face). Detailed error per image
+    // is in the Vercel function logs — see lib/embeddings.embedBase64Images.
+    //
+    // Don't return 500 — the age-only path still produces a useful taste
+    // vector. Save as skipped + embedFailed so the client can show a soft
+    // notice instead of blocking the user on the upload step forever.
+    console.warn(
+      `[onboarding/save] all ${images.length} images returned empty vectors; ` +
+      "saving as skipped (embedFailed=true). Check earlier [embeddings] logs for per-image cause."
+    );
+    await saveOnboarding({
+      userToken,
+      ageRange,
+      uploadCentroid: null,
+      uploadVectors:  [],
+      skipped:        true,
+    });
+    return NextResponse.json({
+      ok:          true,
+      skipped:     true,
+      embedFailed: true,
+      ageRange,
+      message:     "Saved your age — your photos couldn't be processed, but your taste will sharpen as you browse.",
+    });
   }
 
   const centroid = averageVectors(goodVectors);
