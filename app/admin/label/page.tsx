@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/category-taxonomy";
 
-const AGE_KEYS = ["age-13-18", "age-18-25", "age-25-32", "age-32-40", "age-40-60"] as const;
+const AGE_KEYS = ["age-13-18", "age-18-25", "age-25-32", "age-32-plus"] as const;
 const TARGET_PER_AESTHETIC = 40;
 
 interface CategoryProgress {

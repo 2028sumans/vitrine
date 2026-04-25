@@ -38,11 +38,10 @@ interface Aesthetic {
 }
 
 const AESTHETICS: readonly Aesthetic[] = [
-  { key: "age-13-18", label: "13–18", tint: "border-[#3a8aaa] bg-[#3a8aaa] text-[#FAFAF5]" },
-  { key: "age-18-25", label: "18–25", tint: "border-[#6a2a3a] bg-[#6a2a3a] text-[#FAFAF5]" },
-  { key: "age-25-32", label: "25–32", tint: "border-[#2A3316] bg-[#2A3316] text-[#FAFAF5]" },
-  { key: "age-32-40", label: "32–40", tint: "border-[#8a6a4a] bg-[#8a6a4a] text-[#FAFAF5]" },
-  { key: "age-40-60", label: "40–60", tint: "border-[#1a2a4a] bg-[#1a2a4a] text-[#FAFAF5]" },
+  { key: "age-13-18",   label: "13–18", tint: "border-[#3a8aaa] bg-[#3a8aaa] text-[#FAFAF5]" },
+  { key: "age-18-25",   label: "18–25", tint: "border-[#6a2a3a] bg-[#6a2a3a] text-[#FAFAF5]" },
+  { key: "age-25-32",   label: "25–32", tint: "border-[#2A3316] bg-[#2A3316] text-[#FAFAF5]" },
+  { key: "age-32-plus", label: "32+",   tint: "border-[#1a2a4a] bg-[#1a2a4a] text-[#FAFAF5]" },
 ];
 
 const TARGET_PER_AESTHETIC = 40;
@@ -83,6 +82,15 @@ function emptyStore(slug: string): LabelStore {
   return { version: 1, labels: {}, products: {}, updatedAt: new Date().toISOString(), category: slug };
 }
 
+/** Map legacy age keys onto the current taxonomy. age-32-40 and age-40-60
+ *  were collapsed into a single open-ended age-32-plus bucket; both old keys
+ *  migrate forward so users who already labeled with the old taxonomy don't
+ *  lose work. */
+function migrateAgeKey(k: string): string {
+  if (k === "age-32-40" || k === "age-40-60") return "age-32-plus";
+  return k;
+}
+
 function loadStore(slug: string): LabelStore {
   if (typeof window === "undefined") return emptyStore(slug);
   try {
@@ -91,11 +99,18 @@ function loadStore(slug: string): LabelStore {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || !parsed.labels) return emptyStore(slug);
 
-    // Defensive normalisation — coerce any malformed values into the right shape.
+    // Defensive normalisation + age-key migration. An item that previously
+    // carried both age-32-40 AND age-40-60 collapses to a single age-32-plus
+    // (deduped via Set) so labels stay clean after the merge.
     const labels: Record<string, string[]> = {};
     for (const [id, v] of Object.entries(parsed.labels as Record<string, unknown>)) {
-      if (Array.isArray(v)) labels[id] = v.filter((k): k is string => typeof k === "string");
-      else if (typeof v === "string" && v.length > 0) labels[id] = [v];
+      const raw: string[] = Array.isArray(v)
+        ? v.filter((k): k is string => typeof k === "string")
+        : typeof v === "string" && v.length > 0
+          ? [v]
+          : [];
+      const migrated = Array.from(new Set(raw.map(migrateAgeKey)));
+      if (migrated.length > 0) labels[id] = migrated;
     }
     return {
       version:   1,

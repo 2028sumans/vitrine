@@ -18,12 +18,17 @@ import { getServiceSupabase } from "@/lib/supabase";
 
 // Stable set of valid age-range keys. If you add a bucket in the quiz UI,
 // add it here too — the save route rejects anything not in this list.
+//
+// `age-32-plus` is intentionally open-ended on the upper side (replacing
+// the previous age-32-40 + age-40-60 split). Onboarding analytics suggested
+// the 40-60 bucket was hard to populate with hand-labeled examples and the
+// taste signal between 32-40 and 40-60 was weaker than the bucket boundary
+// implied — collapsing them gives a cleaner downstream centroid.
 export const AGE_RANGE_KEYS = [
   "age-13-18",
   "age-18-25",
   "age-25-32",
-  "age-32-40",
-  "age-40-60",
+  "age-32-plus",
 ] as const;
 
 export type AgeRangeKey = typeof AGE_RANGE_KEYS[number];

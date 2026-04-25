@@ -63,7 +63,7 @@ const CATEGORY_SLUGS = [
   "tops", "dresses", "bottoms", "knits", "outerwear",
   "shoes", "bags-and-accessories",
 ];
-const AGE_KEYS = ["age-13-18", "age-18-25", "age-25-32", "age-32-40", "age-40-60"];
+const AGE_KEYS = ["age-13-18", "age-18-25", "age-25-32", "age-32-plus"];
 const DATA_DIR = path.resolve(__dirname, "..", "data");
 
 const slugsToProcess = ONLY_CATEGORY
@@ -94,8 +94,10 @@ for (const slug of slugsToProcess) {
 
   const ageMap = new Map();
   for (const r of rows) {
-    // dna_hash format: "eval:<slug>:age-NN-NN"
-    const m = String(r.dna_hash ?? "").match(/^eval:[^:]+:(age-[\d-]+)$/);
+    // dna_hash format: "eval:<slug>:age-XXX" where XXX is "13-18", "18-25",
+    // "25-32", or "32-plus" (open-ended upper bucket). The character class
+    // here allows alphanumerics + dashes so "age-32-plus" parses correctly.
+    const m = String(r.dna_hash ?? "").match(/^eval:[^:]+:(age-[\w-]+)$/);
     if (!m) continue;
     const ageKey = m[1];
     if (!ageMap.has(ageKey)) ageMap.set(ageKey, []);

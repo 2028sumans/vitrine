@@ -44,11 +44,10 @@ interface AgeOption {
 }
 
 const AGES: readonly AgeOption[] = [
-  { key: "age-13-18", label: "13–18" },
-  { key: "age-18-25", label: "18–25" },
-  { key: "age-25-32", label: "25–32" },
-  { key: "age-32-40", label: "32–40" },
-  { key: "age-40-60", label: "40–60" },
+  { key: "age-13-18",   label: "13–18" },
+  { key: "age-18-25",   label: "18–25" },
+  { key: "age-25-32",   label: "25–32" },
+  { key: "age-32-plus", label: "32+"   },
 ];
 
 interface UploadCategory {
