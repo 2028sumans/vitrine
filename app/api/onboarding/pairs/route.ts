@@ -90,6 +90,22 @@ type AxisKey     = typeof AXES[number];
 const HIGH_THRESHOLD = 0.60;
 const LOW_THRESHOLD  = 0.40;
 
+// When age bias is active, pinecone returns items SORTED by similarity to
+// the age centroid (closest first). To make the bias actually pronounced,
+// we only sample axis pools from the top AGE_BIAS_POOL_SIZE items per
+// category. The remaining items in the topK=240 fetch are "kinda age-
+// aligned, kinda not" and would dilute the signal if mixed in.
+const AGE_BIAS_POOL_SIZE = 100;
+
+// Within each axis-end pool (e.g., the high-formality items in tops),
+// only consider the top CELL_TIGHT_TOP items by Pinecone similarity to
+// the query vector. Without this, shuffleInPlace would randomize across
+// the entire axis pool — which on age-biased fetches mixes the most
+// age-aligned items with the lukewarm 80th-percentile tail. Top-10 keeps
+// pairs tightly age-aligned while still giving cross-call variety so two
+// users in the same age bucket don't see identical sequences.
+const CELL_TIGHT_TOP = 10;
+
 // Pinecone stores category as singular ("top", "dress", "bottom", etc.) —
 // matching the catalog's `category` field. The age-centroid file uses the
 // display-slug form ("tops", "dresses", "bags-and-accessories") matching
@@ -270,32 +286,58 @@ export async function GET(request: Request) {
   // Per-category query vector: age centroid for that category (when age
   // provided AND centroid exists for the (cat × age) pair, falling back
   // to cross-cat average for that age, then to anchor as the floor).
+  //
+  // Important: when ageVec is in play, Pinecone returns items sorted by
+  // similarity to that centroid. We slice to AGE_BIAS_POOL_SIZE (top-100)
+  // BEFORE partitioning so axis pools draw from items that are tightly
+  // age-aligned, not from the lukewarm tail of the 240-item fetch. The
+  // anchor-vector path (no age) keeps the full 240 since there's no age
+  // signal to preserve.
   const cellsByCategory: CategoryCells[] = await Promise.all(
     CATEGORIES.map(async (category) => {
-      // resolveAgeCentroid handles both per-category-direct hits and the
-      // cross-category fallback for unlabeled categories. Returns null if
-      // no age was provided or no centroids exist anywhere — at that
-      // point we use the generic anchor so the route still returns pairs.
       const ageVec = ageRange
         ? resolveAgeCentroid(ageRange, CATEGORY_TO_AGE_SLUG[category])
         : null;
       const queryVec = ageVec ?? anchor;
-      const items    = await fetchCategoryItems(idx, queryVec, category);
+      const allItems = await fetchCategoryItems(idx, queryVec, category);
+      // Clamp to top-N when age-biased; full pool when not.
+      const items = ageVec ? allItems.slice(0, AGE_BIAS_POOL_SIZE) : allItems;
       return { category, axes: partitionByAxes(items) };
     }),
   );
 
   // Build candidate pairs from each (category, axis) cell.
+  //
+  // Pair-signature dedup: a single product can be high on formality AND
+  // high on romance, with the same low-axis partner appearing on both
+  // sides. Without this set, the SAME (X, Y) pair could surface twice
+  // under different "axis" labels — wasted slot from the user's POV
+  // since their preference signal was already captured. Sorted-tuple
+  // signature catches both (X, Y) and (Y, X) as the same pair.
   const candidates: CandidatePair[] = [];
+  const seenPairs  = new Set<string>();
   for (const cat of cellsByCategory) {
     for (const cell of cat.axes) {
-      const highPool = shuffleInPlace([...cell.high]);
-      const lowPool  = shuffleInPlace([...cell.low]);
+      // cell.high/low are ordered by Pinecone similarity (most-aligned
+      // first). Slice to top CELL_TIGHT_TOP BEFORE shuffling so the
+      // shuffle randomizes only among the strongest age-aligned items —
+      // not across the tail of the pool. This is the second clamp that
+      // makes age bias actually visible: AGE_BIAS_POOL_SIZE narrows the
+      // category fetch, CELL_TIGHT_TOP narrows each axis-end pool.
+      const highPool = shuffleInPlace(cell.high.slice(0, CELL_TIGHT_TOP));
+      const lowPool  = shuffleInPlace(cell.low.slice(0, CELL_TIGHT_TOP));
       const cellPairs = Math.min(highPool.length, lowPool.length, PAIRS_PER_CELL);
       for (let i = 0; i < cellPairs; i++) {
         const high = highPool[i];
         const low  = lowPool[i];
         if (!high || !low || high === low) continue;
+        // Sorted-tuple signature so (X, Y) and (Y, X) collapse into one.
+        // Without this, item X high on formality + low on romance, paired
+        // against item Y with the inverse, can produce the same physical
+        // pair under two different "axis" labels.
+        const sig = high < low ? `${high}|${low}` : `${low}|${high}`;
+        if (seenPairs.has(sig)) continue;
+        seenPairs.add(sig);
         const flip = Math.random() < 0.5;
         candidates.push({
           id:       `${cat.category}-${cell.axis}-${i}`,
