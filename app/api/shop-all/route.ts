@@ -1464,10 +1464,27 @@ export async function POST(request: Request) {
     }
 
     // ── Query-driven path: session signals without a hard scope ──────────
+    //
+    // IMPORTANT: bias (likedBrands/Categories/Colors) is NEVER folded into the
+    // Algolia text query. We tried that in an earlier iteration — joining
+    // every saved-item's brand+category+color into one query string — and it
+    // produced 17-token noise blobs like "Annie's Ibiza Aje Tiger Mist Kookai
+    // Retrofete dress top jacket bottom IVORY Cream Polka Dot Almond Milk"
+    // that Algolia couldn't make sense of and returned 0 results for.
+    //
+    // Bias flows through the proper personalization channels instead:
+    //   1. Algolia Personalization (userToken + Insights-built facet profile)
+    //   2. rankBySessionCentroid → boostIds (FashionCLIP centroid of likes/saves)
+    //   3. boostByClipSimilarity (front-load CLIP neighbours of saves)
+    //   4. Diversity injection
+    //
+    // The Algolia query string is ONLY the user's explicit steer ("more
+    // minimalist", "white linen pieces"). Empty when the user hasn't typed
+    // anything — same shape as a category-scoped fetch (e.g. /shop/tops),
+    // which is why Tops/Dresses work and Shop-all-with-bias previously didn't.
     if (steerQuery || hasLikedSignals(bias) || likedProductIds.length > 0 || dislikedSignals.length > 0 || seedProductId) {
-      const biasQuery = hasLikedSignals(bias) ? buildQueryFromBias(bias) : "";
-      const q = [steerQuery, biasQuery].filter(Boolean).join(" ");
-      const optionalWords = q.split(/\s+/).filter(Boolean);
+      const q = steerQuery ?? "";
+      const optionalWords = q ? q.split(/\s+/).filter(Boolean) : undefined;
       const filters = composeFilters("", priceMax);
 
       // Algolia query + unified session ranking in parallel.
@@ -1475,7 +1492,7 @@ export async function POST(request: Request) {
         indexName: INDEX_NAME,
         searchParams: {
           query:       q,
-          optionalWords,
+          ...(optionalWords ? { optionalWords } : {}),
           ...(filters ? { filters } : {}),
           hitsPerPage: HITS_PER_PAGE,
           page,
@@ -1664,16 +1681,31 @@ export async function POST(request: Request) {
 
       clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
 
-      // hasMore from total catalog count.
-      const queryNbHits = res.nbHits ?? 0;
-      const queryConsumed = (page + 1) * HITS_PER_PAGE;
-      const cleanWithPos = clean.map((p, i) => ({ ...p, _position: i + 1 }));
-      return NextResponse.json({
-        products: cleanWithPos,
-        page,
-        hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= HITS_PER_PAGE / 2,
-        mode:    seedProductId ? "seed" : (steerQuery ? (hasLikedSignals(bias) ? "steered+biased" : "steered") : "biased"),
-        query:   q,
+      // Safety net: if the entire query-driven pipeline returned 0 products,
+      // fall through to the flat catalog walk below instead of returning an
+      // empty grid. The user has at least centroid signals (we only entered
+      // this branch because bias / likedProductIds / etc was non-empty), so
+      // the flat path's empty-query Algolia call + Personalization will at
+      // worst show them a generic catalog page — strictly better than 0.
+      if (clean.length > 0) {
+        // hasMore from total catalog count.
+        const queryNbHits = res.nbHits ?? 0;
+        const queryConsumed = (page + 1) * HITS_PER_PAGE;
+        const cleanWithPos = clean.map((p, i) => ({ ...p, _position: i + 1 }));
+        return NextResponse.json({
+          products: cleanWithPos,
+          page,
+          hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= HITS_PER_PAGE / 2,
+          mode:    seedProductId ? "seed" : (steerQuery ? "steered" : "biased"),
+          query:   q,
+        });
+      }
+      console.warn("[shop-all] query-driven path returned 0 products; falling through to flat", {
+        steerQuery: steerQuery || null,
+        seedProductId: seedProductId || null,
+        algoliaHits: res.hits?.length ?? 0,
+        algoliaNbHits: res.nbHits ?? 0,
+        boostIdsCount: boostIds.length,
       });
     }
 
