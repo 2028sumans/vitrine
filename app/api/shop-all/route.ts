@@ -1755,6 +1755,18 @@ export async function POST(request: Request) {
         }
       }
 
+      // Brand spread — same cooldown the flat path uses. Without this, the
+      // CLIP-similarity boost can pull 12+ items from the user's most-saved
+      // brand to the front in a row (e.g. a wall of Annie's Ibiza if that's
+      // their top saved label). spreadByBrand keeps the boost ordering
+      // (highest-ranked item per brand emitted first via FIFO bucket) while
+      // guaranteeing no brand appears twice within a 4-slot cooldown window.
+      // Skipped for seed mode — "More Like This" intentionally surfaces
+      // many items from the same brand as the seed.
+      if (!seedProductId) {
+        clean = spreadByBrand(clean as Array<Record<string, unknown>>, 4) as typeof clean;
+      }
+
       clean = applyBrandAgePenalty(clean as Array<Record<string, unknown> & { brand?: string; retailer?: string }>, taste.userAge) as typeof clean;
 
       // Safety net: if the entire query-driven pipeline returned 0 products,
