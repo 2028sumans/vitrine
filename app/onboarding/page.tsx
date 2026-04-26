@@ -672,29 +672,33 @@ function ProductChoiceCard(props: {
     <button
       onClick={onClick}
       disabled={disabled}
-      className="group block text-left border border-border-mid hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-background overflow-hidden"
+      className="group block text-left w-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
       aria-label={`Pick ${product.brand ?? ""} ${product.title}`}
     >
-      <div className="aspect-[3/4] w-full overflow-hidden bg-border-mid/30">
+      {/* Image-only frame + soft shadow + hover-grow + image-only border —
+          mirrors the GridTile pattern in /shop. Text floats below outside
+          the border so the card reads as a single tappable rectangle, not
+          a contained "card box". */}
+      <div className="aspect-[3/4] relative overflow-hidden bg-[rgba(42,51,22,0.04)] border border-border shadow-card group-hover:shadow-card-hover group-hover:border-border-mid transition-all duration-300">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={product.image_url}
           alt={product.title}
           loading="eager"
-          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+          className="w-full h-full object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
         />
       </div>
-      <div className="p-3 sm:p-4">
+      <div className="pt-3">
         {product.brand && (
-          <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-1 truncate">
+          <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1 truncate">
             {product.brand}
           </p>
         )}
-        <p className="font-display font-light text-sm sm:text-base text-foreground leading-snug line-clamp-2">
+        <p className="font-sans text-xs text-foreground leading-snug line-clamp-2 mb-2">
           {product.title}
         </p>
         {product.price != null && (
-          <p className="font-sans text-xs text-muted-strong mt-1">
+          <p className="font-sans text-xs font-medium text-foreground">
             {formatPrice(product.price)}
           </p>
         )}
