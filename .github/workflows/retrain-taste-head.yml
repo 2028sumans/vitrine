@@ -51,19 +51,57 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "npm"
 
+      - name: Pre-install diagnostics
+        run: |
+          # The schedule run on 2026-04-26 died here in 1 s with no
+          # readable log. Dump enough runner state to identify the
+          # failure mode if it repeats — Node/npm version, package
+          # files exist, lockfile parses, and npm config sanity.
+          echo "── runner ──"
+          node --version
+          npm  --version
+          uname -a
+          echo "── files ──"
+          ls -la package.json package-lock.json | sed 's/^/  /'
+          echo "── lockfile sanity ──"
+          node -e 'const j = JSON.parse(require("fs").readFileSync("package-lock.json", "utf8")); console.log("  lockfileVersion:", j.lockfileVersion, " packages:", Object.keys(j.packages||{}).length);'
+          echo "── npm config (relevant subset) ──"
+          npm config get registry
+          npm config get cache
+          npm config get prefix
+          echo "── workspace size ──"
+          du -sh . 2>/dev/null || true
+
       - name: Install deps
-        run: npm ci
+        run: npm ci --no-audit --no-fund --loglevel=info
+
+      - name: Post-install dump (on failure)
+        if: failure()
+        run: |
+          # Surface npm's debug logs so the next run's "exit code 1"
+          # has something behind it. npm-debug.log* lives under the
+          # configured cache dir on CI.
+          echo "── npm debug logs ──"
+          NPM_CACHE=$(npm config get cache 2>/dev/null || echo ~/.npm)
+          ls -la "$NPM_CACHE/_logs" 2>/dev/null | tail -10 || echo "  (no logs dir)"
+          for f in "$NPM_CACHE"/_logs/*.log; do
+            [ -f "$f" ] || continue
+            echo "── $f ──"
+            tail -200 "$f"
+          done
+          echo "── env (filtered) ──"
+          env | grep -Ei '^(NODE|NPM|CI|RUNNER|GITHUB_ACTIONS)' | sort
 
       - name: Check row delta
         id: delta
