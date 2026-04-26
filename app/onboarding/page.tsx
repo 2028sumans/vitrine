@@ -328,10 +328,28 @@ export default function OnboardingPage() {
 
   const canAdvanceFromAge = !!draft.ageRange;
   const currentPair       = draft.pairs[draft.pairIdx] ?? null;
-  const remainingPairs    = Math.max(0, draft.pairs.length - draft.pairIdx);
   const pickCount         = draft.picks.length;
   const exhausted         = draft.pairs.length > 0 && draft.pairIdx >= draft.pairs.length;
   const reachedTarget     = pickCount >= TARGET_PICKS;
+
+  // Preload the next few pairs' images so taps feel instant. Without this,
+  // the browser fetches each pair's images on demand when they enter the
+  // DOM, producing a visible desync where one image pops in before the
+  // other (different file sizes = different download times). Three pairs
+  // ahead covers the typical click-then-neither-then-click sequence too.
+  // Uses native Image() to populate the browser cache without mounting
+  // anything in the DOM — pure side-effect, doesn't trigger React renders.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (draft.pairs.length === 0) return;
+    const ahead = draft.pairs.slice(draft.pairIdx + 1, draft.pairIdx + 4);
+    for (const p of ahead) {
+      const aImg = new window.Image();
+      aImg.src = p.a.image_url;
+      const bImg = new window.Image();
+      bImg.src = p.b.image_url;
+    }
+  }, [draft.pairs, draft.pairIdx]);
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -386,7 +404,6 @@ export default function OnboardingPage() {
           <StepPairPicks
             currentPair={currentPair}
             pickCount={pickCount}
-            remaining={remainingPairs}
             target={TARGET_PICKS}
             exhausted={exhausted}
             reachedTarget={reachedTarget}
@@ -461,7 +478,6 @@ function StepAge(props: {
 function StepPairPicks(props: {
   currentPair:    Pair | null;
   pickCount:      number;
-  remaining:      number;
   target:         number;
   exhausted:      boolean;
   reachedTarget:  boolean;
@@ -476,7 +492,7 @@ function StepPairPicks(props: {
   error:          string | null;
 }) {
   const {
-    currentPair, pickCount, remaining, target, exhausted, reachedTarget,
+    currentPair, pickCount, target, exhausted, reachedTarget,
     pairsLoading, pairsError, onPick, onNeither, onBack, onSubmit, onSkip,
     submitting, error,
   } = props;
@@ -570,14 +586,9 @@ function StepPairPicks(props: {
     <section>
       {/* Progress bar */}
       <div className="mb-10">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
-            Your taste · {pickCount} of {target} picks
-          </p>
-          <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
-            {remaining} pair{remaining === 1 ? "" : "s"} left in the buffer
-          </p>
-        </div>
+        <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-3">
+          Your taste · {pickCount} of {target} picks
+        </p>
         <div className="h-[2px] w-full bg-border-mid overflow-hidden">
           <div
             className="h-full bg-foreground transition-[width] duration-300"
