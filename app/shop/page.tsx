@@ -631,6 +631,26 @@ function ShopPageContent() {
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken, allFlag, refreshKey]);
 
+  // Self-heal: if we end up in a non-picker scope with products empty AND
+  // not loading AND no in-flight bias refetch, the init effect's
+  // initStartedRef + lastScopeRef short-circuit must have prevented the
+  // first fetch (rare race when scope/userToken settle in an unfortunate
+  // order on mount). Force a one-shot refetch by bumping refreshKey, which
+  // re-enters the init effect with a guaranteed-different scope key.
+  // Only fires once per "stuck-empty" state — the next render either
+  // populates products (effect ran) or stays loading (effect is in flight),
+  // both of which fail the condition and prevent a loop.
+  const selfHealFiredRef = useRef(false);
+  useEffect(() => {
+    if (isPickerMode) { selfHealFiredRef.current = false; return; }
+    if (tasteSearchActive)                { return; }
+    if (products.length > 0)              { selfHealFiredRef.current = false; return; }
+    if (loading || interpretingSteer)     { return; }
+    if (selfHealFiredRef.current)         { return; }
+    selfHealFiredRef.current = true;
+    setRefreshKey((k) => k + 1);
+  }, [isPickerMode, tasteSearchActive, products.length, loading, interpretingSteer]);
+
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
   // Single-flight guard so a burst of likes doesn't fire multiple parallel
