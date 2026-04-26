@@ -1294,18 +1294,24 @@ export async function POST(request: Request) {
         }
       }
 
-      // Session-centroid semantic candidate augmentation — extends the
-      // CLIP-as-source pattern above to the like/save case. boostIds
-      // already has the top-K from rankBySessionCentroid (recency-weighted
-      // positive centroid minus negative, blended with persistent taste
-      // vector). Without this hop, those IDs only re-ranked Algolia's pool
-      // — a CLIP-similar item Algolia hadn't surfaced on this page never
-      // appeared. Now they enter the pool the same way text-steer
-      // candidates do, get post-filtered by category-scope-enforce, and
-      // compete with Algolia hits on equal footing.
+      // CLIP-as-candidate-source augmentation — covers two cases that
+      // share the same shape:
+      //   1. like/save signals: boostIds = top-K from rankBySessionCentroid
+      //      (recency-weighted positive centroid minus negative, blended
+      //      with the persistent taste vector).
+      //   2. seedProductId / "More Like This": boostIds = top-100 nearest
+      //      CLIP neighbours of the seed via searchByLikedProductIds.
+      // In both cases boostIds is exactly what we want to surface, but
+      // without this hop they only re-ranked Algolia's pool — a CLIP-
+      // similar item Algolia hadn't surfaced on this page never appeared.
+      // For "More Like This" against an empty-query Algolia call, the
+      // default page is generic-by-price and shares almost zero overlap
+      // with the seed's CLIP neighbours; this hop is the entire reason
+      // the feature works at all (without it, the response is just the
+      // default page reordered, which is indistinguishable from no-op).
       // Capped at 150 IDs so the merged pool stays a sensible size for
       // downstream interleaving / spreading.
-      if (boostIds.length > 0 && !seedProductId) {
+      if (boostIds.length > 0) {
         try {
           const seenAlgolia = new Set(products.map((p) => String(p.objectID ?? "")));
           const newIds      = boostIds.slice(0, 150).filter((id) => !seenAlgolia.has(id));
@@ -1537,11 +1543,13 @@ export async function POST(request: Request) {
         }
       }
 
-      // Session-centroid semantic candidate augmentation. Mirror of the
-      // scoped path's hop: boostIds (recency-weighted positive centroid
-      // minus negative, blended with the persistent taste vector) become
-      // pool candidates instead of just re-ranking signal. Capped at 150.
-      if (boostIds.length > 0 && !seedProductId) {
+      // CLIP-as-candidate-source augmentation — mirror of the scoped path.
+      // Covers session-centroid (likes/saves) AND seed mode (More Like
+      // This). In seed mode boostIds is the seed's CLIP neighbours; without
+      // this hop the response is the default-Algolia page reordered, which
+      // is the bug "More Like This doesn't do anything" surfaces as.
+      // Capped at 150 IDs.
+      if (boostIds.length > 0) {
         try {
           const seenAlgolia = new Set(products.map((p) => String(p.objectID ?? "")));
           const newIds      = boostIds.slice(0, 150).filter((id) => !seenAlgolia.has(id));
