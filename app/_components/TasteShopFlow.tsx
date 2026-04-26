@@ -2281,6 +2281,18 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
             sortedProducts = [...priced, ...unpriced];
           }
 
+          // Scroll view uses the ORIGINAL insertion order, not the rankCards
+          // reordering. Reranking under a scroll-snap container reorders the
+          // DOM under the user's scroll position — they end up looking at a
+          // different card with an empty heart and conclude "nothing happened"
+          // even though the signal was recorded. The bias still flows into
+          // future /api/shop-all pages so subsequent items will be more on-
+          // taste; we just don't reshuffle what's currently visible.
+          // The grid view keeps the live rerank (visible feedback that
+          // matches the user's expectation since there's no scroll position
+          // to maintain).
+          const scrollProducts = allProducts;
+
           const productToSignal = (p: AlgoliaProduct): ClickSignalLike => ({
             objectID:    p.objectID,
             category:    p.category ?? "",
@@ -2317,7 +2329,10 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
             <>
               {shopViewMode === "scroll" && (
                 <ProductScrollView
-                  products={sortedProducts}
+                  // Scroll view: stable order. Reranking on like would shuffle
+                  // the DOM under the user's scroll position. See scrollProducts
+                  // comment above for details.
+                  products={scrollProducts}
                   onClose={() => setShopViewMode("grid")}
                   userToken={userToken}
                   onSayMore={handleSayMore}
