@@ -17,7 +17,7 @@ import {
   embedBase64Images,
   warmupEmbeddingModels,
 }                                               from "@/lib/embeddings";
-import { hybridSearch }                         from "@/lib/hybrid-search";
+import { hybridSearch, twoStageStrictSearch }   from "@/lib/hybrid-search";
 import {
   buildTextQueryVectors,
   anchorImageVectorsWithAesthetic,
@@ -403,62 +403,55 @@ export async function POST(request: Request) {
           rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead });
 
         } else if (mode === "text" || mode === "quiz") {
-          // Text / quiz mode used to be Algolia-only — the original concern
-          // was a 20–40 s serverless cold start to load FashionCLIP for one
-          // query. That's no longer the cost: embedTextQuery / searchByText-
-          // Query are already in production via /api/shop-all's text-steer
-          // augmentation (commit 2c69334) without that penalty, because the
-          // text encoder runs through a hosted endpoint, not an inline model
-          // load.
+          // Text / quiz mode now runs through the 2-stage retrieval
+          // pipeline (lib/hybrid-search.twoStageStrictSearch):
           //
-          // The bypass had real consequences: an abstract query like
-          // "y2k party" got translated to category_queries by Claude
-          // ("low rise jeans, metallic top, rhinestone tank"), Algolia
-          // title-matched only items whose titles literally contained
-          // those tokens, and visually-y2k items titled abstractly
-          // ("Crew Tee Wash 12") never surfaced. Plus the per-category cap
-          // here was 20 → 6 × 20 = 120 raw → ~70 after filters, vs the 50
-          // we use elsewhere.
+          //   Stage 1 — Algolia gate:
+          //     searchByCategory pulls the FULL pool (no per-category cap,
+          //     pagination through ~5000 hits per query) of items whose
+          //     titles/brands/categories literal-match Claude's
+          //     category_queries + style_keywords boost.
           //
-          // We use buildTextQueryVectors instead of a single
-          // embedTextQuery on the literal user input. FashionCLIP was
-          // trained on captions like "a photo of a chunky cable knit
-          // turtleneck in cream", not 2-token queries like "y2k party".
-          // Encoding the literal query lands the vector in a generic
-          // region and Pinecone returns generic-feminine items that
-          // happen to be nearby (eyeshadow palettes, plain bralettes,
-          // basic swimsuits — observed in /api/debug/clip output).
+          //   Stage 2 — FashionCLIP rerank:
+          //     embedTextQuery(aesthetic.aesthetic_descriptor) — Claude's
+          //     soft-only phrase ("summery breezy" / "y2k clubby"). Fetch
+          //     (visual, vibe) vector pair for each Algolia candidate from
+          //     Pinecone. Score = 0.8 × cos(qVec, pVisual) + 0.2 × cos(
+          //     qVec, pVibe). Sort, take top maxPerCategory.
           //
-          // buildTextQueryVectors instead encodes Claude's
-          // `retrieval_phrases` (5-8 full sentences in FashionCLIP-native
-          // garment+fabric+color vocabulary), each `category_queries`
-          // bucket, and an aesthetic summary phrase. Pinecone clusters
-          // these under the hood so the candidate set is category-
-          // balanced and pulled from FashionCLIP's high-density caption
-          // region of the latent space. Negative subtraction also
-          // applies — `avoids` are encoded and pushed against each
-          // positive vector. Falls back to Algolia-only if encoding
-          // fails entirely.
-          let embeddings: number[][] = [];
+          // This replaces the prior parallel-RRF approach where Algolia,
+          // FashionCLIP visual, and FashionCLIP vibe all voted alongside
+          // each other. The 2-stage shape cleanly separates hard literal
+          // constraints (brand/color/garment) from soft semantic ones
+          // (vibe/era/season) — and means an off-aesthetic Algolia hit
+          // can no longer slip through just because it ranked high in
+          // keyword match.
+          //
+          // We still produce buildTextQueryVectors as `fallbackEmbeddings`:
+          // when Algolia returns < 30 hits the literal gate misfired and
+          // twoStageStrictSearch falls back to the parallel-RRF
+          // hybridSearch on the full catalog, which needs a query vector
+          // ensemble.
+          let fallbackEmbeddings: number[][] = [];
           try {
-            embeddings = await buildTextQueryVectors(
+            fallbackEmbeddings = await buildTextQueryVectors(
               aesthetic!,
               tasteMemory.softAvoids,
             );
           } catch (e) {
             console.warn(
-              `[shop] buildTextQueryVectors failed (mode=${mode}); falling back to algolia-only:`,
+              `[shop] buildTextQueryVectors failed (mode=${mode}, fallback path):`,
               e instanceof Error ? e.message : e,
             );
           }
 
-          if (embeddings.length > 0) {
-            console.log(`[shop] Hybrid search: ${embeddings.length} text-query vectors (mode=${mode}, strict)`);
-            rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead, strict: true });
-          } else {
-            console.log(`[shop] Algolia-only fallback (mode=${mode}, no text embeddings)`);
-            rawCandidates = await fetchCandidateProductsByCategory(aesthetic!, token);
-          }
+          console.log(`[shop] 2-stage strict search (mode=${mode}, descriptor="${(aesthetic!.aesthetic_descriptor ?? "").slice(0, 60)}")`);
+          rawCandidates = await twoStageStrictSearch(
+            aesthetic!,
+            token,
+            50,
+            { fallbackEmbeddings, useTasteHead },
+          );
 
         } else {
           console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);

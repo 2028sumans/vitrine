@@ -46,6 +46,16 @@ export interface StyleDNA {
   // vibe-blindness by expressing the aesthetic in its native "garment + fabric +
   // color + styling" vocabulary. Used directly as text query vectors.
   retrieval_phrases?: string[];
+  // Pure soft/aesthetic descriptor — vibe, mood, era, season, occasion. NO
+  // brand, NO color, NO garment type, NO fabric. Used as the FashionCLIP
+  // query text in stage 2 of the 2-stage retrieval (Algolia gates on the
+  // hard literal terms in category_queries; FashionCLIP reranks within
+  // that pool by cosine to this descriptor). Keeping it free of the
+  // hard terms is what makes stage 2 actually differentiate between
+  // already-filtered candidates instead of restating constants. For
+  // "blue khaite dress for summer" the descriptor is just "summery,
+  // breezy, unhurried" — Algolia handled the blue/Khaite/dress part.
+  aesthetic_descriptor?: string;
   // Which product categories the user's input actually centers on. Claude
   // emits this when 60%+ of the pins depict the same category (shoes board,
   // bag board, dress board). Downstream retrieval then allocates heavily to

@@ -648,6 +648,80 @@ export async function fetchProductsForCentroid(
 }
 
 /**
+ * Bulk-fetch visual + vibe vectors for a candidate id set. Used by the
+ * 2-stage strict-mode retrieval (lib/hybrid-search.twoStageStrictSearch):
+ * Algolia narrows the catalog by literal terms, and we fetch every
+ * candidate's pair of vectors so we can score them locally with a
+ * weighted cosine.
+ *
+ * Why local scoring instead of a Pinecone query? Pinecone's `query()`
+ * returns its own topK with no way to constrain by id without metadata
+ * filters (and our id-set can be larger than the 1000-element $in cap).
+ * `fetch()` works directly with id batches and lets us combine visual
+ * and vibe scores per item with arbitrary weights — exactly the shape
+ * the 2-stage rerank needs.
+ *
+ * Returns one entry per input id, in the same order. Missing vectors
+ * (id has no entry in either namespace) come back as null. Callers
+ * decide how to handle them — the rerank just gives those candidates
+ * a score of 0 and lets them lose to scored neighbours.
+ */
+export async function fetchVisualAndVibeVectors(
+  objectIDs: string[],
+): Promise<Array<{ id: string; visual: number[] | null; vibe: number[] | null }>> {
+  if (objectIDs.length === 0) return [];
+
+  const index = await getPineconeIndex();
+  // Pinecone's fetch() caps at 1000 ids per call. Chunk and parallelise.
+  const FETCH_CHUNK = 1000;
+  const chunks: string[][] = [];
+  for (let i = 0; i < objectIDs.length; i += FETCH_CHUNK) {
+    chunks.push(objectIDs.slice(i, i + FETCH_CHUNK));
+  }
+
+  const visualNs = index;
+  const vibeNs   = index.namespace(VIBE_NAMESPACE);
+
+  // Hit both namespaces in parallel for each chunk pair, then flatten.
+  const [visualRecords, vibeRecords] = await Promise.all([
+    (async () => {
+      const out: Record<string, { values?: number[] }> = {};
+      for (const chunk of chunks) {
+        try {
+          const r = await visualNs.fetch({ ids: chunk });
+          Object.assign(out, r.records ?? {});
+        } catch (err) {
+          console.warn("[embeddings] fetchVisualAndVibeVectors: visual fetch chunk failed:", err instanceof Error ? err.message : err);
+        }
+      }
+      return out;
+    })(),
+    (async () => {
+      const out: Record<string, { values?: number[] }> = {};
+      for (const chunk of chunks) {
+        try {
+          const r = await vibeNs.fetch({ ids: chunk });
+          Object.assign(out, r.records ?? {});
+        } catch (err) {
+          console.warn("[embeddings] fetchVisualAndVibeVectors: vibe fetch chunk failed:", err instanceof Error ? err.message : err);
+        }
+      }
+      return out;
+    })(),
+  ]);
+
+  return objectIDs.map((id) => ({
+    id,
+    visual: Array.isArray(visualRecords[id]?.values) && visualRecords[id]!.values!.length > 0
+      ? Array.from(visualRecords[id]!.values!)
+      : null,
+    vibe:   Array.isArray(vibeRecords[id]?.values) && vibeRecords[id]!.values!.length > 0
+      ? Array.from(vibeRecords[id]!.values!)
+      : null,
+  }));
+}
+
+/**
  * Single-vector Pinecone query that also returns metadata. Used for the
  * StyleAxes-aware ranking step where we need to score the result set's
  * axes against the user's profile.

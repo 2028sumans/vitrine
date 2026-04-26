@@ -64,13 +64,34 @@ function priceFilter(priceRange: string): string {
   return "price_range:mid OR price_range:budget";
 }
 
+// Algolia hard-caps hitsPerPage at 1000 — past that it returns the request
+// rejected. Tune the per-page chunk to the cap so a single request gets the
+// most data possible; pagination handles anything beyond.
+const ALGOLIA_HITS_PER_PAGE_MAX = 1000;
+// Maximum pages searchProducts will paginate through. 5 × 1000 = 5000 hits
+// per query is plenty for any realistic catalog query and keeps a single
+// runaway "skirt" search from blowing 30 round-trips. Configurable per call.
+const DEFAULT_MAX_PAGES         = 5;
+// Per-retailer cap inside a single searchProducts call. Used to be 3 (chosen
+// when the catalog was thinner and we wanted forced retailer variety in a
+// 6-result page). Now that the per-category cap is gone and we feed the full
+// pool into FashionCLIP rerank, retailer variety is no longer a critical
+// concern at this layer — let a strong retailer contribute up to 10 items
+// to the candidate pool, then the rerank step decides what survives. Stricter
+// dedup at the rendering layer can still trim down if needed.
+const PER_RETAILER_CAP          = 10;
+
 export async function searchProducts(
   query:           string,
   aestheticTags:   string[],
   priceRange:      string,
   maxResults  = 6,
   categoryFilter?: string,
-  userToken?:      string
+  userToken?:      string,
+  // 0 = no extra pages, 1 = up to 2000 hits, …, DEFAULT_MAX_PAGES-1 = up to
+  // 5000 hits. Internally we loop until either Algolia runs out of results
+  // (page returned < hitsPerPage) or we hit this cap, whichever comes first.
+  maxPages   = DEFAULT_MAX_PAGES,
 ): Promise<AlgoliaProduct[]> {
   const client = getClient();
 
@@ -82,57 +103,90 @@ export async function searchProducts(
     ? `(${priceFilter(priceRange)}) AND ${categoryFilter}`
     : priceFilter(priceRange);
 
-  // Request many more than needed — ~75% of index has no/broken images, so we need extras
-  const results = await client.searchSingleIndex({
-    indexName: INDEX_NAME,
-    searchParams: {
-      query,
-      hitsPerPage:           maxResults * 8,
-      optionalFilters:       tagFilters,
-      filters,
-      clickAnalytics:        true,
-      enablePersonalization: true,
-      ...(userToken ? { userToken } : {}),
-      attributesToRetrieve: [
-        "objectID", "title", "brand", "price", "price_range",
-        "color", "material", "description", "image_url", "images",
-        "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
-        // English back-fills (see scripts/translate-non-english.mjs).
-        "title_en", "description_en", "original_language",
-      ],
-    },
-  });
+  // Page size: oversample 8× for the image-quality filter (~75% of catalog
+  // has unusable images) but never exceed Algolia's hard limit. A maxResults
+  // of unbounded (Infinity) collapses to the Algolia max.
+  const desiredPerPage = Number.isFinite(maxResults) ? maxResults * 8 : ALGOLIA_HITS_PER_PAGE_MAX;
+  const hitsPerPage    = Math.min(ALGOLIA_HITS_PER_PAGE_MAX, Math.max(48, desiredPerPage));
 
-  const queryID = (results as unknown as { queryID?: string }).queryID;
-  const hits    = results.hits as unknown as AlgoliaProduct[];
+  const attributesToRetrieve = [
+    "objectID", "title", "brand", "price", "price_range",
+    "color", "material", "description", "image_url", "images",
+    "product_url", "retailer", "aesthetic_tags", "category", "scraped_at",
+    // English back-fills (see scripts/translate-non-english.mjs).
+    "title_en", "description_en", "original_language",
+  ];
 
-  // Attach queryID + 1-indexed position to each hit for Insights click events
-  const annotated = hits.map((h, i) => ({
-    ...h,
-    _queryID:  queryID ?? "",
-    _position: i + 1,
-  }));
+  // Paginate. Bail when Algolia runs out (last page < full) or we hit the cap.
+  // The whole loop is sequential because each request needs the previous
+  // page's nbPages/hits to know whether to continue. Most realistic queries
+  // never hit page 1 — pagination is only meaningful for very broad text
+  // queries ("dress", "skirt") and the new 2-stage retrieval pool.
+  const allHits: (AlgoliaProduct & { _queryID?: string; _position?: number })[] = [];
+  let queryID: string | undefined;
+
+  for (let page = 0; page <= maxPages; page++) {
+    const results = await client.searchSingleIndex({
+      indexName: INDEX_NAME,
+      searchParams: {
+        query,
+        page,
+        hitsPerPage,
+        optionalFilters:       tagFilters,
+        filters,
+        clickAnalytics:        true,
+        enablePersonalization: true,
+        ...(userToken ? { userToken } : {}),
+        attributesToRetrieve,
+      },
+    });
+
+    if (!queryID) queryID = (results as unknown as { queryID?: string }).queryID;
+    const pageHits = results.hits as unknown as AlgoliaProduct[];
+
+    // Attach queryID + cumulative position so Insights click events match the
+    // user's actual rank in the unified result set.
+    const baseRank = allHits.length;
+    for (let i = 0; i < pageHits.length; i++) {
+      allHits.push({ ...pageHits[i], _queryID: queryID ?? "", _position: baseRank + i + 1 });
+    }
+
+    // No more pages available, or we're at the bound the caller asked for.
+    if (pageHits.length < hitsPerPage) break;
+    if (Number.isFinite(maxResults) && allHits.length >= maxResults) break;
+  }
 
   // Only keep products with a real, non-placeholder image
-  const withImages = annotated.filter((h) => {
+  const withImages = allHits.filter((h) => {
     const img = h.image_url ?? "";
     return img.length > 20 && !img.includes("blank.gif") && !img.includes("placeholder");
   });
 
-  // Max 3 per retailer for variety (increased from 2 to help with sparse image data)
+  // Per-retailer cap (10) — see PER_RETAILER_CAP comment for rationale.
   const retailerCount: Record<string, number> = {};
   const deduped = withImages.filter((h) => {
     const count = retailerCount[h.retailer] ?? 0;
-    if (count >= 3) return false;
+    if (count >= PER_RETAILER_CAP) return false;
     retailerCount[h.retailer] = count + 1;
     return true;
   });
 
-  return deduped.slice(0, maxResults);
+  return Number.isFinite(maxResults) ? deduped.slice(0, maxResults) : deduped;
 }
 
 // Run multiple queries for a single category, merge and dedup by objectID.
 // Falls back to no-category filter if the strict category has sparse data.
+//
+// Per-category cap: REMOVED (was previously slice(0, maxPerCategory)). The
+// 2-stage retrieval design relies on this layer returning the full Algolia
+// pool — anywhere from a handful to several thousand items — so the
+// FashionCLIP rerank step has the widest possible candidate set to
+// differentiate. Pagination inside searchProducts (5 pages × 1000 hits
+// max = 5000) is the actual upper bound.
+//
+// The `maxPerCategory` parameter is kept around to size the per-page Algolia
+// request and to gate the "is this category sparse?" fallback decision —
+// it no longer slices the final result.
 async function searchCategory(
   queries:        string[],
   aestheticTags:  string[],
@@ -141,7 +195,7 @@ async function searchCategory(
   maxPerCategory: number,
   userToken?:     string
 ): Promise<AlgoliaProduct[]> {
-  const perQuery       = Math.max(3, Math.ceil((maxPerCategory * 2) / queries.length));
+  const perQuery       = Math.max(3, Math.ceil((maxPerCategory * 2) / Math.max(1, queries.length)));
   const categoryFilter = `category:${category}`;
 
   // First pass — strict category filter
@@ -159,9 +213,11 @@ async function searchCategory(
     }
   }
 
-  // If we got enough, return now
+  // If we got enough, return the full pool — no slice. "Enough" = at least
+  // half of what was asked for so the 3-tier fallback chain still has a
+  // chance to widen on truly sparse categories.
   if (merged.length >= Math.max(2, Math.floor(maxPerCategory / 2))) {
-    return merged.slice(0, maxPerCategory);
+    return merged;
   }
 
   // Fallback 1 — category is sparse; search without category filter
@@ -189,7 +245,7 @@ async function searchCategory(
     }
   }
 
-  if (merged.length >= 2) return merged.slice(0, maxPerCategory);
+  if (merged.length >= 2) return merged;
 
   // Fallback 2 — broadest: strip to the last 1-2 words of the first query (usually color/type)
   // e.g. "cherry red satin slip dress" → "dress", "black mini skirt" → "skirt"
@@ -202,15 +258,19 @@ async function searchCategory(
     if (!seen.has(product.objectID)) { seen.add(product.objectID); merged.push(product); }
   }
 
-  return merged.slice(0, maxPerCategory);
+  return merged;
 }
 
-// Category-aware search: 6 parallel buckets, 8 candidates each = 48 total
+// Category-aware search: 6 parallel buckets feeding the 2-stage retrieval
+// pipeline. The per-category result list is the FULL Algolia pool for that
+// category (capped only by pagination — see searchProducts). Stage 2
+// (FashionCLIP rerank) consumes this pool. `candidatesPerCategory` is the
+// per-page request size, not a final cap.
 export async function searchByCategory(
   categoryQueries:     Record<ClothingCategory, string[]>,
   aestheticTags:       string[],
   priceRange:          string,
-  candidatesPerCategory = 8,
+  candidatesPerCategory = 200,
   userToken?:           string
 ): Promise<CategoryCandidates> {
   const categories: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
