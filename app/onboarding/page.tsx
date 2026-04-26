@@ -5,33 +5,44 @@
  *
  * Surfaces once, right after first login. Two steps:
  *
- *   Step 1 — age: user taps one of 5 age-range pills.
- *   Step 2 — uploads: 1-2 outfit photos for each of 4 categories
- *            (casual, occasion, statement, accessories).
+ *   Step 1 — age:   user taps one of 4 age-range pills (13-18, 18-25,
+ *                   25-32, 32+).
+ *   Step 2 — pairs: user taps through up to 80 "this or this" pairs of
+ *                   products, picking one (or neither). Target = 50
+ *                   positive picks; auto-submits when reached. Each pair
+ *                   contrasts two products from the same category on one
+ *                   of the five style axes (formality, minimalism, edge,
+ *                   romance, drape) so picks span the full taste space.
  *
  * On submit:
- *   → POST /api/onboarding/save with { userToken, ageRange, images[base64] }
- *   → server FashionCLIP-embeds each image and stores the averaged centroid
- *     in Supabase (see app/api/onboarding/save/route.ts)
+ *   → POST /api/onboarding/save with { userToken, ageRange, picks }
+ *   → server reads each picked + rejected product's pre-computed CLIP
+ *     vector from Pinecone, computes preference centroid:
+ *         normalize(avg(picked) − 0.3 × avg(rejected))
+ *   → centroid persists in user_onboarding.upload_centroid (column name
+ *     retained for backward compat — see save route header)
  *   → redirect to /shop
  *
- * Design decisions baked in
- * -------------------------
- *   • In-flight state is cached in localStorage every change so a refresh /
- *     accidental tab close doesn't wipe an upload the user just dragged in.
- *     The cache is cleared on successful submit.
- *   • Categories are UX scaffolding only (user's Q3 answer) — the server
- *     averages ALL uploads into a single centroid regardless of category.
- *     So we don't send the category name to the API; we just show labels to
- *     help the user remember what to pull from Pinterest.
- *   • If the user is already onboarded we redirect them away in useEffect.
- *     The quiz is genuinely one-shot; revisiting /onboarding manually just
- *     bounces to /shop.
- *   • Aesthetic matches the rest of the site: cream bg + olive text,
- *     Cormorant Garamond display, Inter body, olive-pill accents.
+ * Why pairs instead of photo uploads
+ * ----------------------------------
+ *   The previous flow asked users to upload 1-8 outfit photos which got
+ *   FashionCLIP-embedded server-side. Two problems killed it: (1) photo-
+ *   finding friction → most users skipped or dropped off; (2) casual
+ *   snapshots embed lighting + background + framing alongside actual
+ *   style, all noise. Pairs fix both: 50 taps takes ~2 min, vectors come
+ *   from clean catalog photography (low noise), AND we get a negative
+ *   signal from the rejected side that photos couldn't provide.
+ *
+ * Resume support
+ * --------------
+ *   In-flight state caches to localStorage on every change. Includes the
+ *   fetched pairs themselves (not just picks) so a refresh restores the
+ *   exact same gauntlet — picks made before the refresh stay attributed
+ *   to the same pair sequence rather than getting orphaned against a
+ *   freshly-randomized server fetch.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -40,7 +51,7 @@ import { useSession } from "next-auth/react";
 
 interface AgeOption {
   key:   string;  // matches AGE_RANGE_KEYS in lib/onboarding-memory.ts
-  label: string;  // display text on the pill
+  label: string;
 }
 
 const AGES: readonly AgeOption[] = [
@@ -50,49 +61,52 @@ const AGES: readonly AgeOption[] = [
   { key: "age-32-plus", label: "32+"   },
 ];
 
-interface UploadCategory {
-  key:     string;
-  label:   string;
-  hint:    string;
-  /** Max uploads for this category. Server cap is 16 total; 2 × 4 = 8. */
-  maxCount: number;
-}
+/** Number of positive picks required before we auto-submit. The /api/onboarding/pairs
+ *  endpoint returns ~80 pairs so the user has buffer for "neither" clicks. */
+const TARGET_PICKS = 50;
 
-const CATEGORIES: readonly UploadCategory[] = [
-  { key: "casual",      label: "Casual day",        hint: "How you dress when you're just being yourself.",              maxCount: 2 },
-  { key: "occasion",    label: "Occasion / going out", hint: "Dinner, date, anything with a reservation.",                maxCount: 2 },
-  { key: "statement",   label: "Statement",         hint: "The piece that makes someone ask where you got it.",           maxCount: 2 },
-  { key: "accessories", label: "Accessories",       hint: "Bags, shoes, jewelry — the things that finish an outfit.",     maxCount: 2 },
-];
-
-/** localStorage key for the in-flight cache. Bump on schema changes. */
-const CACHE_KEY = "muse-onboarding-draft-v1";
+/** localStorage key for the in-flight cache. v2 = pair-gauntlet schema (v1
+ *  was the photo-upload schema; bumping the key means stale v1 drafts get
+ *  cleanly discarded rather than corrupting the new flow). */
+const CACHE_KEY = "muse-onboarding-draft-v2";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-/** One uploaded image, stored base64-encoded so it survives refresh. */
-interface UploadedImage {
-  /** Stable per-image id — keyed for React renders + deletion. */
+interface PairProduct {
+  objectID:  string;
+  title:     string;
+  brand?:    string;
+  image_url: string;
+  price?:    number | null;
+}
+
+interface Pair {
   id:       string;
-  /** data: URL, suitable for <img src>. Also parsed server-side into base64. */
-  dataUrl:  string;
-  mimeType: string;
-  /** Soft-size hint for quota math (base64 is ~33% larger than binary). */
-  bytes:    number;
+  axis:     string;
+  category: string;
+  a:        PairProduct;
+  b:        PairProduct;
+}
+
+interface Pick {
+  pickedId:   string;
+  rejectedId: string;
 }
 
 interface Draft {
   ageRange: string | null;
-  /** category key → images[] */
-  uploads:  Record<string, UploadedImage[]>;
+  /** The full gauntlet, fetched once from /api/onboarding/pairs and cached
+   *  so refresh during the flow restores exact same pair sequence. */
+  pairs:    Pair[];
+  picks:    Pick[];
+  /** Index into `pairs` of the currently-shown pair. */
+  pairIdx:  number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function emptyDraft(): Draft {
-  const uploads: Draft["uploads"] = {};
-  for (const c of CATEGORIES) uploads[c.key] = [];
-  return { ageRange: null, uploads };
+  return { ageRange: null, pairs: [], picks: [], pairIdx: 0 };
 }
 
 function loadDraft(): Draft {
@@ -102,13 +116,12 @@ function loadDraft(): Draft {
     if (!raw) return emptyDraft();
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return emptyDraft();
-    // Fill in missing categories so the UI never sees a `undefined` bucket
-    // after a category config change.
-    const uploads: Draft["uploads"] = {};
-    for (const c of CATEGORIES) {
-      uploads[c.key] = Array.isArray(parsed.uploads?.[c.key]) ? parsed.uploads[c.key] : [];
-    }
-    return { ageRange: typeof parsed.ageRange === "string" ? parsed.ageRange : null, uploads };
+    return {
+      ageRange: typeof parsed.ageRange === "string" ? parsed.ageRange : null,
+      pairs:    Array.isArray(parsed.pairs)         ? parsed.pairs    : [],
+      picks:    Array.isArray(parsed.picks)         ? parsed.picks    : [],
+      pairIdx:  typeof parsed.pairIdx === "number"  ? parsed.pairIdx  : 0,
+    };
   } catch {
     return emptyDraft();
   }
@@ -119,8 +132,8 @@ function saveDraft(d: Draft) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(d));
   } catch {
-    // QuotaExceeded — uploads are big. Best-effort; the in-memory state is
-    // the source of truth during this session.
+    // QuotaExceeded — pair cache is ~150KB which is well under 5MB but be
+    // defensive. In-memory state is the source of truth during this session.
   }
 }
 
@@ -129,83 +142,9 @@ function clearDraft() {
   localStorage.removeItem(CACHE_KEY);
 }
 
-/**
- * Read a File, downscale to a max long-edge size, and return a JPEG data URL.
- *
- * Why
- * ---
- * Three problems this solves at once:
- *   1. iPhone screenshots are routinely 1290×2796 ≈ 5 MB raw. base64-encoded
- *      they're 7 MB; 4-8 of them in one POST body easily blows past Vercel's
- *      4.5 MB request limit on the Hobby tier.
- *   2. FashionCLIP processes at 224×224 anyway, so any resolution above
- *      ~512px on the long edge is wasted bytes. 1024 leaves headroom for
- *      higher-quality CLIP variants without bloating the payload.
- *   3. iOS Safari can decode HEIC into a canvas; canvas.toDataURL("image/jpeg")
- *      then exports as JPEG regardless of input format. So this function
- *      transparently converts HEIC → JPEG without us having to detect it.
- *
- * Falls back to the raw File-as-data-URL path on any error so a corrupted
- * image or an exotic format that the canvas can't load still has a chance
- * to flow through the original FileReader pipeline (and the server-side
- * embedder will surface the failure with proper logging).
- */
-async function fileToDataUrl(file: File, maxDim = 1024): Promise<string> {
-  // Fast path: read as a data URL via FileReader. We always have this as
-  // a fallback so non-image-decodable bytes still produce a valid string.
-  const rawDataUrl = await new Promise<string>((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload  = () => resolve(String(fr.result ?? ""));
-    fr.onerror = () => reject(fr.error ?? new Error("read failed"));
-    fr.readAsDataURL(file);
-  });
-
-  // Try to load the data URL into an Image — this is what triggers the
-  // browser's native decoder for HEIC, WebP, AVIF, etc. If it fails we
-  // return the raw bytes and let the server tell the user what's wrong.
-  let img: HTMLImageElement;
-  try {
-    img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload  = () => resolve(i);
-      i.onerror = (ev) => reject(new Error(`image decode failed: ${String(ev)}`));
-      i.src = rawDataUrl;
-    });
-  } catch {
-    return rawDataUrl;
-  }
-
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
-  if (!w || !h) return rawDataUrl;
-
-  // Skip resizing when already small — saves a canvas round-trip on tiny
-  // crops or already-downsampled images.
-  if (Math.max(w, h) <= maxDim) return rawDataUrl;
-
-  const scale = maxDim / Math.max(w, h);
-  const tw = Math.round(w * scale);
-  const th = Math.round(h * scale);
-
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width  = tw;
-    canvas.height = th;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return rawDataUrl;
-    ctx.drawImage(img, 0, 0, tw, th);
-    // Export as JPEG q=0.85 — visually indistinguishable from PNG for
-    // photographic content, ~5x smaller, and FashionCLIP doesn't care.
-    return canvas.toDataURL("image/jpeg", 0.85);
-  } catch {
-    return rawDataUrl;
-  }
-}
-
-/** Extract the raw base64 payload from a `data:image/...;base64,AAAA...` URL. */
-function dataUrlToBase64(dataUrl: string): string {
-  const comma = dataUrl.indexOf(",");
-  return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+function formatPrice(p: number | null | undefined): string {
+  if (p == null || !Number.isFinite(p)) return "";
+  return `$${Math.round(p).toLocaleString("en-US")}`;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -215,13 +154,14 @@ export default function OnboardingPage() {
   const { data: session, status: authStatus } = useSession();
   const userToken = session?.user?.id ?? "";
 
-  const [step, setStep]           = useState<1 | 2>(1);
-  const [draft, setDraftState]    = useState<Draft>(emptyDraft);
+  const [step, setStep]             = useState<1 | 2>(1);
+  const [draft, setDraftState]      = useState<Draft>(emptyDraft);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  // Surface a non-blocking check that prevents re-doing the quiz if the user
-  // got here by accident. We don't render anything until this resolves to
-  // avoid a flash.
+  const [error, setError]           = useState<string | null>(null);
+  const [pairsLoading, setPairsLoading] = useState(false);
+  const [pairsError, setPairsError]     = useState<string | null>(null);
+  // Onboarding gate. We don't render anything until this resolves to avoid a
+  // flash of the quiz for users who already onboarded.
   const [alreadyDone, setAlreadyDone] = useState<boolean | null>(null);
 
   // Hydrate draft from localStorage on mount.
@@ -229,8 +169,7 @@ export default function OnboardingPage() {
     setDraftState(loadDraft());
   }, []);
 
-  // Redirect away if the user has already completed onboarding. Runs only
-  // once we have a real userToken — during session loading it's "".
+  // Onboarding-status gate: redirect if user already finished the quiz.
   useEffect(() => {
     if (!userToken) { setAlreadyDone(false); return; }
     let cancelled = false;
@@ -252,7 +191,7 @@ export default function OnboardingPage() {
     return () => { cancelled = true; };
   }, [userToken, router]);
 
-  // Wrap setDraft so every edit persists to localStorage immediately.
+  // Wrap setDraft so every edit persists to localStorage.
   const setDraft = useCallback((updater: (d: Draft) => Draft) => {
     setDraftState((prev) => {
       const next = updater(prev);
@@ -261,75 +200,58 @@ export default function OnboardingPage() {
     });
   }, []);
 
-  // ── Upload handlers ─────────────────────────────────────────────────────
+  // Fetch the pair gauntlet when the user advances to step 2 and we don't
+  // already have pairs cached. Cache hit = the user resumed mid-flow; we
+  // keep going from the same pair sequence.
+  useEffect(() => {
+    if (step !== 2) return;
+    if (draft.pairs.length > 0) return; // already fetched / restored from cache
+    if (pairsLoading) return;
 
-  const addImages = useCallback(async (catKey: string, files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const cat = CATEGORIES.find((c) => c.key === catKey);
-    if (!cat) return;
-
-    const existing = draft.uploads[catKey] ?? [];
-    const slotsLeft = Math.max(0, cat.maxCount - existing.length);
-    if (slotsLeft === 0) return;
-
-    const toAdd: UploadedImage[] = [];
-    // Process files sequentially — files are small (<5 MB typical) and
-    // FileReader is async, sequencing is fine and avoids a parallel-read
-    // storm on low-end mobile.
-    for (const file of Array.from(files).slice(0, slotsLeft)) {
-      if (!file.type.startsWith("image/")) continue;
+    let cancelled = false;
+    setPairsLoading(true);
+    setPairsError(null);
+    (async () => {
       try {
-        const dataUrl = await fileToDataUrl(file);
-        toAdd.push({
-          id:       `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          dataUrl,
-          mimeType: file.type,
-          bytes:    file.size,
-        });
-      } catch {
-        // Silent skip — one bad file shouldn't tank the batch.
+        const res = await fetch("/api/onboarding/pairs", { method: "GET" });
+        if (!res.ok) throw new Error(`pairs fetch failed (${res.status})`);
+        const j = await res.json();
+        const pairs: Pair[] = Array.isArray(j?.pairs) ? j.pairs : [];
+        if (cancelled) return;
+        if (pairs.length === 0) {
+          setPairsError("Couldn't load the pair gauntlet. Try refreshing — or skip for now.");
+          return;
+        }
+        setDraft((d) => ({ ...d, pairs, pairIdx: 0, picks: [] }));
+      } catch (err) {
+        if (!cancelled) {
+          setPairsError(err instanceof Error ? err.message : "Pair fetch failed");
+        }
+      } finally {
+        if (!cancelled) setPairsLoading(false);
       }
-    }
+    })();
+    return () => { cancelled = true; };
+  }, [step, draft.pairs.length, pairsLoading, setDraft]);
 
-    if (toAdd.length === 0) return;
-    setDraft((d) => ({
-      ...d,
-      uploads: { ...d.uploads, [catKey]: [...(d.uploads[catKey] ?? []), ...toAdd] },
-    }));
-  }, [draft.uploads, setDraft]);
+  // ── Pair handlers ─────────────────────────────────────────────────────
 
-  const removeImage = useCallback((catKey: string, id: string) => {
-    setDraft((d) => ({
-      ...d,
-      uploads: { ...d.uploads, [catKey]: (d.uploads[catKey] ?? []).filter((u) => u.id !== id) },
-    }));
-  }, [setDraft]);
-
-  // ── Derived ─────────────────────────────────────────────────────────────
-
-  const totalImages = useMemo(
-    () => Object.values(draft.uploads).reduce((n, arr) => n + arr.length, 0),
-    [draft.uploads],
-  );
-
-  const canAdvanceFromAge = !!draft.ageRange;
-  const canSubmit = canAdvanceFromAge && totalImages >= 1;
-
-  // ── Submit ──────────────────────────────────────────────────────────────
-
-  const submit = useCallback(async () => {
-    if (!canSubmit || !userToken) return;
+  /** Submit the gauntlet (auto-called when target hit, or via "Wrap up" CTA). */
+  const submit = useCallback(async (override?: { picks?: Pick[] }) => {
+    if (!userToken) return;
+    if (submitting) return;
+    const picksToSend = override?.picks ?? draft.picks;
     setError(null);
     setSubmitting(true);
     try {
-      const images = Object.values(draft.uploads)
-        .flat()
-        .map((u) => ({ base64: dataUrlToBase64(u.dataUrl), mimeType: u.mimeType }));
-
       const res = await fetch("/api/onboarding/save", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ userToken, ageRange: draft.ageRange, images }),
+        body:    JSON.stringify({
+          userToken,
+          ageRange: draft.ageRange,
+          picks:    picksToSend,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -341,13 +263,11 @@ export default function OnboardingPage() {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again?");
       setSubmitting(false);
     }
-  }, [canSubmit, draft, userToken, router]);
+  }, [draft.ageRange, draft.picks, userToken, submitting, router]);
 
-  // Skip the upload step. Keeps the age they already picked but stores
-  // no upload centroid — ranking falls back to just the age prior. Same
-  // endpoint, `skip: true` flag routes it down the no-embed path.
-  const skipUploads = useCallback(async () => {
-    if (!canAdvanceFromAge || !userToken || submitting) return;
+  /** Explicit skip — keeps age, no centroid. Same fallback as path C in save. */
+  const skipPairs = useCallback(async () => {
+    if (!userToken || submitting) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -366,24 +286,56 @@ export default function OnboardingPage() {
       setError(err instanceof Error ? err.message : "Couldn't skip. Try again?");
       setSubmitting(false);
     }
-  }, [canAdvanceFromAge, draft.ageRange, userToken, submitting, router]);
+  }, [draft.ageRange, userToken, submitting, router]);
+
+  /** Record a positive pick. Auto-submits when picks count hits TARGET_PICKS. */
+  const handlePick = useCallback((pickedId: string, rejectedId: string) => {
+    setDraft((d) => {
+      const newPicks: Pick[] = [...d.picks, { pickedId, rejectedId }];
+      const next: Draft = {
+        ...d,
+        picks:   newPicks,
+        pairIdx: d.pairIdx + 1,
+      };
+      // Auto-submit when target reached. Use the freshly-built picks so we
+      // don't race against the React state update inside submit().
+      if (newPicks.length >= TARGET_PICKS) {
+        // Defer to next tick so this state update commits first.
+        queueMicrotask(() => submit({ picks: newPicks }));
+      }
+      return next;
+    });
+  }, [setDraft, submit]);
+
+  /** "Neither" — skip this pair without contributing to picks. Just advances
+   *  the cursor. If the cursor runs past the buffer, the UI shows the wrap-up CTA. */
+  const handleNeither = useCallback(() => {
+    setDraft((d) => ({ ...d, pairIdx: d.pairIdx + 1 }));
+  }, [setDraft]);
+
+  // ── Derived ─────────────────────────────────────────────────────────────
+
+  const canAdvanceFromAge = !!draft.ageRange;
+  const currentPair       = draft.pairs[draft.pairIdx] ?? null;
+  const remainingPairs    = Math.max(0, draft.pairs.length - draft.pairIdx);
+  const pickCount         = draft.picks.length;
+  const exhausted         = draft.pairs.length > 0 && draft.pairIdx >= draft.pairs.length;
+  const reachedTarget     = pickCount >= TARGET_PICKS;
 
   // ── Render ──────────────────────────────────────────────────────────────
 
-  // Pre-session / pre-status-check: render nothing to avoid flash.
   if (authStatus === "loading" || alreadyDone === null) {
     return <div className="min-h-screen bg-background" />;
   }
 
-  // Must be signed in. We bounce to /login if not — once auth lands it'll
-  // redirect back here via the standard NextAuth callback flow.
   if (authStatus === "unauthenticated" || !userToken) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="max-w-md text-center">
           <h1 className="font-display font-light text-4xl text-foreground mb-4">Sign in first.</h1>
           <p className="font-sans text-base text-muted-strong mb-8 leading-relaxed">
-            We personalize your feed from the moment you land — so we need to know who you are before we take you through the quiz.
+            We personalize your feed from the moment you land — so we need to know who you are
+            before we take you through the quiz.
           </p>
           <Link
             href="/login"
@@ -398,9 +350,8 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Slim top bar */}
       <header className="px-6 py-4 border-b border-border-mid">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link href="/" className="font-display font-light text-base tracking-[0.22em] text-foreground">
             MUSE
           </Link>
@@ -410,7 +361,7 @@ export default function OnboardingPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-16">
+      <main className="max-w-5xl mx-auto px-6 py-12 sm:py-16">
         {step === 1 && (
           <StepAge
             value={draft.ageRange}
@@ -421,15 +372,20 @@ export default function OnboardingPage() {
         )}
 
         {step === 2 && (
-          <StepUploads
-            uploads={draft.uploads}
-            onAdd={addImages}
-            onRemove={removeImage}
-            totalImages={totalImages}
+          <StepPairPicks
+            currentPair={currentPair}
+            pickCount={pickCount}
+            remaining={remainingPairs}
+            target={TARGET_PICKS}
+            exhausted={exhausted}
+            reachedTarget={reachedTarget}
+            pairsLoading={pairsLoading}
+            pairsError={pairsError}
+            onPick={handlePick}
+            onNeither={handleNeither}
             onBack={() => setStep(1)}
-            onSubmit={submit}
-            onSkip={skipUploads}
-            canSubmit={canSubmit}
+            onSubmit={() => submit()}
+            onSkip={skipPairs}
             submitting={submitting}
             error={error}
           />
@@ -457,7 +413,7 @@ function StepAge(props: {
       </h1>
       <p className="font-display font-light italic text-xl text-muted-strong mb-12 max-w-xl">
         Age is one of the strongest shortcuts to taste. We use it as a starting point —
-        your uploads and likes refine everything from here.
+        the picks you make next refine it from there.
       </p>
 
       <div className="flex flex-wrap gap-3 mb-14">
@@ -491,165 +447,258 @@ function StepAge(props: {
   );
 }
 
-function StepUploads(props: {
-  uploads:     Draft["uploads"];
-  onAdd:       (catKey: string, files: FileList | null) => void;
-  onRemove:    (catKey: string, id: string) => void;
-  totalImages: number;
-  onBack:      () => void;
-  onSubmit:    () => void;
-  /** Keeps the age they picked on step 1, skips the uploads. Taste ranking
-   *  falls back to just the age centroid. */
-  onSkip:      () => void;
-  canSubmit:   boolean;
-  submitting:  boolean;
-  error:       string | null;
+function StepPairPicks(props: {
+  currentPair:    Pair | null;
+  pickCount:      number;
+  remaining:      number;
+  target:         number;
+  exhausted:      boolean;
+  reachedTarget:  boolean;
+  pairsLoading:   boolean;
+  pairsError:     string | null;
+  onPick:         (pickedId: string, rejectedId: string) => void;
+  onNeither:      () => void;
+  onBack:         () => void;
+  onSubmit:       () => void;
+  onSkip:         () => void;
+  submitting:     boolean;
+  error:          string | null;
 }) {
-  return (
-    <section>
-      <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-5">
-        Your taste
-      </p>
-      <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-5">
-        Show us one or two outfits.
-      </h1>
-      <p className="font-display font-light italic text-xl text-muted-strong mb-10 max-w-2xl">
-        A screenshot from Pinterest, a photo from your camera roll — anything that feels like <em>your</em> taste.
-      </p>
-      <p className="font-sans text-sm text-muted-strong mb-12 max-w-2xl leading-relaxed">
-        Try to cover a few different moods. You don&apos;t have to fill every category —
-        even one great image is enough to start.
-      </p>
+  const {
+    currentPair, pickCount, remaining, target, exhausted, reachedTarget,
+    pairsLoading, pairsError, onPick, onNeither, onBack, onSubmit, onSkip,
+    submitting, error,
+  } = props;
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-14">
-        {CATEGORIES.map((c) => (
-          <CategoryCard
-            key={c.key}
-            category={c}
-            images={props.uploads[c.key] ?? []}
-            onAdd={(files) => props.onAdd(c.key, files)}
-            onRemove={(id) => props.onRemove(c.key, id)}
-          />
-        ))}
-      </div>
+  const progressPct = Math.min(100, Math.round((pickCount / target) * 100));
 
-      {props.error && (
-        <p className="font-sans text-sm text-[#7a2a2a] mb-5">
-          {props.error}
+  // ── Loading / error states ─────────────────────────────────────────────
+  if (pairsLoading || (!currentPair && !pairsError && !exhausted)) {
+    return (
+      <section className="text-center py-20">
+        <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-5">
+          Your taste
         </p>
-      )}
+        <h1 className="font-display font-light text-4xl sm:text-5xl text-foreground leading-tight mb-3">
+          Building your gauntlet…
+        </h1>
+        <p className="font-display font-light italic text-lg text-muted-strong mb-10">
+          One sec — pulling fifty contrasting pieces from across the catalog.
+        </p>
+      </section>
+    );
+  }
 
-      <div className="flex items-center gap-4 flex-wrap">
+  if (pairsError) {
+    return (
+      <section>
+        <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-5">
+          Your taste
+        </p>
+        <h1 className="font-display font-light text-4xl text-foreground leading-tight mb-5">
+          Couldn&apos;t load the pairs.
+        </h1>
+        <p className="font-sans text-base text-muted-strong mb-10 max-w-xl">
+          {pairsError}
+        </p>
         <button
-          onClick={props.onBack}
-          disabled={props.submitting}
-          className="px-6 py-3 font-sans text-[10px] tracking-widest uppercase border border-border-mid text-muted hover:text-foreground hover:border-foreground transition-colors disabled:opacity-40"
-        >
-          ← Back
-        </button>
-        <button
-          onClick={props.onSubmit}
-          disabled={!props.canSubmit || props.submitting}
+          onClick={onSkip}
+          disabled={submitting}
           className="px-8 py-3 font-sans text-[10px] tracking-widest uppercase bg-foreground text-background hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          {props.submitting ? "Building your taste profile…" : "Build my taste profile →"}
+          {submitting ? "…" : "Skip and continue →"}
         </button>
-        <span className="ml-auto font-sans text-[10px] tracking-widest uppercase text-muted">
-          {props.totalImages} uploaded
-        </span>
+      </section>
+    );
+  }
+
+  // ── Reached target OR exhausted buffer → wrap-up screen ────────────────
+  if (reachedTarget || exhausted) {
+    const wrapUpHeading =
+      reachedTarget
+        ? "Locked in."
+        : pickCount >= 10
+          ? "Good enough — let's go."
+          : "Not many picks landed.";
+    const wrapUpBody =
+      reachedTarget
+        ? `${pickCount} picks. We've got a strong read on your taste.`
+        : pickCount >= 10
+          ? `${pickCount} picks made. Your feed will sharpen further as you browse.`
+          : `Only ${pickCount} positive ${pickCount === 1 ? "pick" : "picks"} made — your feed will lean on age and your real-world browsing to learn.`;
+
+    return (
+      <section className="text-center py-12">
+        <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-5">
+          Your taste
+        </p>
+        <h1 className="font-display font-light text-5xl sm:text-6xl text-foreground leading-tight mb-5">
+          {wrapUpHeading}
+        </h1>
+        <p className="font-display font-light italic text-xl text-muted-strong mb-12 max-w-xl mx-auto">
+          {wrapUpBody}
+        </p>
+
+        {error && (
+          <p className="font-sans text-sm text-[#7a2a2a] mb-5">{error}</p>
+        )}
+
+        <button
+          onClick={onSubmit}
+          disabled={submitting}
+          className="px-10 py-4 font-sans text-[10px] tracking-widest uppercase bg-foreground text-background hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Saving your taste profile…" : "Take me to my feed →"}
+        </button>
+      </section>
+    );
+  }
+
+  // ── Active gauntlet ───────────────────────────────────────────────────
+  return (
+    <section>
+      {/* Progress bar */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
+            Your taste · {pickCount} of {target} picks
+          </p>
+          <p className="font-sans text-[10px] tracking-widest uppercase text-muted">
+            {remaining} pair{remaining === 1 ? "" : "s"} left in the buffer
+          </p>
+        </div>
+        <div className="h-[2px] w-full bg-border-mid overflow-hidden">
+          <div
+            className="h-full bg-foreground transition-[width] duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
       </div>
 
-      {/* Skip — small, secondary, visually de-emphasised. Sits below the
-          primary action row so it reads as a deliberate escape hatch, not
-          a competing CTA. Leaves the age prior in place; the feed just
-          won't have a personal upload signal to lean on. */}
-      <div className="mt-8 pt-6 border-t border-border-mid">
+      <h1 className="font-display font-light text-4xl sm:text-5xl text-foreground leading-tight mb-3">
+        Which feels more <em className="italic">you</em>?
+      </h1>
+      <p className="font-display font-light italic text-lg text-muted-strong mb-10 max-w-xl">
+        Quick taps. Don&apos;t overthink it. We&apos;re reading the gut, not the catalog.
+      </p>
+
+      {currentPair && (
+        <PairChoice
+          pair={currentPair}
+          onPick={onPick}
+          submitting={submitting}
+        />
+      )}
+
+      <div className="mt-8 flex justify-center">
         <button
-          type="button"
-          onClick={props.onSkip}
-          disabled={props.submitting}
-          className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={onNeither}
+          disabled={submitting}
+          className="font-sans text-[11px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="Skip this pair — neither feels right"
         >
-          {props.submitting ? "…" : "Skip for now — I'll upload later"}
+          Neither →
         </button>
-        <p className="mt-3 font-sans text-xs text-muted leading-relaxed max-w-xl">
-          We&apos;ll build your feed from your age range and what you interact with.
-          Your personal uploads help it get sharper — you can add them anytime from settings.
-        </p>
+      </div>
+
+      {error && (
+        <p className="font-sans text-sm text-[#7a2a2a] mt-8 text-center">{error}</p>
+      )}
+
+      {/* Footer controls — back to age, or escape hatch entirely. */}
+      <div className="mt-14 pt-6 border-t border-border-mid flex items-center gap-4 flex-wrap">
+        <button
+          onClick={onBack}
+          disabled={submitting}
+          className="px-6 py-3 font-sans text-[10px] tracking-widest uppercase border border-border-mid text-muted hover:text-foreground hover:border-foreground transition-colors disabled:opacity-40"
+        >
+          ← Back to age
+        </button>
+
+        {/* Wrap-up early — only when user has at least a few picks so the
+            saved centroid won't be junk. Below 5 picks we just show "Skip
+            for now" since that's the more honest framing. */}
+        {pickCount >= 5 ? (
+          <button
+            onClick={onSubmit}
+            disabled={submitting}
+            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40"
+          >
+            {submitting ? "Saving…" : `I'm done — wrap up with ${pickCount}`}
+          </button>
+        ) : (
+          <button
+            onClick={onSkip}
+            disabled={submitting}
+            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40"
+          >
+            {submitting ? "…" : "Skip for now"}
+          </button>
+        )}
       </div>
     </section>
   );
 }
 
-function CategoryCard(props: {
-  category: UploadCategory;
-  images:   UploadedImage[];
-  onAdd:    (files: FileList | null) => void;
-  onRemove: (id: string) => void;
+function PairChoice(props: {
+  pair:       Pair;
+  onPick:     (pickedId: string, rejectedId: string) => void;
+  submitting: boolean;
 }) {
-  const { category, images, onAdd, onRemove } = props;
-  const inputRef = useRef<HTMLInputElement>(null);
-  const full = images.length >= category.maxCount;
-
+  const { pair, onPick, submitting } = props;
   return (
-    <div className="border border-border-mid p-5">
-      <h3 className="font-display font-light text-2xl text-foreground mb-1">
-        {category.label}
-      </h3>
-      <p className="font-sans text-sm text-muted-strong mb-5 leading-relaxed">
-        {category.hint}
-      </p>
+    <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
+      <ProductChoiceCard
+        product={pair.a}
+        onClick={() => onPick(pair.a.objectID, pair.b.objectID)}
+        disabled={submitting}
+      />
+      <ProductChoiceCard
+        product={pair.b}
+        onClick={() => onPick(pair.b.objectID, pair.a.objectID)}
+        disabled={submitting}
+      />
+    </div>
+  );
+}
 
-      {/* Thumbnails + add slot */}
-      <div className="flex gap-3 flex-wrap">
-        {images.map((img) => (
-          <div key={img.id} className="relative w-24 h-32">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={img.dataUrl}
-              alt=""
-              className="w-full h-full object-cover border border-border-mid"
-            />
-            <button
-              onClick={() => onRemove(img.id)}
-              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground text-background font-sans text-[10px] leading-none flex items-center justify-center hover:bg-accent transition-colors"
-              title="Remove"
-              aria-label="Remove image"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-
-        {!full && (
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="w-24 h-32 border border-dashed border-border-mid flex flex-col items-center justify-center gap-1 hover:border-foreground hover:bg-[rgba(42,51,22,0.04)] transition-colors"
-          >
-            <span className="font-display font-light text-3xl text-muted leading-none">+</span>
-            <span className="font-sans text-[9px] tracking-widest uppercase text-muted">
-              Add
-            </span>
-          </button>
+function ProductChoiceCard(props: {
+  product:  PairProduct;
+  onClick:  () => void;
+  disabled: boolean;
+}) {
+  const { product, onClick, disabled } = props;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="group block text-left border border-border-mid hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-background overflow-hidden"
+      aria-label={`Pick ${product.brand ?? ""} ${product.title}`}
+    >
+      <div className="aspect-[3/4] w-full overflow-hidden bg-border-mid/30">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={product.image_url}
+          alt={product.title}
+          loading="eager"
+          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+        />
+      </div>
+      <div className="p-3 sm:p-4">
+        {product.brand && (
+          <p className="font-sans text-[10px] tracking-widest uppercase text-muted mb-1 truncate">
+            {product.brand}
+          </p>
+        )}
+        <p className="font-display font-light text-sm sm:text-base text-foreground leading-snug line-clamp-2">
+          {product.title}
+        </p>
+        {product.price != null && (
+          <p className="font-sans text-xs text-muted-strong mt-1">
+            {formatPrice(product.price)}
+          </p>
         )}
       </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          onAdd(e.target.files);
-          // Reset so the same file re-selection still fires onChange.
-          e.target.value = "";
-        }}
-      />
-
-      <p className="mt-3 font-sans text-[10px] tracking-widest uppercase text-muted-dim">
-        {images.length}/{category.maxCount}
-      </p>
-    </div>
+    </button>
   );
 }

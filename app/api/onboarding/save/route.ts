@@ -1,58 +1,118 @@
 /**
  * POST /api/onboarding/save
  *
- * One-shot submission of the onboarding quiz answers. Two paths:
+ * One-shot submission of the onboarding "this or this" pair gauntlet.
+ * Three completion shapes:
  *
- *   A. Full completion  — user uploaded 1+ outfit photos on the upload step.
- *      We FashionCLIP-embed each, average into a centroid, persist with
- *      skipped=false.
+ *   A. Full gauntlet  — user made N positive picks (target 50, but we
+ *      accept anywhere from 1+). For each pick we read both products'
+ *      pre-computed FashionCLIP vectors from Pinecone and build a
+ *      preference centroid: avg(picked) − α × avg(rejected), L2-
+ *      normalized. Stored as user_onboarding.upload_centroid (column
+ *      name retained for backward compat — see migration for the original
+ *      photo-upload-derived centroid).
  *
- *   B. Skip-at-upload   — user picked an age but hit "Skip for now" on the
- *      upload step. No images to embed, no centroid. We still write a row
- *      (age_range populated, upload_centroid=null, skipped=true) so the
- *      onboarding gate sees them as "already dealt with this" and doesn't
- *      re-prompt on every login. Taste ranking falls back to just the age
- *      centroid (and later, any session signals).
+ *   B. Empty gauntlet — user clicked "neither" on every pair (or quit
+ *      with zero picks). No centroid possible. Row lands with
+ *      upload_centroid=null and skipped=true so the gate sees them as
+ *      onboarded but the taste-profile lib falls back to age-only.
+ *
+ *   C. Skip-at-pairs — explicit `skip: true` flag, e.g. user closed the
+ *      gauntlet without engaging. Same shape as (B).
+ *
+ * Why we replaced photo upload
+ * -----------------------------
+ *   The previous flow asked users to upload 1-8 photos across 4 outfit
+ *   categories. Photos were FashionCLIP-embedded server-side and averaged
+ *   into a centroid. Two problems:
+ *     1. Friction — finding photos, dealing with HEIC, slow uploads.
+ *        Most users either skipped or dropped off mid-flow.
+ *     2. Signal noise — casual snapshots embed lighting + background +
+ *        framing alongside the actual style, all noise relative to taste.
+ *   The pair gauntlet replaces both: 50 taps at ~2 sec each = ~2 min of
+ *   user time, vectors come from clean catalog photography (low noise),
+ *   AND we get a negative signal from the rejected side that photos
+ *   couldn't provide.
  *
  * Request body
  * ------------
- *   { userToken, ageRange, images: [...] }               → path A
- *   { userToken, ageRange, skip: true }                  → path B (images optional / ignored)
+ *   { userToken, ageRange, picks: [{ pickedId, rejectedId }] }   → path A
+ *   { userToken, ageRange, picks: [] }                           → path B
+ *   { userToken, ageRange, skip: true }                          → path C
  *
  * Response
  * --------
- *   200 { ok: true, skipped: boolean, centroidDim?: number, embedded?: number }
- *   400 { error: "..." }  on validation failure
- *   401 { error: "auth required" }  if userToken missing/anon
- *   500 { error: "..." }  on embed / DB failure
+ *   200 { ok: true, skipped, centroidDim?, picks?: number, dropped?: number }
+ *   400 { error: "..." }   on validation failure
+ *   401 { error: "auth required" }   if userToken missing/anon
  *
- * Idempotent — `upsert` means re-submitting overwrites the previous row cleanly.
+ * Idempotent — `upsert` means re-running overwrites the previous row.
  */
 
 import { NextResponse } from "next/server";
-import type { VisionImage } from "@/lib/types";
-import { embedBase64Images } from "@/lib/embeddings";
-import { averageVectors } from "@/lib/taste-profile";
+import { fetchProductsForCentroid } from "@/lib/embeddings";
 import {
   saveOnboarding,
   isAgeRangeKey,
   type AgeRangeKey,
 } from "@/lib/onboarding-memory";
 
-// FashionCLIP cold-start (model download + ONNX init) + per-image inference
-// for 4-8 uploads can exceed Vercel's 10s Hobby-tier default. 60s is the
-// Hobby max; bump as needed on Pro (up to 300s). Hobby plans accept this
-// value too — they just clamp at their own ceiling.
-export const maxDuration = 60;
-
-// Force the route onto the Node.js runtime — @xenova/transformers + ONNX
-// runtime aren't available on Edge. Default for Next.js API routes is
-// "nodejs" but being explicit guards against accidental runtime changes.
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
-// Guard against abuse / accidental huge uploads. The client caps at 1-2 per
-// of 4 categories = 8 images; we give ourselves 2x headroom.
-const MAX_IMAGES = 16;
+// Cap how many picks we accept per request. Even with the 50-pick UI
+// target, a malicious / buggy client could try to ship arbitrary numbers;
+// 200 is a generous ceiling.
+const MAX_PICKS = 200;
+
+// Negative-subtraction strength when blending picked − rejected. 0.3 is
+// the same value we use elsewhere in the ranker (lib/taste-centroid
+// applyNegativeSubtraction) so onboarding signal lives in the same
+// space as session signals downstream.
+const NEG_SUBTRACT_ALPHA = 0.3;
+
+function l2Normalize(v: number[]): number[] {
+  let sum = 0;
+  for (const x of v) sum += x * x;
+  const norm = Math.sqrt(sum);
+  if (!Number.isFinite(norm) || norm === 0) return v;
+  return v.map((x) => x / norm);
+}
+
+function averageVectors(vectors: number[][]): number[] | null {
+  if (vectors.length === 0) return null;
+  const dim = vectors[0].length;
+  if (dim === 0) return null;
+  const out = new Array<number>(dim).fill(0);
+  let n = 0;
+  for (const v of vectors) {
+    if (v.length !== dim) continue;
+    for (let i = 0; i < dim; i++) out[i] += v[i];
+    n++;
+  }
+  if (n === 0) return null;
+  for (let i = 0; i < dim; i++) out[i] /= n;
+  return out;
+}
+
+/** Compute preference centroid: positive minus alpha × negative, L2-norm. */
+function buildPreferenceCentroid(
+  positive: number[][],
+  negative: number[][],
+  alpha:    number,
+): number[] | null {
+  const pos = averageVectors(positive);
+  if (!pos || pos.length === 0) return null;
+  const neg = averageVectors(negative);
+  if (!neg || neg.length !== pos.length) {
+    // No valid negative pool — return the positive average alone. This
+    // happens if every rejected vector failed to fetch (rare).
+    return l2Normalize(pos);
+  }
+  const out = new Array<number>(pos.length);
+  for (let i = 0; i < pos.length; i++) out[i] = pos[i] - alpha * neg[i];
+  return l2Normalize(out);
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -68,7 +128,7 @@ export async function POST(request: Request) {
   const b = body as Record<string, unknown>;
   const userToken: string    = typeof b.userToken === "string" ? b.userToken.trim() : "";
   const ageRangeRaw: unknown = b.ageRange;
-  const imagesRaw: unknown   = b.images;
+  const picksRaw: unknown    = b.picks;
   const skip:      boolean   = b.skip === true;
 
   if (!userToken || userToken === "anon") {
@@ -79,11 +139,7 @@ export async function POST(request: Request) {
   }
   const ageRange: AgeRangeKey = ageRangeRaw;
 
-  // ── Path B: skip at the upload step ───────────────────────────────────
-  // Accept the age but skip the embed + centroid work. The row lands with
-  // upload_centroid=null and skipped=true so the gate recognises them as
-  // onboarded (no re-prompt) while the taste-profile lib knows there's no
-  // personal upload signal.
+  // ── Path C: explicit skip ─────────────────────────────────────────────
   if (skip) {
     await saveOnboarding({
       userToken,
@@ -95,48 +151,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true, ageRange });
   }
 
-  // ── Path A: full completion ───────────────────────────────────────────
-  if (!Array.isArray(imagesRaw)) {
-    return NextResponse.json({ error: "images must be an array" }, { status: 400 });
+  // ── Validate picks ────────────────────────────────────────────────────
+  if (!Array.isArray(picksRaw)) {
+    return NextResponse.json({ error: "picks must be an array" }, { status: 400 });
   }
-  if (imagesRaw.length === 0) {
-    // Not a skip (client didn't set the flag) AND no images — treat as a
-    // validation miss. The UI should always set `skip: true` when sending
-    // an empty array, so this only fires on malformed clients.
-    return NextResponse.json({ error: "At least one image is required (or pass skip: true)" }, { status: 400 });
-  }
-  if (imagesRaw.length > MAX_IMAGES) {
-    return NextResponse.json({ error: `Too many images (max ${MAX_IMAGES})` }, { status: 400 });
+  if (picksRaw.length > MAX_PICKS) {
+    return NextResponse.json({ error: `Too many picks (max ${MAX_PICKS})` }, { status: 400 });
   }
 
-  // Narrow each image to { base64, mimeType } and drop any that don't look
-  // like a real upload. Empty base64 / unsupported mime gets filtered here
-  // instead of failing downstream in the embed call.
-  const images: VisionImage[] = [];
-  for (const item of imagesRaw) {
-    if (!item || typeof item !== "object") continue;
-    const i = item as Record<string, unknown>;
-    const base64   = typeof i.base64   === "string" ? i.base64   : "";
-    const mimeType = typeof i.mimeType === "string" ? i.mimeType : "";
-    if (!base64 || !mimeType.startsWith("image/")) continue;
-    images.push({ base64, mimeType });
-  }
-  if (images.length === 0) {
-    return NextResponse.json({ error: "No valid images after validation" }, { status: 400 });
+  interface CleanPick { pickedId: string; rejectedId: string; }
+  const picks: CleanPick[] = [];
+  for (const p of picksRaw) {
+    if (!p || typeof p !== "object") continue;
+    const obj = p as Record<string, unknown>;
+    const pickedId   = typeof obj.pickedId   === "string" ? obj.pickedId.trim()   : "";
+    const rejectedId = typeof obj.rejectedId === "string" ? obj.rejectedId.trim() : "";
+    if (!pickedId || !rejectedId || pickedId === rejectedId) continue;
+    picks.push({ pickedId, rejectedId });
   }
 
-  // ── Embed ───────────────────────────────────────────────────────────────
-  // embedBase64Images returns one vector per input, with empty arrays for
-  // images that failed. Filter out empties before averaging. If the model
-  // isn't available on this host (e.g. @xenova/transformers can't load on
-  // a serverless cold start, ONNX init throws, etc.) we fall back to the
-  // skip path rather than blocking the user mid-onboarding — they keep
-  // their age (which still drives ranking via the age centroid).
-  let vectors: number[][];
-  try {
-    vectors = await embedBase64Images(images);
-  } catch (err) {
-    console.error("[onboarding/save] embed threw — falling back to skip:", err);
+  // ── Path B: zero positive picks (e.g. "neither" on every pair) ────────
+  // Save as skipped so the gate marks the user onboarded but the ranker
+  // falls back to age-only for taste signal. Same shape as the explicit
+  // skip path — different reason in the row's interpretation but the
+  // schema doesn't need to distinguish.
+  if (picks.length === 0) {
     await saveOnboarding({
       userToken,
       ageRange,
@@ -145,27 +184,46 @@ export async function POST(request: Request) {
       skipped:        true,
     });
     return NextResponse.json({
-      ok:          true,
-      skipped:     true,
-      embedFailed: true,
+      ok:       true,
+      skipped:  true,
       ageRange,
-      message:     "Saved your age — image embedding unavailable on the server right now.",
+      picks:    0,
+      message:  "Saved your age. Your feed will personalize as you browse.",
     });
   }
-  const goodVectors = vectors.filter((v) => Array.isArray(v) && v.length > 0);
-  if (goodVectors.length === 0) {
-    // Most common cause: the FashionCLIP model didn't load on this host
-    // (Vercel serverless cold start, missing ONNX runtime, network flake
-    // fetching the weights from Hugging Face). Detailed error per image
-    // is in the Vercel function logs — see lib/embeddings.embedBase64Images.
-    //
-    // Don't return 500 — the age-only path still produces a useful taste
-    // vector. Save as skipped + embedFailed so the client can show a soft
-    // notice instead of blocking the user on the upload step forever.
-    console.warn(
-      `[onboarding/save] all ${images.length} images returned empty vectors; ` +
-      "saving as skipped (embedFailed=true). Check earlier [embeddings] logs for per-image cause."
-    );
+
+  // ── Path A: full or partial gauntlet — fetch vectors and compute centroid ─
+  // One Pinecone fetch with all picked + rejected IDs. Pinecone returns
+  // values + metadata; we ignore metadata here (only need vectors).
+  const allIds = Array.from(new Set([
+    ...picks.map((p) => p.pickedId),
+    ...picks.map((p) => p.rejectedId),
+  ]));
+  const fetched = await fetchProductsForCentroid(allIds);
+  const vectorById = new Map(fetched.map((r) => [r.id, r.vector] as const));
+
+  const positive: number[][] = [];
+  const negative: number[][] = [];
+  let dropped = 0;
+  for (const p of picks) {
+    const pickedVec   = vectorById.get(p.pickedId);
+    const rejectedVec = vectorById.get(p.rejectedId);
+    // Only count a pick if BOTH sides resolved. A half-resolved pick
+    // would bias the centroid (positive without its matched negative or
+    // vice versa). Better to drop than skew.
+    if (pickedVec && rejectedVec && pickedVec.length > 0 && rejectedVec.length > 0) {
+      positive.push(pickedVec);
+      negative.push(rejectedVec);
+    } else {
+      dropped++;
+    }
+  }
+
+  if (positive.length === 0) {
+    // All vectors failed to fetch — likely a Pinecone outage or stale
+    // product IDs. Save as skipped so the user isn't blocked. Ranking
+    // gracefully falls back to age-only.
+    console.warn(`[onboarding/save] all ${picks.length} picks failed to resolve vectors; saving as skipped`);
     await saveOnboarding({
       userToken,
       ageRange,
@@ -174,28 +232,31 @@ export async function POST(request: Request) {
       skipped:        true,
     });
     return NextResponse.json({
-      ok:          true,
-      skipped:     true,
-      embedFailed: true,
+      ok:        true,
+      skipped:   true,
       ageRange,
-      message:     "Saved your age — your photos couldn't be processed, but your taste will sharpen as you browse.",
+      picks:     picks.length,
+      dropped:   picks.length,
+      message:   "Saved your age. Some of the picks couldn't be processed, but your feed will sharpen as you browse.",
     });
   }
 
-  const centroid = averageVectors(goodVectors);
-  if (!centroid || centroid.length === 0) {
-    // averageVectors only returns null on pathological input; we already
-    // filtered empties, so this path is theoretically unreachable. Belt-
-    // and-braces so a future refactor can't break things silently.
-    return NextResponse.json({ error: "Failed to compute centroid" }, { status: 500 });
+  const centroid = buildPreferenceCentroid(positive, negative, NEG_SUBTRACT_ALPHA);
+  if (!centroid) {
+    return NextResponse.json({ error: "Failed to compute preference centroid" }, { status: 500 });
   }
 
   // ── Persist ─────────────────────────────────────────────────────────────
+  // upload_vectors keeps the per-pick POSITIVE vectors only — these are
+  // what historically lived there (one vector per uploaded photo). The
+  // negative side gets baked into the centroid but isn't kept around;
+  // future training on this row would only see what the user picked,
+  // which is the right signal for downstream taste-head training.
   await saveOnboarding({
     userToken,
     ageRange,
     uploadCentroid: centroid,
-    uploadVectors:  goodVectors,
+    uploadVectors:  positive,
     skipped:        false,
   });
 
@@ -203,7 +264,8 @@ export async function POST(request: Request) {
     ok:          true,
     skipped:     false,
     centroidDim: centroid.length,
-    embedded:    goodVectors.length,
+    picks:       positive.length,
+    dropped,
     ageRange,
   });
 }
