@@ -504,14 +504,23 @@ function ShopPageContent() {
       const useSteerQuery  = looseningLevel < 2 ? steerQuery  : "";
       const useSteerInterp = looseningLevel < 2 ? steerInterp : null;
 
+      // /shop?all=1 = explicit catalog-discovery mode. The user clicked
+      // "Shop all" because they want to BROWSE THE WHOLE CATALOG — not
+      // their personalized slice. Drop the personalization payload so
+      // the server falls into the flat 8-slice walk path (which spans
+      // the price range from cheapest to most-expensive in round-robin).
+      // Without this, post-onboarding users with strong CLIP signals
+      // get a desc-price-sorted feed where only the most expensive
+      // items in their taste neighborhood surface. Cheap items are
+      // never represented despite "all" in the URL.
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           page,
-          bias:            buildBias(),
-          likedProductIds: Array.from(likedIds),
-          signals:         buildServerSignals(),
+          bias:            isAllMode ? {} : buildBias(),
+          likedProductIds: isAllMode ? [] : Array.from(likedIds),
+          signals:         isAllMode ? undefined : buildServerSignals(),
           userToken,
           brandFilter:     useBrand,
           categoryFilter:  useCategory,
@@ -548,7 +557,7 @@ function ShopPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, looseningLevel, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds, userToken]);
+  }, [page, loading, hasMore, looseningLevel, dedupeAgainstSeen, buildBias, buildServerSignals, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, isAllMode, likedIds, userToken]);
 
   // One-shot init guard. The useEffect below has deps that settle in stages
   // on mount (URL read swaps brand/category null → value); without a guard
@@ -590,14 +599,18 @@ function ShopPageContent() {
     setLoading(true);
     (async () => {
       try {
+        // Same isAllMode gate as the loadMore fetch — see comment there
+        // for the full rationale. Tl;dr: /shop?all=1 means catalog
+        // discovery, drop personalization so the flat 8-slice walk
+        // surfaces a real cross-section of prices.
         const res = await fetch(`/api/shop-all`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
             page:            0,
-            bias:            buildBias(),
-            likedProductIds: Array.from(likedIds),
-          signals:         buildServerSignals(),
+            bias:            isAllMode ? {} : buildBias(),
+            likedProductIds: isAllMode ? [] : Array.from(likedIds),
+            signals:         isAllMode ? undefined : buildServerSignals(),
             userToken,
             brandFilter:     brandFilter    ?? "",
             categoryFilter:  categoryFilter ?? "",
@@ -684,6 +697,12 @@ function ShopPageContent() {
       || (bias.likedColors?.length ?? 0) > 0
       || likedIds.size > 0;
     if (!hasLiked) return;
+    // /shop?all=1 = catalog discovery. Splicing biased items into the feed
+    // would defeat the purpose — the user explicitly asked for "all", so
+    // a like shouldn't suddenly start reordering the catalog walk toward
+    // similar items. Likes still register for /shortlist and downstream
+    // ranking on /shop (no ?all=1) — they just don't reshape this feed.
+    if (isAllMode) return;
     biasRefetchInFlightRef.current = true;
     try {
       const res = await fetch(`/api/shop-all`, {
@@ -748,7 +767,7 @@ function ShopPageContent() {
     } finally {
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds, userToken]);
+  }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, isAllMode, likedIds, userToken]);
 
   // "More like this" — fire a seed-mode fetch and slide the result in as a
   // sidebar of horizontal product rows. Doesn't disturb the main feed (so
