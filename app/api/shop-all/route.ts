@@ -1488,14 +1488,22 @@ export async function POST(request: Request) {
       let axisProfile: AxisRecord = {};
       let dislikedMetadata: Array<Record<string, unknown> | null> = [];
       let taste: { hasVector: boolean; userAge: AgeRangeKey | null } = { hasVector: false, userAge: null };
+      // Seed mode reads the seed's `category` so we can stable-partition
+      // same-category neighbours ahead of cross-category ones in the
+      // re-rank below. Fetched in parallel with the seed CLIP search so
+      // it adds zero serial latency.
+      let seedCategory: string | null = null;
       let res;
       if (seedProductId) {
-        const [algRes, seedIds] = await Promise.all([
+        const [algRes, seedIds, seedRows] = await Promise.all([
           algoliaPromise,
           searchByLikedProductIds([seedProductId], 100, {}, [seedProductId]).catch(() => [] as string[]),
+          getProductsByIds([seedProductId]).catch(() => [] as Array<{ category?: string }>),
         ]);
         res = algRes;
         boostIds = seedIds;
+        const seedCat = seedRows[0]?.category;
+        if (seedCat) seedCategory = String(seedCat).toLowerCase().trim();
       } else {
         const [algRes, ranking] = await Promise.all([
           algoliaPromise,
@@ -1600,6 +1608,26 @@ export async function POST(request: Request) {
         boostIds,
         Math.max(likedProductIds.length, taste.hasVector ? 1 : 0),
       );
+
+      // Seed-mode: same-category soft partition. boostByClipSimilarity
+      // orders by raw CLIP cosine, but FashionCLIP encodes overall image
+      // composition (palette, lighting, model styling) alongside the
+      // garment itself — so a Hermès bag photographed on a similar warm
+      // vintage backdrop can outrank an actually-similar blouse. Stable-
+      // partition same-category items first to keep cross-category
+      // neighbours visible (they still appear, just below the on-category
+      // ones) while pulling the right garment type to the front.
+      // Off when seed lacks a category tag (rare; defensive).
+      if (seedProductId && seedCategory) {
+        const same:  typeof clean = [];
+        const other: typeof clean = [];
+        for (const p of clean) {
+          const c = String(p.category ?? "").toLowerCase().trim();
+          if (c === seedCategory) same.push(p);
+          else other.push(p);
+        }
+        clean = [...same, ...other];
+      }
 
       // StyleAxes soft-rerank
       if (Object.keys(axisProfile).length > 0 && !seedProductId) {
