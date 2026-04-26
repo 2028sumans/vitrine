@@ -49,6 +49,7 @@ const BRAND_CURRENCY = {
   "Lisa Yang":       { currency: "SEK", rate: 0.093   },  // 1 USD ≈ 10.7 SEK
   "Dima Ayad":       { currency: "AED", rate: 0.272   },
   "Clio Peppiatt":   { currency: "GBP", rate: 1.27    },  // GBP → USD (GBP is stronger)
+  "Hissa Line":      { currency: "QAR", rate: 0.275   },  // pegged 3.64 QAR = 1 USD
 };
 
 // Bucket thresholds match scripts/scrape-shopify.mjs
