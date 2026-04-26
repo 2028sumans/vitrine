@@ -96,10 +96,14 @@ const LOW_THRESHOLD  = 0.40;
 // category. The remaining items in the topK=240 fetch are "kinda age-
 // aligned, kinda not" and would dilute the signal if mixed in.
 //
-// Tuned 100 → 150 after first cut produced only 31 pairs for sparse age
-// buckets like 13-18 (where labeled examples are limited and the top-100
-// cluster very tightly, leaving low pools empty for some axes).
-const AGE_BIAS_POOL_SIZE = 150;
+// Tuned 100 → 150 → 200 across iterations. The sparser-labeled age
+// buckets (13-18 has ~140 labeled items, 32+ has ~105) cluster so
+// tightly at small top-K that low-axis pools go empty for some axes.
+// 200 (out of the 240 returned by Pinecone) keeps 80%+ of the items
+// while still excluding the lukewarm tail. The age signal is still
+// strongly held by the query vector itself — the slice just keeps the
+// partition wide enough to find both axis ends in sparse buckets.
+const AGE_BIAS_POOL_SIZE = 200;
 
 // Within each axis-end pool (e.g., the high-formality items in tops),
 // only consider the top CELL_TIGHT_TOP items by Pinecone similarity to
@@ -109,12 +113,14 @@ const AGE_BIAS_POOL_SIZE = 150;
 // pairs tightly age-aligned while still giving cross-call variety so two
 // users in the same age bucket don't see identical sequences.
 //
-// Tuned 10 → 14 after first cut: top-10 was so tight that dedup kept
-// catching the same items across multiple axis cells (an item high on
-// formality is often also high on minimalism among age-aligned tops),
-// collapsing pair counts. 14 gives enough cross-axis breathing room
-// without losing the tight-aligned ranking.
-const CELL_TIGHT_TOP = 14;
+// Tuned 10 → 14 → 18. Top-10 was so tight that dedup kept catching the
+// same items across multiple axis cells (an item high on formality is
+// often also high on minimalism among age-aligned tops), collapsing
+// pair counts. Top-18 gives enough cross-axis breathing room that
+// sparse-label age buckets (13-18, 32+) still produce 60+ pairs after
+// dedup. The first 18 items per axis-end pool are still the most age-
+// aligned items that meet the threshold — bias is preserved.
+const CELL_TIGHT_TOP = 18;
 
 // Pinecone stores category as singular ("top", "dress", "bottom", etc.) —
 // matching the catalog's `category` field. The age-centroid file uses the
