@@ -459,6 +459,11 @@ export async function POST(request: Request) {
               // descriptor-only scoring.
               userCentroid: tasteMemory.styleCentroid,
               softAvoids:   tasteMemory.softAvoids,
+              // Click signals feed the click-affinity bonus axis: structured
+              // brand/color/retailer matches the centroid's visual signal
+              // can't capture. Captures "I keep clicking Khaite" beyond
+              // "I keep clicking things that look Khaite-like."
+              clickSignals: tasteMemory.clickSignals,
             },
           );
 

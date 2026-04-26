@@ -22,7 +22,7 @@ import {
   cosineSimilarity,
 } from "@/lib/embeddings";
 import { buildTextQueryVectors } from "@/lib/query-builder";
-import type { StyleDNA } from "@/lib/types";
+import type { StyleDNA, ClickSignal } from "@/lib/types";
 
 const CATEGORIES: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
 const RRF_K = 60; // standard constant — dampens the impact of very high ranks
@@ -296,9 +296,11 @@ export async function twoStageStrictSearch(
     useTasteHead?:       boolean;
     userCentroid?:       number[] | null;
     softAvoids?:         string[];
+    clickSignals?:       ClickSignal[];
   } = {},
 ): Promise<CategoryCandidates> {
   const userCentroid = opts.userCentroid && opts.userCentroid.length > 0 ? opts.userCentroid : null;
+  const clickSignals = opts.clickSignals ?? [];
 
   // Encode the descriptor first (smart fallback), in parallel with the
   // retrieval-phrase ensemble used for the FashionCLIP-side gate. Both end up
@@ -432,6 +434,7 @@ export async function twoStageStrictSearch(
 
   // Stage 2: per-category rerank with z-normalized + centroid-aware scoring,
   // then MMR diversity pass.
+  const clickFeatures = buildClickFeatures(clickSignals);
   const merged = emptyBuckets();
   for (const cat of CATEGORIES) {
     const candidates = mergedPool[cat];
@@ -442,6 +445,7 @@ export async function twoStageStrictSearch(
       descriptorVec,
       userCentroid,
       maxPerCategory,
+      clickFeatures,
     );
   }
 
@@ -493,6 +497,28 @@ const VIBE_DROPOUT_THRESHOLD = 0.5;
 // noisy enough that z-scores can flip rankings on outliers. Switch to rank-
 // normalization (always [0, 1], stable on any pool size) for small pools.
 const ZNORM_MIN_POOL = 30;
+
+// Click-affinity bonus: an additive score in [0, W_CLICK_AFFINITY] applied
+// to items whose brand/color/retailer matches the user's click history.
+// Captures structured personal signal that the centroid (purely visual) misses
+// — a user who clicks Khaite items has both a Khaite-aesthetic centroid AND
+// a literal Khaite-brand affinity; this axis represents the latter.
+//
+// The bonus is small (0.10) so it doesn't override semantic relevance —
+// among items with similar relevance scores, the brand-matched item wins;
+// no item moves dramatically just for matching brand.
+const W_CLICK_AFFINITY = 0.10;
+const CLICK_BRAND_WEIGHT    = 0.5;
+const CLICK_COLOR_WEIGHT    = 0.3;
+const CLICK_RETAILER_WEIGHT = 0.2;
+
+// (Brand-aware MMR) Penalty added to the visual-similarity penalty when an
+// already-selected item shares the candidate's brand. Stops a category from
+// returning 10 nearly-identical Khaite blazers even when MMR's visual penalty
+// is satisfied (different colorways look visually distinct enough to slip
+// past). 0.15 is enough to demote 2nd-from-same-brand without entirely
+// banning brand repeats.
+const MMR_BRAND_PENALTY = 0.15;
 
 /**
  * Multi-tier descriptor → query vector. Falls through tiers if a tier is
@@ -609,6 +635,41 @@ function normalizeScores(scores: number[]): number[] {
 }
 
 /**
+ * Pre-compute the user's click-affinity feature sets — brand / color /
+ * retailer the user has clicked on in recent sessions. Looking each up by
+ * candidate is O(1) via the Sets. Empty/missing values are dropped so we
+ * don't match every product whose brand is "" against the empty-string
+ * "brand" of unbranded clicks.
+ */
+type ClickFeatures = {
+  brands:    Set<string>;
+  colors:    Set<string>;
+  retailers: Set<string>;
+};
+
+function buildClickFeatures(clicks: ClickSignal[]): ClickFeatures {
+  const brands    = new Set<string>();
+  const colors    = new Set<string>();
+  const retailers = new Set<string>();
+  for (const c of clicks) {
+    if (c.brand?.trim())    brands.add(c.brand.toLowerCase().trim());
+    if (c.color?.trim())    colors.add(c.color.toLowerCase().trim());
+    if (c.retailer?.trim()) retailers.add(c.retailer.toLowerCase().trim());
+  }
+  return { brands, colors, retailers };
+}
+
+/** Per-product click-affinity score in [0, 1]. */
+function clickAffinityScore(product: AlgoliaProduct, features: ClickFeatures): number {
+  if (features.brands.size === 0 && features.colors.size === 0 && features.retailers.size === 0) return 0;
+  let score = 0;
+  if (product.brand    && features.brands.has(product.brand.toLowerCase().trim()))       score += CLICK_BRAND_WEIGHT;
+  if (product.color    && features.colors.has(product.color.toLowerCase().trim()))       score += CLICK_COLOR_WEIGHT;
+  if (product.retailer && features.retailers.has(product.retailer.toLowerCase().trim())) score += CLICK_RETAILER_WEIGHT;
+  return Math.min(1, score);
+}
+
+/**
  * Per-category rerank with adaptive scoring.
  *
  *   Score = wVis × N(cos(q, vis)) + wVibe × N(cos(q, vibe)) + wCent × N(cos(c, vis))
@@ -633,6 +694,7 @@ function rerankCategory(
   queryVec:      number[],
   userCentroid:  number[] | null,
   maxPerCategory: number,
+  clickFeatures: ClickFeatures = { brands: new Set(), colors: new Set(), retailers: new Set() },
 ): AlgoliaProduct[] {
   // Raw cosine scores per axis. NaN = missing vector.
   const visScores:  number[] = [];
@@ -700,18 +762,31 @@ function rerankCategory(
 
   const scored = candidates.map((p, i) => ({
     product: p,
-    score:   wVis * nVis[i] + wVibe * nVibe[i] + wCent * nCent[i],
+    // Base score from descriptor + centroid axes, plus click-affinity bonus
+    // (additive, small) for items matching the user's click history on
+    // brand/color/retailer.
+    score:   wVis * nVis[i] + wVibe * nVibe[i] + wCent * nCent[i]
+           + W_CLICK_AFFINITY * clickAffinityScore(p, clickFeatures),
     visual:  vecById.get(p.objectID)?.visual ?? null,
+    brand:   (p.brand ?? "").toLowerCase().trim(),
   }));
 
   scored.sort((a, b) => b.score - a.score);
 
-  // MMR rerank — each new slot picks max(score - λ × max-sim-to-selected).
+  // MMR rerank — each new slot picks the candidate that maximizes:
+  //   score
+  //     - MMR_LAMBDA       × max-visual-sim-to-selected
+  //     - MMR_BRAND_PENALTY × (already-selected-shares-brand ? 1 : 0)
+  //
+  // The brand penalty stops "10 Khaite blazers in different colorways" —
+  // visually MMR thinks those are diverse enough (different colors), but
+  // the user just wanted variety in BRAND too.
   if (MMR_LAMBDA <= 0 || scored.length <= 1) {
     return scored.slice(0, maxPerCategory).map((s) => s.product);
   }
 
   const out: typeof scored = [];
+  const selectedBrands = new Set<string>();
   const remainingPool = scored.slice();
   while (out.length < maxPerCategory && remainingPool.length > 0) {
     let bestIdx = 0;
@@ -726,10 +801,12 @@ function rerankCategory(
           if (sim > maxSim) maxSim = sim;
         }
       }
-      const mmr = r.score - MMR_LAMBDA * maxSim;
+      const brandPenalty = r.brand && selectedBrands.has(r.brand) ? MMR_BRAND_PENALTY : 0;
+      const mmr = r.score - MMR_LAMBDA * maxSim - brandPenalty;
       if (mmr > bestMmr) { bestMmr = mmr; bestIdx = i; }
     }
     out.push(remainingPool[bestIdx]);
+    if (remainingPool[bestIdx].brand) selectedBrands.add(remainingPool[bestIdx].brand);
     remainingPool.splice(bestIdx, 1);
   }
   return out.map((s) => s.product);
