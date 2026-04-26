@@ -450,7 +450,16 @@ export async function POST(request: Request) {
             aesthetic!,
             token,
             50,
-            { fallbackEmbeddings, useTasteHead },
+            {
+              fallbackEmbeddings,
+              useTasteHead,
+              // Pass the user's cross-session styleCentroid as a third
+              // ranking axis. New users (no centroid) trigger the rerank's
+              // weight-renormalization branch and the rerank degrades to
+              // descriptor-only scoring.
+              userCentroid: tasteMemory.styleCentroid,
+              softAvoids:   tasteMemory.softAvoids,
+            },
           );
 
         } else {

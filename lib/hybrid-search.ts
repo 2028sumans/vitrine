@@ -21,6 +21,7 @@ import {
   fetchVisualAndVibeVectors,
   cosineSimilarity,
 } from "@/lib/embeddings";
+import { buildTextQueryVectors } from "@/lib/query-builder";
 import type { StyleDNA } from "@/lib/types";
 
 const CATEGORIES: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
@@ -252,63 +253,122 @@ export async function hybridSearch(
   return merged;
 }
 
-// ── 2-stage strict-mode search ────────────────────────────────────────────────
-// Used for text and quiz queries (deliberate user briefs). Cleanly separates
-// hard literal constraints (brand, color, garment, category) from soft semantic
-// constraints (vibe, mood, era, season).
+// ── 2-stage strict-mode search (optimized) ────────────────────────────────────
+// Used for text and quiz queries. Cleanly separates hard literal constraints
+// (brand, color, garment, category) from soft semantic constraints (vibe, mood,
+// era, season). Five interlocking improvements over the basic version:
 //
-//   Stage 1 — Algolia gates:
-//     run searchByCategory with Claude's category_queries + style_keywords as
-//     boost. This narrows the catalog to items whose titles/brands/categories
-//     literal-match the brief. For "blue khaite dress for summer" this is
-//     ~30-100 blue Khaite dresses; for "y2k party" it's items keyword-matching
-//     "low rise jeans", "metallic top" etc.
+//   1. Augmented gate (Algolia ∪ FashionCLIP semantic). Algolia title-matching
+//      misses items with abstract titles (e.g. "Crew Tee Wash 12" that's
+//      perfectly y2k visually). We run a parallel FashionCLIP semantic search
+//      with retrieval_phrases and union the pools — Algolia anchors literal
+//      precision, FashionCLIP catches the abstractly-titled items. No longer
+//      need a < 30 fallback threshold.
 //
-//   Stage 2 — FashionCLIP reranks within Algolia's pool:
-//     fetch (visual, vibe) vector pair for every Algolia candidate from
-//     Pinecone. Encode aesthetic.aesthetic_descriptor — Claude's purified
-//     soft phrase ("summery breezy" / "y2k clubby") that intentionally
-//     omits anything Algolia already filtered on. Score each candidate
-//     with weighted cosine: 0.8 × cos(qVec, pVisual) + 0.2 × cos(qVec, pVibe).
-//     Sort, return top-K per category.
+//   2. Smart descriptor encoding. Multi-tier fallback when aesthetic_descriptor
+//      is empty: descriptor → primary_aesthetic+mood → average of retrieval_
+//      phrases → summary. Robust to any one Claude field being weak.
 //
-// Fallback: if Algolia returns < STAGE2_MIN_POOL items combined, the literal
-// gate misfired (brief was too abstract) — drop to the original parallel-RRF
-// hybridSearch on the full catalog.
+//   3. Z-normalized scoring. Visual cosines (0.1-0.4 typical) and vibe cosines
+//      (0.05-0.25 typical) live on different scales. Weighting raw cosines lets
+//      the bigger-magnitude scale dominate regardless of the configured weight.
+//      Z-score per pool first, then weight.
 //
-// Why this beats parallel RRF for typed queries: pre-2-stage, an Algolia hit
-// with weight 0.25 could still vote a swimsuit-tagged-as-dress into the
-// "summery dress" results because FashionCLIP also liked it. Stage 1 is now
-// the only path into the candidate pool — if Algolia doesn't include it,
-// it can't surface.
+//   4. Personal centroid axis. The user's cross-session styleCentroid (built
+//      from previous DNAs / liked items) joins the rerank as a third axis:
+//      score = 0.6 × z(qDescriptor↔visual) + 0.15 × z(qDescriptor↔vibe)
+//                                          + 0.25 × z(centroid↔visual).
+//      Items aligned with both query AND personal taste win. New users with no
+//      centroid: third term zero'd, weights renormalized.
+//
+//   5. MMR diversity rerank. After scoring, take top-K with a marginal-
+//      relevance penalty so we don't return 10 nearly-identical items from the
+//      same brand/color. λ=0.3 by default — moderate diversity bonus.
+//
+// Fallback: only when both Algolia AND Pinecone return empty for a category
+// (very rare). Falls back to parallel-RRF hybridSearch.
 export async function twoStageStrictSearch(
   aesthetic:      StyleDNA,
   userToken:      string,
   maxPerCategory  = 50,
-  opts:           { fallbackEmbeddings?: number[][]; useTasteHead?: boolean } = {},
+  opts:           {
+    fallbackEmbeddings?: number[][];
+    useTasteHead?:       boolean;
+    userCentroid?:       number[] | null;
+    softAvoids?:         string[];
+  } = {},
 ): Promise<CategoryCandidates> {
-  // Stage 1: Algolia gate. searchByCategory now returns the FULL pool per
-  // category (capped only by pagination, not a hard slice), so this is a
-  // wide net — anywhere from a few items to several thousand.
-  const algoliaCandidates = await searchByCategory(
-    aesthetic.category_queries,
-    aesthetic.style_keywords ?? [],
-    aesthetic.price_range ?? "mid",
-    // Per-page request size; not a final cap. Pagination inside searchProducts
-    // will pull more pages if Algolia has them.
-    maxPerCategory * 4,
-    userToken,
-  ).catch((err) => {
-    console.warn("[twoStage] Algolia gate failed:", err instanceof Error ? err.message : err);
-    return emptyBuckets();
-  });
+  const userCentroid = opts.userCentroid && opts.userCentroid.length > 0 ? opts.userCentroid : null;
 
-  const totalAlgolia = Object.values(algoliaCandidates).flat().length;
+  // Encode the descriptor first (smart fallback), in parallel with the
+  // retrieval-phrase ensemble used for the FashionCLIP-side gate. Both end up
+  // as Promises we await alongside the Algolia request.
+  const [descriptorVec, gateEmbeddings] = await Promise.all([
+    buildStage2QueryVector(aesthetic),
+    buildTextQueryVectors(aesthetic, opts.softAvoids ?? []).catch(() => [] as number[][]),
+  ]);
 
-  // Fallback: pool too small → drop to the loose parallel-RRF hybrid (which
-  // doesn't depend on the literal gate). Brief was too abstract for Algolia.
-  if (totalAlgolia < STAGE2_MIN_POOL) {
-    console.log(`[twoStage] Algolia pool=${totalAlgolia} < ${STAGE2_MIN_POOL} — falling back to hybridSearch`);
+  // Stage 1a (Algolia literal gate) and Stage 1b (FashionCLIP semantic gate)
+  // run in parallel. searchByCategory paginates per-category up to ~5000
+  // hits per query; searchByEmbeddings clusters retrieval_phrase vectors and
+  // pulls topK from Pinecone's visual namespace.
+  const [algoliaCandidates, semanticIds] = await Promise.all([
+    searchByCategory(
+      aesthetic.category_queries,
+      aesthetic.style_keywords ?? [],
+      aesthetic.price_range ?? "mid",
+      maxPerCategory * 4,
+      userToken,
+    ).catch((err) => {
+      console.warn("[twoStage] Algolia gate failed:", err instanceof Error ? err.message : err);
+      return emptyBuckets();
+    }),
+
+    gateEmbeddings.length > 0
+      ? searchByEmbeddings(gateEmbeddings, GATE_PINECONE_TOPK, {
+          priceRange: aesthetic.price_range,
+          minScore:   STAGE1B_MIN_SCORE,
+        }).catch(() => [] as string[])
+      : Promise.resolve([] as string[]),
+  ]);
+
+  // Hydrate the FashionCLIP-only ids (those Algolia missed). Some will
+  // overlap with Algolia hits — that's fine, the per-category dedup below
+  // handles it. Skip the fetch entirely when there are no semantic ids.
+  const algoliaIdSet = new Set(Object.values(algoliaCandidates).flat().map((p) => p.objectID));
+  const semanticOnlyIds = semanticIds.filter((id) => !algoliaIdSet.has(id));
+  const semanticOnlyProducts = semanticOnlyIds.length > 0
+    ? await getProductsByIds(semanticOnlyIds).catch(() => [] as AlgoliaProduct[])
+    : [];
+
+  // Bucket semantic-only adds into per-category lists, capped per category
+  // so very abstract queries don't drown the literal-gate items.
+  const semanticBuckets = groupByCategory(semanticOnlyProducts, GATE_SEMANTIC_PER_CAT);
+
+  // Merged pool per category = Algolia ∪ Semantic-only. Algolia order is
+  // preserved at the front so its relevance ranking still influences ties.
+  const mergedPool: Record<ClothingCategory, AlgoliaProduct[]> = emptyBuckets();
+  for (const cat of CATEGORIES) {
+    const seen = new Set<string>();
+    const out: AlgoliaProduct[] = [];
+    for (const p of algoliaCandidates[cat]) {
+      if (!seen.has(p.objectID)) { seen.add(p.objectID); out.push(p); }
+    }
+    for (const p of semanticBuckets[cat]) {
+      if (!seen.has(p.objectID)) { seen.add(p.objectID); out.push(p); }
+    }
+    mergedPool[cat] = out;
+  }
+
+  const totalPool = Object.values(mergedPool).reduce((s, b) => s + b.length, 0);
+  const totalAlg  = Object.values(algoliaCandidates).flat().length;
+  const totalSem  = Object.values(semanticBuckets).flat().length;
+
+  // Both gates dry → fall back to the parallel-RRF hybridSearch. Should be
+  // rare with the augmented gate (we'd need a query both Algolia AND
+  // FashionCLIP retrieval_phrases couldn't match anything for).
+  if (totalPool < STAGE2_MIN_POOL) {
+    console.log(`[twoStage] augmented pool=${totalPool} < ${STAGE2_MIN_POOL} — falling back to hybridSearch`);
     return hybridSearch(
       opts.fallbackEmbeddings ?? [],
       aesthetic,
@@ -318,55 +378,223 @@ export async function twoStageStrictSearch(
     );
   }
 
-  // Encode the soft/aesthetic descriptor — the differentiator. NO brand,
-  // NO color, NO garment, NO fabric (all of which Algolia already gated on).
-  const descriptor = (aesthetic.aesthetic_descriptor ?? "").trim()
-    || `${aesthetic.primary_aesthetic ?? ""} ${aesthetic.mood ?? ""}`.trim()
-    || aesthetic.summary?.trim()
-    || "stylish";
-
-  const queryVec = await embedTextQuery(descriptor).catch(() => [] as number[]);
-  if (queryVec.length === 0) {
-    console.warn(`[twoStage] embedTextQuery("${descriptor.slice(0, 60)}") returned empty — using Algolia order only`);
-    // Degrade to Algolia's own relevance order, no rerank.
+  // No descriptor vector available → degrade to gate order (Algolia first, then
+  // semantic). Better than blowing up.
+  if (descriptorVec.length === 0) {
+    console.warn("[twoStage] descriptor vector empty — using gate order");
     const out = emptyBuckets();
-    for (const cat of CATEGORIES) {
-      out[cat] = algoliaCandidates[cat].slice(0, maxPerCategory);
-    }
+    for (const cat of CATEGORIES) out[cat] = mergedPool[cat].slice(0, maxPerCategory);
     return out;
   }
 
-  // Fetch (visual, vibe) vector pair for every Algolia candidate. Pinecone
-  // 1000-id chunking is handled inside fetchVisualAndVibeVectors.
-  const allIds  = Object.values(algoliaCandidates).flat().map((p) => p.objectID);
+  // Fetch (visual, vibe) vector pair for the entire merged pool.
+  const allIds  = Object.values(mergedPool).flat().map((p) => p.objectID);
   const vectors = await fetchVisualAndVibeVectors(allIds);
   const vecById = new Map(vectors.map((v) => [v.id, v]));
 
   console.log(
-    `[twoStage] descriptor="${descriptor.slice(0, 60)}" pool=${totalAlgolia} ` +
-    `with-visual=${vectors.filter((v) => v.visual).length} with-vibe=${vectors.filter((v) => v.vibe).length}`
+    `[twoStage] descriptor="${descriptorTextForLogging(aesthetic).slice(0, 60)}" ` +
+    `pool=${totalPool} (algolia=${totalAlg} sem-only=${totalSem}) ` +
+    `with-visual=${vectors.filter((v) => v.visual).length} with-vibe=${vectors.filter((v) => v.vibe).length} ` +
+    `centroid=${userCentroid ? "on" : "off"}`
   );
 
-  // Stage 2: rerank each per-category bucket by weighted cosine.
+  // Stage 2: per-category rerank with z-normalized + centroid-aware scoring,
+  // then MMR diversity pass.
   const merged = emptyBuckets();
   for (const cat of CATEGORIES) {
-    const candidates = algoliaCandidates[cat];
+    const candidates = mergedPool[cat];
     if (candidates.length === 0) continue;
-
-    const scored = candidates.map((product) => {
-      const v = vecById.get(product.objectID);
-      const visScore  = v?.visual ? cosineSimilarity(queryVec, v.visual) : 0;
-      const vibeScore = v?.vibe   ? cosineSimilarity(queryVec, v.vibe)   : 0;
-      // Items missing a visual vector still get a vibe-only score (×0.2)
-      // and items missing both fall through with score 0 — they sort to
-      // the bottom but stay in the result so the user isn't left short.
-      const score = STAGE2_VISUAL_WEIGHT * visScore + STAGE2_VIBE_WEIGHT * vibeScore;
-      return { product, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-    merged[cat] = scored.slice(0, maxPerCategory).map((s) => s.product);
+    merged[cat] = rerankCategory(
+      candidates,
+      vecById,
+      descriptorVec,
+      userCentroid,
+      maxPerCategory,
+    );
   }
 
   return merged;
+}
+
+// ── Stage 2 helpers ───────────────────────────────────────────────────────────
+
+const GATE_PINECONE_TOPK   = 1500;  // wide net for the FashionCLIP gate
+const GATE_SEMANTIC_PER_CAT = 200;  // cap semantic-only adds per category
+const STAGE1B_MIN_SCORE     = 0.18; // floor on FashionCLIP-side gate
+
+// MMR rerank — λ controls diversity vs relevance.
+//   λ=0   → strict relevance ordering (no diversity penalty, original sort)
+//   λ=0.3 → moderate diversity (default)
+//   λ=0.5 → aggressive diversity, may push lower-relevance items up
+const MMR_LAMBDA = 0.3;
+
+// Score axis weights — applied to z-normalized cosines so the magnitudes are
+// comparable. New users with no centroid: γ folds back into α via renorm.
+const W_DESCRIPTOR_VISUAL = 0.6;
+const W_DESCRIPTOR_VIBE   = 0.15;
+const W_CENTROID_VISUAL   = 0.25;
+
+/**
+ * Multi-tier descriptor → query vector. Falls through tiers if a tier is
+ * empty or its encoding fails. Matches Claude's progressively-weaker fields
+ * in order of soft-aesthetic specificity.
+ */
+async function buildStage2QueryVector(aesthetic: StyleDNA): Promise<number[]> {
+  // Tier 1 — Claude's purified descriptor (the canonical path)
+  const descriptor = (aesthetic.aesthetic_descriptor ?? "").trim();
+  if (descriptor) {
+    const v = await embedTextQuery(descriptor).catch(() => [] as number[]);
+    if (v.length > 0) return v;
+  }
+
+  // Tier 2 — primary_aesthetic + mood (still soft-only)
+  const moodPhrase = [aesthetic.primary_aesthetic ?? "", aesthetic.mood ?? ""]
+    .filter((s) => Boolean(s?.trim()))
+    .join(", ")
+    .trim();
+  if (moodPhrase) {
+    const v = await embedTextQuery(moodPhrase).catch(() => [] as number[]);
+    if (v.length > 0) return v;
+  }
+
+  // Tier 3 — average of retrieval_phrases (richest signal but contains
+  // garment/color/fabric, so used only as a fallback ensemble)
+  const phrases = (aesthetic.retrieval_phrases ?? [])
+    .filter((p): p is string => Boolean(p?.trim()))
+    .slice(0, 5);
+  if (phrases.length > 0) {
+    const vecs = await Promise.all(
+      phrases.map((p) => embedTextQuery(p).catch(() => [] as number[])),
+    );
+    const valid = vecs.filter((v) => v.length > 0);
+    if (valid.length > 0) {
+      const dim = valid[0].length;
+      const avg = new Array<number>(dim).fill(0);
+      for (const v of valid) for (let i = 0; i < dim; i++) avg[i] += v[i] / valid.length;
+      // Renormalize the average to unit length so it sits in the same shell as
+      // the per-item vectors (which are L2-normalized at boundary).
+      let n = 0;
+      for (const x of avg) n += x * x;
+      const norm = Math.sqrt(n);
+      return norm === 0 ? avg : avg.map((x) => x / norm);
+    }
+  }
+
+  // Tier 4 — summary (last resort, full editorial sentence)
+  const summary = (aesthetic.summary ?? "").trim();
+  if (summary) {
+    const v = await embedTextQuery(summary).catch(() => [] as number[]);
+    if (v.length > 0) return v;
+  }
+
+  return [];
+}
+
+function descriptorTextForLogging(aesthetic: StyleDNA): string {
+  return (aesthetic.aesthetic_descriptor ?? "").trim()
+    || [aesthetic.primary_aesthetic, aesthetic.mood].filter(Boolean).join(", ").trim()
+    || (aesthetic.summary ?? "").trim()
+    || "(empty)";
+}
+
+/**
+ * Z-normalize an array of scores. Mean → 0, std → 1. Items missing a score
+ * (NaN passed in) keep NaN so the downstream weighting can ignore them.
+ * Returns zeros if the input is degenerate (all the same value).
+ */
+function zNormalize(scores: number[]): number[] {
+  const valid = scores.filter((s) => Number.isFinite(s));
+  if (valid.length === 0) return scores.map(() => 0);
+  const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
+  const variance = valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length;
+  const std = Math.sqrt(variance);
+  if (std < 1e-9) return scores.map(() => 0);
+  return scores.map((s) => (Number.isFinite(s) ? (s - mean) / std : 0));
+}
+
+/**
+ * Per-category rerank: z-normalized weighted cosine score → MMR diversity.
+ *
+ * Scoring axes (z-normalized within this pool, so magnitudes are comparable):
+ *   z(cos(query, visual))   weight 0.6
+ *   z(cos(query, vibe))     weight 0.15
+ *   z(cos(centroid, visual)) weight 0.25  (user has a centroid)
+ *
+ * If the user has no centroid the third axis is zero-weighted and the first
+ * two weights are renormalized so they still sum to 1.
+ *
+ * MMR pass: take top-K with marginal-relevance penalty so we don't return
+ * 10 visually-near-identical items.
+ */
+function rerankCategory(
+  candidates:    AlgoliaProduct[],
+  vecById:       Map<string, { visual: number[] | null; vibe: number[] | null }>,
+  queryVec:      number[],
+  userCentroid:  number[] | null,
+  maxPerCategory: number,
+): AlgoliaProduct[] {
+  // Raw cosine scores per axis. Use NaN for "missing vector" so zNormalize
+  // can ignore them; we coerce to 0 when combining.
+  const visScores: number[]  = [];
+  const vibScores: number[]  = [];
+  const centScores: number[] = [];
+  for (const p of candidates) {
+    const v = vecById.get(p.objectID);
+    visScores.push(v?.visual ? cosineSimilarity(queryVec, v.visual) : NaN);
+    vibScores.push(v?.vibe   ? cosineSimilarity(queryVec, v.vibe)   : NaN);
+    centScores.push(userCentroid && v?.visual ? cosineSimilarity(userCentroid, v.visual) : NaN);
+  }
+
+  const zVis  = zNormalize(visScores);
+  const zVibe = zNormalize(vibScores);
+  const zCent = zNormalize(centScores);
+
+  // Renormalize axis weights when centroid axis is unavailable.
+  let wVis = W_DESCRIPTOR_VISUAL, wVibe = W_DESCRIPTOR_VIBE, wCent = W_CENTROID_VISUAL;
+  if (!userCentroid) {
+    const sum = wVis + wVibe;  // renorm to 1.0 across just the two query axes
+    wVis  = wVis  / sum;
+    wVibe = wVibe / sum;
+    wCent = 0;
+  }
+
+  const scored = candidates.map((p, i) => ({
+    product: p,
+    score:   wVis * zVis[i] + wVibe * zVibe[i] + wCent * zCent[i],
+    visual:  vecById.get(p.objectID)?.visual ?? null,
+  }));
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // MMR rerank — for each remaining slot, pick the candidate that maximizes
+  // (relevance) - λ × max-similarity-to-already-chosen. We use the visual
+  // vector as the similarity space (most representative). Items with no
+  // visual vector skip the diversity penalty (max sim treated as 0).
+  if (MMR_LAMBDA <= 0 || scored.length <= 1) {
+    return scored.slice(0, maxPerCategory).map((s) => s.product);
+  }
+
+  const out: typeof scored = [];
+  const remaining = scored.slice();
+  while (out.length < maxPerCategory && remaining.length > 0) {
+    let bestIdx = 0;
+    let bestMmr = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const r = remaining[i];
+      let maxSim = 0;
+      if (r.visual) {
+        for (const s of out) {
+          if (!s.visual) continue;
+          const sim = cosineSimilarity(r.visual, s.visual);
+          if (sim > maxSim) maxSim = sim;
+        }
+      }
+      const mmr = r.score - MMR_LAMBDA * maxSim;
+      if (mmr > bestMmr) { bestMmr = mmr; bestIdx = i; }
+    }
+    out.push(remaining[bestIdx]);
+    remaining.splice(bestIdx, 1);
+  }
+  return out.map((s) => s.product);
 }
