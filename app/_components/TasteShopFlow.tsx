@@ -232,7 +232,21 @@ function LoadingScreen({ title, steps, currentStep }: {
 
 // ── Shop card (browsable — no style notes) ────────────────────────────────────
 
-function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: string }) {
+function ShopCard({
+  product,
+  userToken,
+  liked   = false,
+  onLike,
+}: {
+  product:    AlgoliaProduct;
+  userToken:  string;
+  /** Heart-button on/off state — driven by the parent's sessionLikedIds. */
+  liked?:     boolean;
+  /** When supplied, renders the Like (heart) button next to the bookmark.
+   *  Click feeds the parent's rankCards signals so neighbouring picks shift
+   *  toward visually-similar items — does NOT write to the shortlist. */
+  onLike?:    (objectID: string) => void;
+}) {
   const price = product.price != null
     ? formatPrice(product.price)
     : product.price_range !== "unknown" ? product.price_range : null;
@@ -252,6 +266,19 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
     }).catch(() => {});
   };
 
+  // Like — taste signal only. Pushes into the parent's sessionLikedIds /
+  // clickHistoryRef so rankCards re-ranks the loaded grid toward this item's
+  // brand/category/color/visual neighbourhood. NEVER writes to the shortlist.
+  const handleLikeToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onLike) onLike(product.objectID);
+  };
+
+  // Save — pure bookmark. Writes to localStorage via lib/saved. Does NOT
+  // affect rankCards or any retrieval bias. The two actions are deliberately
+  // independent: Like is "show me more like this", Save is "I want to come
+  // back to this exact piece".
   const handleSaveToggle = (e: React.MouseEvent) => {
     // The card is wrapped in an <a>, so we must stop the navigation.
     e.preventDefault();
@@ -292,6 +319,26 @@ function ShopCard({ product, userToken }: { product: AlgoliaProduct; userToken: 
           <Image src={product.image_url} alt={displayTitle(product)} fill className="object-cover object-top group-hover:scale-[1.04] transition-transform duration-700" sizes="(max-width: 640px) 50vw, 33vw" unoptimized />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center font-display text-5xl font-light text-muted/20">▢</div>
+        )}
+        {/* Hover affordances — Like (heart) on the LEFT, Save (bookmark)
+            on the RIGHT. Side-by-side in opposite corners so they never
+            fight for the same click target on touch. Each button stays
+            visible when "on" (filled), fades in on hover otherwise so the
+            grid reads calmly at rest. */}
+        {onLike && (
+          <button
+            onClick={handleLikeToggle}
+            aria-label={liked ? "Remove like" : "Like — show me more like this"}
+            className={`absolute top-2 left-2 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-background/90 border border-border-mid text-foreground hover:border-foreground/60 transition-all duration-200 ${
+              liked ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4"
+              fill={liked ? "currentColor" : "none"}
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
         )}
         {/* Save bookmark — top-right of the image. Always visible when
             saved (filled olive); on rest it fades in on hover so the grid
@@ -2288,7 +2335,18 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 mb-14 mt-6">
-                  {sortedProducts.map((product) => <ShopCard key={product.objectID} product={product} userToken={userToken} />)}
+                  {sortedProducts.map((product) => (
+                    <ShopCard
+                      key={product.objectID}
+                      product={product}
+                      userToken={userToken}
+                      // Like = taste signal (rerank). Save (the bookmark on
+                      // the right of the same tile) is independent localStorage.
+                      // Reuses the same handler the scroll-view heart calls.
+                      liked={sessionLikedIds.has(product.objectID)}
+                      onLike={handleLikeInScroll}
+                    />
+                  ))}
                 </div>
 
                 <div className="border-t border-border pt-7 mt-4">

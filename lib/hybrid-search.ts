@@ -22,6 +22,7 @@ import {
   cosineSimilarity,
 } from "@/lib/embeddings";
 import { buildTextQueryVectors } from "@/lib/query-builder";
+import { classifyQuery, type QueryClassification } from "@/lib/query-classifier";
 import type { StyleDNA, ClickSignal } from "@/lib/types";
 
 const CATEGORIES: ClothingCategory[] = ["dress", "top", "bottom", "jacket", "shoes", "bag"];
@@ -297,10 +298,29 @@ export async function twoStageStrictSearch(
     userCentroid?:       number[] | null;
     softAvoids?:         string[];
     clickSignals?:       ClickSignal[];
+    /** Raw user query string — drives query-type classification (#3, #5). */
+    userQuery?:          string;
+    /** Debug mode — attach per-item _debug breakdown to surviving products. */
+    debug?:              boolean;
   } = {},
 ): Promise<CategoryCandidates> {
   const userCentroid = opts.userCentroid && opts.userCentroid.length > 0 ? opts.userCentroid : null;
   const clickSignals = opts.clickSignals ?? [];
+  const debug        = opts.debug === true;
+
+  // (#3) Query-type classification. Drives whether we run stage 1b at all and
+  // (#5) what MMR λ to use. Empty / non-text queries get "abstract" so the
+  // full pipeline still runs.
+  const classification = await classifyQuery(opts.userQuery);
+  const skipStage1b    = classification.type === "literal";
+  const mmrLambda      = classification.type === "literal" ? 0.10
+                       : classification.type === "mixed"   ? 0.30
+                       :                                     0.40;
+  console.log(
+    `[twoStage] classify="${(opts.userQuery ?? "").slice(0, 60)}" ` +
+    `type=${classification.type} (brand=${classification.hasBrand} garment=${classification.hasGarment} color=${classification.hasColor}) ` +
+    `skip1b=${skipStage1b} mmr=${mmrLambda}`
+  );
 
   // Encode the descriptor first (smart fallback), in parallel with the
   // retrieval-phrase ensemble used for the FashionCLIP-side gate. Both end up
@@ -312,25 +332,51 @@ export async function twoStageStrictSearch(
 
   // (E) Per-category Pinecone gate: run 6 parallel category-filtered semantic
   // searches instead of one flat search. Each bucket gets its full topK
-  // budget regardless of cross-category visual bias. The flat-search version
-  // was over-allocating to whatever category FashionCLIP found visually
-  // closest (often dresses) and starving the others.
+  // budget regardless of cross-category visual bias.
   //
-  // Stage 1a (Algolia literal gate) and Stage 1b (FashionCLIP per-category
-  // semantic gate) run in parallel via Promise.all.
-  const semanticGate = gateEmbeddings.length > 0
-    ? Promise.all(
-        CATEGORIES.map((cat) =>
-          searchByEmbeddings(gateEmbeddings, GATE_PINECONE_TOPK_PER_CAT, {
-            priceRange: aesthetic.price_range,
-            minScore:   STAGE1B_MIN_SCORE,
-            categories: [cat],
-          })
-            .then((ids) => ({ cat, ids }))
-            .catch(() => ({ cat, ids: [] as string[] })),
-        ),
-      )
-    : Promise.resolve(CATEGORIES.map((cat) => ({ cat, ids: [] as string[] })));
+  // (#1) Per-phrase variant: when we have multiple retrieval phrases, search
+  // EACH phrase separately and union the ids per category, instead of letting
+  // searchByEmbeddings cluster them into one centroid that lands somewhere
+  // generic between facets. For "y2k party" with phrases "low-rise jeans",
+  // "metallic top", "rhinestone tank" — each gets its own topK and all three
+  // facets surface.
+  //
+  // (#3) Skip stage 1b entirely for literal queries (brand-mentioned, garment-
+  // specific, color-specific). Algolia is exhaustive for those; the semantic
+  // gate just adds latency without finding new items.
+  //
+  // Stage 1a (Algolia) and Stage 1b (FashionCLIP per-phrase × per-category)
+  // run in parallel via Promise.all.
+  const semanticGate = (skipStage1b || gateEmbeddings.length === 0)
+    ? Promise.resolve(CATEGORIES.map((cat) => ({ cat, ids: [] as string[] })))
+    : Promise.all(
+        CATEGORIES.map(async (cat) => {
+          // Per-phrase searches in parallel within this category. Each one
+          // returns up to GATE_PINECONE_TOPK_PER_PHRASE; we union and
+          // deduplicate, then truncate to GATE_PINECONE_TOPK_PER_CAT total.
+          const perPhrase = await Promise.all(
+            gateEmbeddings.map((vec) =>
+              searchByEmbeddings([vec], GATE_PINECONE_TOPK_PER_PHRASE, {
+                priceRange: aesthetic.price_range,
+                minScore:   STAGE1B_MIN_SCORE,
+                categories: [cat],
+              }).catch(() => [] as string[])
+            ),
+          );
+          const seen = new Set<string>();
+          const ids: string[] = [];
+          for (const list of perPhrase) {
+            for (const id of list) {
+              if (seen.has(id)) continue;
+              seen.add(id);
+              ids.push(id);
+              if (ids.length >= GATE_PINECONE_TOPK_PER_CAT) break;
+            }
+            if (ids.length >= GATE_PINECONE_TOPK_PER_CAT) break;
+          }
+          return { cat, ids };
+        }),
+      );
 
   const [algoliaCandidates, perCatSemantic] = await Promise.all([
     searchByCategory(
@@ -435,6 +481,18 @@ export async function twoStageStrictSearch(
   // Stage 2: per-category rerank with z-normalized + centroid-aware scoring,
   // then MMR diversity pass.
   const clickFeatures = buildClickFeatures(clickSignals);
+  // Track Algolia rank per id for the (#8) tiebreaker axis. Higher = more
+  // relevant per Algolia. Items not in the Algolia gate (semantic-only adds)
+  // get rank=0.
+  const algoliaRankById = new Map<string, number>();
+  for (const cat of CATEGORIES) {
+    const list = algoliaCandidates[cat];
+    list.forEach((p, i) => {
+      // Normalize to [0, 1] within this category — top-ranked = 1.0.
+      algoliaRankById.set(p.objectID, list.length === 1 ? 1 : 1 - i / (list.length - 1));
+    });
+  }
+
   const merged = emptyBuckets();
   for (const cat of CATEGORIES) {
     const candidates = mergedPool[cat];
@@ -446,6 +504,9 @@ export async function twoStageStrictSearch(
       userCentroid,
       maxPerCategory,
       clickFeatures,
+      algoliaRankById,
+      mmrLambda,
+      debug,
     );
   }
 
@@ -455,9 +516,13 @@ export async function twoStageStrictSearch(
 // ── Stage 2 helpers ───────────────────────────────────────────────────────────
 
 // Per-category Pinecone topK (E). Each of 6 cats gets its own budget instead
-// of competing in one flat search. 300 × 6 = 1800 total candidates inspected,
-// up from 1500 in the flat search but distributed properly.
+// of competing in one flat search.
 const GATE_PINECONE_TOPK_PER_CAT = 300;
+// Per-phrase Pinecone topK (#1). Each retrieval phrase searches independently
+// for this many ids; results are unioned per category and truncated to
+// GATE_PINECONE_TOPK_PER_CAT. With 5-8 phrases × 6 cats = 30-48 parallel
+// Pinecone calls per query — fast given Pinecone's per-call latency (~30 ms).
+const GATE_PINECONE_TOPK_PER_PHRASE = 80;
 // (A) Pool caps: cap Algolia at 500/cat (relevance order), semantic-only at
 // 200/cat. Total worst-case pool ≈ 700/cat × 6 = 4200, down from ~30,000+.
 const GATE_ALGOLIA_PER_CAT  = 500;
@@ -498,6 +563,13 @@ const VIBE_DROPOUT_THRESHOLD = 0.5;
 // normalization (always [0, 1], stable on any pool size) for small pools.
 const ZNORM_MIN_POOL = 30;
 
+// (#8) Algolia rank tiebreaker. Algolia returns hits in its own relevance
+// order which encodes brand rules, retailer popularity, and other internal
+// signal. Items at top of Algolia get score 1.0, bottom 0.0; items added by
+// stage 1b only (semantic-only) have no Algolia rank → 0. Small weight so
+// it's a tiebreaker, not a driver.
+const W_ALGOLIA_RANK = 0.05;
+
 // Click-affinity bonus: an additive score in [0, W_CLICK_AFFINITY] applied
 // to items whose brand/color/retailer matches the user's click history.
 // Captures structured personal signal that the centroid (purely visual) misses
@@ -526,11 +598,27 @@ const MMR_BRAND_PENALTY = 0.15;
  * in order of soft-aesthetic specificity.
  */
 async function buildStage2QueryVector(aesthetic: StyleDNA): Promise<number[]> {
-  // Tier 1 — Claude's purified descriptor (the canonical path)
+  // Tier 1 — Claude's purified descriptor + its paraphrases. Encode all of
+  // them in parallel, average the unit vectors, renormalize. Robust to any
+  // single phrasing landing in a thin region of CLIP latent space.
   const descriptor = (aesthetic.aesthetic_descriptor ?? "").trim();
+  const alts       = (aesthetic.aesthetic_descriptor_alts ?? [])
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .slice(0, 2);
   if (descriptor) {
-    const v = await embedTextQuery(descriptor).catch(() => [] as number[]);
-    if (v.length > 0) return v;
+    const phrases = [descriptor, ...alts];
+    const vecs = await Promise.all(phrases.map((p) => embedTextQuery(p).catch(() => [] as number[])));
+    const valid = vecs.filter((v) => v.length > 0);
+    if (valid.length === 1) return valid[0];
+    if (valid.length > 1) {
+      const dim = valid[0].length;
+      const avg = new Array<number>(dim).fill(0);
+      for (const v of valid) for (let i = 0; i < dim; i++) avg[i] += v[i] / valid.length;
+      let n = 0;
+      for (const x of avg) n += x * x;
+      const norm = Math.sqrt(n);
+      return norm === 0 ? avg : avg.map((x) => x / norm);
+    }
   }
 
   // Tier 2 — primary_aesthetic + mood (still soft-only)
@@ -635,37 +723,86 @@ function normalizeScores(scores: number[]): number[] {
 }
 
 /**
- * Pre-compute the user's click-affinity feature sets — brand / color /
- * retailer the user has clicked on in recent sessions. Looking each up by
- * candidate is O(1) via the Sets. Empty/missing values are dropped so we
- * don't match every product whose brand is "" against the empty-string
- * "brand" of unbranded clicks.
+ * Pre-compute the user's click-affinity feature maps — brand / color /
+ * retailer → cumulative recency-weighted weight. (#7) Older clicks decay
+ * exponentially with a 30-day half-life: a click 30 days ago counts half
+ * as much as a click today, a click 60 days ago a quarter, etc.
+ *
+ * Why decay matters: a user who clicked y2k items 3 months ago and old-money
+ * items yesterday should have a click-affinity score that reflects the
+ * shift, not an equal sum of both. Without decay the system locks them into
+ * patterns from past sessions that no longer reflect current taste.
  */
 type ClickFeatures = {
-  brands:    Set<string>;
-  colors:    Set<string>;
-  retailers: Set<string>;
+  brands:    Map<string, number>;  // brand → cumulative weight
+  colors:    Map<string, number>;
+  retailers: Map<string, number>;
 };
 
+const CLICK_HALF_LIFE_DAYS = 30;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function recencyWeight(clickedAt: string | undefined): number {
+  if (!clickedAt) return 1;  // unknown timestamp: treat as fresh
+  const ts  = new Date(clickedAt).getTime();
+  if (!Number.isFinite(ts)) return 1;
+  const ageDays = (Date.now() - ts) / MS_PER_DAY;
+  return Math.exp(-Math.LN2 * Math.max(0, ageDays) / CLICK_HALF_LIFE_DAYS);
+}
+
+function bumpFeature(map: Map<string, number>, key: string | undefined, weight: number): void {
+  if (!key) return;
+  const k = key.toLowerCase().trim();
+  if (!k) return;
+  map.set(k, (map.get(k) ?? 0) + weight);
+}
+
 function buildClickFeatures(clicks: ClickSignal[]): ClickFeatures {
-  const brands    = new Set<string>();
-  const colors    = new Set<string>();
-  const retailers = new Set<string>();
+  const brands    = new Map<string, number>();
+  const colors    = new Map<string, number>();
+  const retailers = new Map<string, number>();
   for (const c of clicks) {
-    if (c.brand?.trim())    brands.add(c.brand.toLowerCase().trim());
-    if (c.color?.trim())    colors.add(c.color.toLowerCase().trim());
-    if (c.retailer?.trim()) retailers.add(c.retailer.toLowerCase().trim());
+    const w = recencyWeight(c.clicked_at);
+    bumpFeature(brands,    c.brand,    w);
+    bumpFeature(colors,    c.color,    w);
+    bumpFeature(retailers, c.retailer, w);
   }
   return { brands, colors, retailers };
 }
 
-/** Per-product click-affinity score in [0, 1]. */
+/**
+ * Per-product click-affinity score in [0, 1]. Pulls the recency-weighted
+ * weight from each feature map and saturates the sum at 1.
+ *
+ * The weight per feature is normalized by the maximum weight in that map so
+ * a recent click contributes 1.0 of its category weight; stale clicks
+ * contribute proportionally less. Without the per-map normalization, users
+ * with heavy click history would saturate every score regardless of recency
+ * profile.
+ */
 function clickAffinityScore(product: AlgoliaProduct, features: ClickFeatures): number {
-  if (features.brands.size === 0 && features.colors.size === 0 && features.retailers.size === 0) return 0;
+  const allEmpty = features.brands.size === 0 && features.colors.size === 0 && features.retailers.size === 0;
+  if (allEmpty) return 0;
+
+  // tsconfig target predates ES2015 iterators, so spread over a Map iterator
+  // needs an explicit Array.from materialization. Cheap — these maps are tiny.
+  const brandMax    = Math.max(0, ...Array.from(features.brands.values()));
+  const colorMax    = Math.max(0, ...Array.from(features.colors.values()));
+  const retailerMax = Math.max(0, ...Array.from(features.retailers.values()));
+
   let score = 0;
-  if (product.brand    && features.brands.has(product.brand.toLowerCase().trim()))       score += CLICK_BRAND_WEIGHT;
-  if (product.color    && features.colors.has(product.color.toLowerCase().trim()))       score += CLICK_COLOR_WEIGHT;
-  if (product.retailer && features.retailers.has(product.retailer.toLowerCase().trim())) score += CLICK_RETAILER_WEIGHT;
+  if (product.brand && brandMax > 0) {
+    const w = features.brands.get(product.brand.toLowerCase().trim()) ?? 0;
+    score += CLICK_BRAND_WEIGHT * (w / brandMax);
+  }
+  if (product.color && colorMax > 0) {
+    const w = features.colors.get(product.color.toLowerCase().trim()) ?? 0;
+    score += CLICK_COLOR_WEIGHT * (w / colorMax);
+  }
+  if (product.retailer && retailerMax > 0) {
+    const w = features.retailers.get(product.retailer.toLowerCase().trim()) ?? 0;
+    score += CLICK_RETAILER_WEIGHT * (w / retailerMax);
+  }
   return Math.min(1, score);
 }
 
@@ -694,7 +831,10 @@ function rerankCategory(
   queryVec:      number[],
   userCentroid:  number[] | null,
   maxPerCategory: number,
-  clickFeatures: ClickFeatures = { brands: new Set(), colors: new Set(), retailers: new Set() },
+  clickFeatures: ClickFeatures = { brands: new Map(), colors: new Map(), retailers: new Map() },
+  algoliaRankById: Map<string, number> = new Map(),
+  mmrLambda:     number = MMR_LAMBDA,
+  debug:         boolean = false,
 ): AlgoliaProduct[] {
   // Raw cosine scores per axis. NaN = missing vector.
   const visScores:  number[] = [];
@@ -760,29 +900,53 @@ function rerankCategory(
     `norm=${candidates.length >= ZNORM_MIN_POOL ? "z" : "rank"}`,
   );
 
-  const scored = candidates.map((p, i) => ({
-    product: p,
-    // Base score from descriptor + centroid axes, plus click-affinity bonus
-    // (additive, small) for items matching the user's click history on
-    // brand/color/retailer.
-    score:   wVis * nVis[i] + wVibe * nVibe[i] + wCent * nCent[i]
-           + W_CLICK_AFFINITY * clickAffinityScore(p, clickFeatures),
-    visual:  vecById.get(p.objectID)?.visual ?? null,
-    brand:   (p.brand ?? "").toLowerCase().trim(),
-  }));
+  // (#8) Algolia rank as a 5th tiebreaker axis. Items at top of Algolia's
+  // own relevance order get a small bonus — encodes brand rules, retailer
+  // popularity, and other Algolia-internal signal we'd otherwise discard.
+  // Items added by stage 1b only (semantic-only) have rank=0.
+  const algRanks = candidates.map((p) => algoliaRankById.get(p.objectID) ?? 0);
+  // Don't normalize — already in [0, 1] from the caller's mapping.
+
+  const scored = candidates.map((p, i) => {
+    const visualCos    = visScores[i];
+    const vibeCos      = vibScores[i];
+    const centCos      = centScores[i];
+    const clickAff     = clickAffinityScore(p, clickFeatures);
+    const algoliaRank  = algRanks[i];
+    const finalScore   = wVis * nVis[i] + wVibe * nVibe[i] + wCent * nCent[i]
+                       + W_CLICK_AFFINITY * clickAff
+                       + W_ALGOLIA_RANK   * algoliaRank;
+    const debugInfo    = debug ? {
+      visualCos:    Number.isFinite(visualCos)    ? Number(visualCos.toFixed(4))    : null,
+      vibeCos:      Number.isFinite(vibeCos)      ? Number(vibeCos.toFixed(4))      : null,
+      centroidCos:  Number.isFinite(centCos)      ? Number(centCos.toFixed(4))      : null,
+      clickAffinity: Number(clickAff.toFixed(4)),
+      algoliaRank:  Number(algoliaRank.toFixed(4)),
+      finalScore:   Number(finalScore.toFixed(4)),
+      weights:      { wVis: Number(wVis.toFixed(2)), wVibe: Number(wVibe.toFixed(2)), wCent: Number(wCent.toFixed(2)) },
+    } : null;
+    return {
+      product: p,
+      score:   finalScore,
+      visual:  vecById.get(p.objectID)?.visual ?? null,
+      brand:   (p.brand ?? "").toLowerCase().trim(),
+      debugInfo,
+    };
+  });
 
   scored.sort((a, b) => b.score - a.score);
 
   // MMR rerank — each new slot picks the candidate that maximizes:
   //   score
-  //     - MMR_LAMBDA       × max-visual-sim-to-selected
+  //     - mmrLambda         × max-visual-sim-to-selected
   //     - MMR_BRAND_PENALTY × (already-selected-shares-brand ? 1 : 0)
   //
-  // The brand penalty stops "10 Khaite blazers in different colorways" —
-  // visually MMR thinks those are diverse enough (different colors), but
-  // the user just wanted variety in BRAND too.
-  if (MMR_LAMBDA <= 0 || scored.length <= 1) {
-    return scored.slice(0, maxPerCategory).map((s) => s.product);
+  // (#5) mmrLambda comes from the query classifier: literal queries → 0.10
+  // (variations welcome), abstract → 0.40 (variety dominates).
+  const effectiveLambda = mmrLambda;
+  if (effectiveLambda <= 0 || scored.length <= 1) {
+    const top = scored.slice(0, maxPerCategory);
+    return top.map((s, mmrPos) => attachDebug(s.product, s.debugInfo, mmrPos, debug));
   }
 
   const out: typeof scored = [];
@@ -802,12 +966,30 @@ function rerankCategory(
         }
       }
       const brandPenalty = r.brand && selectedBrands.has(r.brand) ? MMR_BRAND_PENALTY : 0;
-      const mmr = r.score - MMR_LAMBDA * maxSim - brandPenalty;
+      const mmr = r.score - effectiveLambda * maxSim - brandPenalty;
       if (mmr > bestMmr) { bestMmr = mmr; bestIdx = i; }
     }
     out.push(remainingPool[bestIdx]);
     if (remainingPool[bestIdx].brand) selectedBrands.add(remainingPool[bestIdx].brand);
     remainingPool.splice(bestIdx, 1);
   }
-  return out.map((s) => s.product);
+  return out.map((s, mmrPos) => attachDebug(s.product, s.debugInfo, mmrPos, debug));
+}
+
+/**
+ * Helper: attach _debug field to a product if debug mode is on, else return
+ * the product unchanged. Centralizes the conditional so we don't fork the
+ * return path.
+ */
+function attachDebug(
+  product:   AlgoliaProduct,
+  debugInfo: Record<string, unknown> | null,
+  mmrPos:    number,
+  debug:     boolean,
+): AlgoliaProduct {
+  if (!debug || !debugInfo) return product;
+  return {
+    ...product,
+    _debug: { ...debugInfo, mmrPos },
+  } as AlgoliaProduct;
 }
