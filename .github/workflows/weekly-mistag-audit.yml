@@ -1,0 +1,103 @@
+name: Weekly mis-tag audit
+
+# Periodic catalog hygiene. Re-runs scripts/audit-category-mistags.mjs in
+# dry-run, auto-applies the very-high-confidence rules (beauty / lifestyle
+# deletes — items whose titles are unambiguously non-fashion), and uploads
+# the full report as a workflow artifact for human review.
+#
+# Lower-confidence buckets (shoes_mistagged, bottom_in_top, etc.) are NOT
+# auto-applied; the report artifact lets a human eyeball them and decide.
+#
+# Triggers:
+#   - Weekly: Mondays 04:00 UTC (after the Sunday taste-head retrain so
+#     deletions don't conflict with that job's `taste` namespace upsert)
+#   - Manual: workflow_dispatch with optional dry-run override
+#
+# Required GitHub secrets:
+#   ALGOLIA_APP_ID
+#   ALGOLIA_ADMIN_KEY
+#   PINECONE_API_KEY
+#   PINECONE_INDEX (optional, defaults to "muse")
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"   # Mondays 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run_only:
+        description: "Dry-run only (no apply, just report)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: weekly-mistag-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ALGOLIA_APP_ID:    ${{ secrets.ALGOLIA_APP_ID }}
+      ALGOLIA_ADMIN_KEY: ${{ secrets.ALGOLIA_ADMIN_KEY }}
+      PINECONE_API_KEY:  ${{ secrets.PINECONE_API_KEY }}
+      PINECONE_INDEX:    ${{ secrets.PINECONE_INDEX || 'muse' }}
+      DRY_RUN_ONLY:      ${{ github.event.inputs.dry_run_only || 'false' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Audit (dry-run)
+        run: node scripts/audit-category-mistags.mjs
+
+      - name: Auto-apply high-confidence rules
+        if: env.DRY_RUN_ONLY != 'true'
+        # Auto-apply only the rules with near-zero false-positive rate:
+        # beauty_in_apparel and lifestyle_in_apparel — items whose titles
+        # contain unambiguous non-fashion tokens (eau de parfum, incense
+        # holder). Other buckets need human review and are reported but not
+        # mutated.
+        run: |
+          BEAUTY_COUNT=$(node -e "console.log((require('./scripts/category-mistag-report.json').flagged.beauty_in_apparel ?? []).length)")
+          LIFESTYLE_COUNT=$(node -e "console.log((require('./scripts/category-mistag-report.json').flagged.lifestyle_in_apparel ?? []).length)")
+          echo "beauty hits: $BEAUTY_COUNT  lifestyle hits: $LIFESTYLE_COUNT"
+          if [ "$BEAUTY_COUNT" -gt 0 ] || [ "$LIFESTYLE_COUNT" -gt 0 ]; then
+            echo "Applying high-confidence deletes…"
+            node scripts/audit-category-mistags.mjs --apply --rules=beauty_in_apparel,lifestyle_in_apparel
+          else
+            echo "No high-confidence deletions to apply."
+          fi
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mistag-report-${{ github.run_id }}
+          path: scripts/category-mistag-report.json
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          TOTAL=$(node -e "console.log(require('./scripts/category-mistag-report.json').flagged_total ?? 0)")
+          echo "## Weekly mis-tag audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- total flagged: $TOTAL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dry_run_only: $DRY_RUN_ONLY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- report artifact: mistag-report-${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          for RULE in beauty_in_apparel lifestyle_in_apparel swimwear_in_dress swimwear_in_top_or_bottom shoes_mistagged bags_mistagged dress_in_top top_in_dress bottom_in_top; do
+            COUNT=$(node -e "console.log((require('./scripts/category-mistag-report.json').flagged['$RULE'] ?? []).length)")
+            echo "- $RULE: $COUNT" >> "$GITHUB_STEP_SUMMARY"
+          done

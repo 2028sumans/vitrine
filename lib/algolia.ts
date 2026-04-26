@@ -28,6 +28,11 @@ export interface AlgoliaProduct {
   title_en?:          string;
   description_en?:    string;
   original_language?: string;
+  // Set by lib/hybrid-search when ?debug=1 — per-item ranking breakdown:
+  // visualCos, vibeCos, centroidCos, clickAffinity, algoliaRank, finalScore,
+  // weights, mmrPos. Used by the UI's debug overlay (the "Why this?" tooltip)
+  // and by us when triaging "why did THIS item rank here?". Otherwise unset.
+  _debug?:            Record<string, unknown>;
 }
 
 /** Title to render in the UI: prefer the English back-fill when present. */
@@ -80,6 +85,13 @@ const DEFAULT_MAX_PAGES         = 5;
 // to the candidate pool, then the rerank step decides what survives. Stricter
 // dedup at the rendering layer can still trim down if needed.
 const PER_RETAILER_CAP          = 10;
+// (#12) Adaptive pagination early-stop ratio. Once we've collected
+// (maxResults × this) items with valid images, stop paginating — usually
+// page 1 is enough. Below this fraction we keep paginating to compensate
+// for the image-quality attrition (~75% of catalog has bad/placeholder
+// images). 0.6 balances "stop early when we have enough" vs "keep going
+// when the page is mostly junk."
+const ADAPTIVE_EARLY_STOP_RATIO = 0.6;
 
 export async function searchProducts(
   query:           string,
@@ -154,6 +166,19 @@ export async function searchProducts(
     // No more pages available, or we're at the bound the caller asked for.
     if (pageHits.length < hitsPerPage) break;
     if (Number.isFinite(maxResults) && allHits.length >= maxResults) break;
+
+    // (#12) Adaptive pagination: stop early once we've collected enough items
+    // with valid (non-placeholder) images to satisfy maxResults × ADAPTIVE_
+    // EARLY_STOP_RATIO. ~75% of catalog has bad images so the post-filter
+    // attrition is real; this lets a typical query stop after page 1 instead
+    // of always paginating to maxPages even when page 1 already covered it.
+    if (Number.isFinite(maxResults)) {
+      const validSoFar = allHits.reduce(
+        (n, h) => n + (h.image_url && h.image_url.startsWith("http") && !h.image_url.includes("placeholder") ? 1 : 0),
+        0,
+      );
+      if (validSoFar >= (maxResults as number) * ADAPTIVE_EARLY_STOP_RATIO) break;
+    }
   }
 
   // Only keep products with a real, non-placeholder image

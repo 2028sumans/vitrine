@@ -56,6 +56,12 @@ export interface StyleDNA {
   // "blue khaite dress for summer" the descriptor is just "summery,
   // breezy, unhurried" — Algolia handled the blue/Khaite/dress part.
   aesthetic_descriptor?: string;
+  // 1-2 paraphrases of aesthetic_descriptor — same vibe expressed slightly
+  // differently. Stage 2 encodes all of (descriptor + alts), averages and
+  // L2-normalizes the resulting vectors, and uses the ensemble as the rerank
+  // query. Robust to any single phrasing landing in a thin region of CLIP
+  // space.
+  aesthetic_descriptor_alts?: string[];
   // Which product categories the user's input actually centers on. Claude
   // emits this when 60%+ of the pins depict the same category (shoes board,
   // bag board, dress board). Downstream retrieval then allocates heavily to

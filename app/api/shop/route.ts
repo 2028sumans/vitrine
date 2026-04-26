@@ -86,6 +86,12 @@ export async function POST(request: Request) {
   // so it's easy to pass from either server code (`taste: true`) or a raw
   // client URL param rewrite (`taste: "1"`).
   const useTasteHead: boolean = body.taste === true || body.taste === 1 || body.taste === "1";
+  // Debug mode — pass `?debug=1` (or body.debug=true) to get per-item
+  // ranking breakdown attached to every product. Use sparingly: increases
+  // response size ~30% and isn't user-facing. Engineering surface only.
+  const url   = new URL(request.url);
+  const debug = body.debug === true || body.debug === 1 || body.debug === "1"
+             || url.searchParams.get("debug") === "1";
 
   // User-selected price tier from the intake form. When present and not
   // "all", we override aesthetic.price_range after Claude returns — this
@@ -464,6 +470,11 @@ export async function POST(request: Request) {
               // can't capture. Captures "I keep clicking Khaite" beyond
               // "I keep clicking things that look Khaite-like."
               clickSignals: tasteMemory.clickSignals,
+              // Raw user query drives the (#3) classifier — controls whether
+              // we run stage 1b at all and (#5) what MMR λ to use. Empty for
+              // quiz mode; classifier defaults to "abstract" in that case.
+              userQuery: mode === "text" ? (contexts[0].textQuery ?? "") : "",
+              debug,
             },
           );
 
