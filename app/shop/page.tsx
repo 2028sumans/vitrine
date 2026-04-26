@@ -1773,56 +1773,58 @@ function ProductScrollView({
     return () => observer.disconnect();
   }, [products, hasMore, onNearEnd, onDwell, onScrollBack, onActiveChange]);
 
-  // Wheel → snap by viewport height. Tuned for a TikTok-like snappy feel:
-  //   - mouse-wheel threshold 100 px (one click ≈ 120 px); trackpad threshold
-  //     bumps to 60 once we've seen at least one small delta, so a fast flick
-  //     fires reliably without single-pixel taps registering.
-  //   - cooldown released by `scrollend` when supported (Chrome / Firefox /
-  //     Edge / Safari 17+); a 420 ms timeout fallback covers older Safari.
-  //     Previously hardcoded 700 ms, which always felt sluggish on a fast
-  //     trackpad — the snap finished but the lock kept the next flick out.
-  //   - accumulator resets after 200 ms of no wheel input.
+  // Wheel → snap by viewport height.
+  //
+  // Trackpad inertia hazard: a single Mac swipe fires 30–60 wheel events over
+  // 600–900 ms. Releasing the lock on a fixed timer (or on `scrollend`) lets
+  // the inertia tail accumulate past the threshold a second time → the user
+  // gets a double-scroll from one swipe. Fix: release the lock only after
+  // a quiet period (180 ms) of NO wheel input, so one continuous gesture —
+  // gesture + inertia — collapses to exactly one snap.
+  //
+  //   - Threshold 60 px for trackpad-shaped (small deltaY) input, 100 px for
+  //     mouse-wheel clicks (~120 px each).
+  //   - QUIET_GAP 180 ms after last wheel event. Mouse-wheel streams finish
+  //     in <16 ms; trackpad tails settle in ~120 ms. 180 catches both.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    let deltaAccum  = 0;
-    let lastDelta   = 0; // |last raw deltaY| — small ⇒ trackpad-like
-    let resetTimer: number | null = null;
-    const releaseLock = () => { isScrolling.current = false; };
-    const supportsScrollEnd = typeof window !== "undefined" && "onscrollend" in window;
+
+    let deltaAccum = 0;
+    let releaseTimer: number | null = null;
+    const QUIET_GAP = 180;
+
+    const release = () => {
+      isScrolling.current = false;
+      deltaAccum = 0;
+    };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (isScrolling.current) return;
-      deltaAccum += e.deltaY;
-      lastDelta   = Math.max(lastDelta * 0.5, Math.abs(e.deltaY));
-      if (resetTimer != null) window.clearTimeout(resetTimer);
-      resetTimer = window.setTimeout(() => { deltaAccum = 0; lastDelta = 0; }, 200);
 
-      // Trackpad-vs-wheel threshold: trackpads fire many small deltas (each
-      // typically <30 px); a single mouse click is ~120 px. Lower threshold
-      // when we're seeing trackpad-shaped input so a flick doesn't have to
-      // accumulate a whole click's worth before the snap fires.
-      const threshold = lastDelta < 40 ? 60 : 100;
+      // Defer release on every wheel tick. The lock stays held for the full
+      // duration of the gesture (events + inertia tail), and opens cleanly
+      // 180 ms after the user lifts off.
+      if (releaseTimer != null) window.clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(release, QUIET_GAP);
+
+      if (isScrolling.current) return;
+
+      deltaAccum += e.deltaY;
+      const isTrackpadShape = Math.abs(e.deltaY) < 40;
+      const threshold = isTrackpadShape ? 60 : 100;
       if (Math.abs(deltaAccum) < threshold) return;
 
       isScrolling.current = true;
       const direction = Math.sign(deltaAccum);
       deltaAccum = 0;
-      lastDelta  = 0;
       el.scrollBy({ top: direction * el.clientHeight, behavior: "smooth" });
-
-      if (supportsScrollEnd) {
-        el.addEventListener("scrollend", releaseLock, { once: true });
-      }
-      // Fallback / safety net for browsers without scrollend, and to guarantee
-      // release even if scrollend never fires (rare but seen on iOS/Safari).
-      setTimeout(releaseLock, 420);
     };
+
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", onWheel);
-      if (resetTimer != null) window.clearTimeout(resetTimer);
+      if (releaseTimer != null) window.clearTimeout(releaseTimer);
     };
   }, []);
 

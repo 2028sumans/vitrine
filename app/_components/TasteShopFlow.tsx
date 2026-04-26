@@ -596,19 +596,62 @@ function ProductScrollView({
     setActiveIdx(Math.round(scrollTop / clientHeight));
   }, []);
 
-  // Force one-card-at-a-time scrolling (TikTok-style) by intercepting wheel events
+  // One-card-at-a-time wheel scrolling, tuned for Mac trackpad inertia.
+  //
+  // The hard problem: a single trackpad swipe fires 30–60 wheel events over
+  // ~600–900 ms (gesture + inertia tail). Naively triggering scrollBy on the
+  // first event with a fixed-time release lock either fires once and feels
+  // sluggish (long lock) or fires twice when the inertia tail accumulates
+  // past the threshold again (short lock). The previous 900 ms lock had the
+  // latter problem — fast trackpad swipes occasionally double-scrolled.
+  //
+  // Fix: release the lock only after a quiet period with NO wheel input.
+  // While events keep streaming (gesture + inertia), we keep deferring
+  // release. One continuous gesture → one snap, regardless of inertia length.
+  //
+  //   - Threshold 60 px for trackpad-shaped (small deltaY) input, 100 px for
+  //     mouse wheels — same as /shop's handler.
+  //   - QUIET_GAP 180 ms: release the lock that long after the LAST wheel
+  //     event. Mouse-wheel clicks finish their stream within ~16 ms; trackpad
+  //     inertia tails settle within ~120 ms. 180 ms catches both safely.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
+    let deltaAccum = 0;
+    let releaseTimer: number | null = null;
+    const QUIET_GAP = 180;
+
+    const release = () => {
+      isScrolling.current = false;
+      deltaAccum = 0;
+    };
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+
+      // Reschedule release on EVERY event so the lock holds for the full
+      // gesture (events + inertia), then opens 180 ms after the last tick.
+      if (releaseTimer != null) clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(release, QUIET_GAP);
+
       if (isScrolling.current) return;
+
+      deltaAccum += e.deltaY;
+      const isTrackpadShape = Math.abs(e.deltaY) < 40;
+      const threshold = isTrackpadShape ? 60 : 100;
+      if (Math.abs(deltaAccum) < threshold) return;
+
       isScrolling.current = true;
-      el.scrollBy({ top: Math.sign(e.deltaY) * el.clientHeight, behavior: "smooth" });
-      setTimeout(() => { isScrolling.current = false; }, 900);
+      el.scrollBy({ top: Math.sign(deltaAccum) * el.clientHeight, behavior: "smooth" });
+      deltaAccum = 0;
     };
+
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (releaseTimer != null) clearTimeout(releaseTimer);
+    };
   }, []);
 
   // Keyboard navigation — arrow keys / J,K / space / Esc
