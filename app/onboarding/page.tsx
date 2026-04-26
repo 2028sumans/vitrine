@@ -612,14 +612,19 @@ function StepPairPicks(props: {
         />
       )}
 
-      <div className="mt-8 flex justify-center">
+      {/* Neither — italic display font, larger so it reads as a real
+          alternative rather than a hidden escape hatch. Still
+          underlined-on-hover, not a solid button, so it doesn't compete
+          visually with the two product cards above (the cards are still
+          the primary action). */}
+      <div className="mt-10 flex justify-center">
         <button
           onClick={onNeither}
           disabled={submitting}
-          className="font-sans text-[11px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          className="font-display italic font-light text-3xl sm:text-4xl text-muted-strong hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="Skip this pair — neither feels right"
         >
-          Neither →
+          neither →
         </button>
       </div>
 
@@ -627,34 +632,39 @@ function StepPairPicks(props: {
         <p className="font-sans text-sm text-[#7a2a2a] mt-8 text-center">{error}</p>
       )}
 
-      {/* Footer controls — back to age, or escape hatch entirely. */}
+      {/* Footer controls — back to age (secondary outline) and the wrap-up /
+          skip CTA (primary olive). Both are real buttons now in MUSE's
+          olive palette so they read as tappable affordances, not buried
+          underlines. The asymmetry between secondary border and primary
+          fill mirrors the rest of the site's button hierarchy. */}
       <div className="mt-14 pt-6 border-t border-border-mid flex items-center gap-4 flex-wrap">
         <button
           onClick={onBack}
           disabled={submitting}
-          className="px-6 py-3 font-sans text-[10px] tracking-widest uppercase border border-border-mid text-muted hover:text-foreground hover:border-foreground transition-colors disabled:opacity-40"
+          className="px-7 py-3.5 font-sans text-[10px] tracking-widest uppercase border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           ← Back to age
         </button>
 
-        {/* Wrap-up early — only when user has at least a few picks so the
-            saved centroid won't be junk. Below 5 picks we just show "Skip
-            for now" since that's the more honest framing. */}
+        {/* Wrap-up early CTA — only when user has at least a few picks so
+            the saved centroid won't be junk. Below 5 picks we show "Skip
+            for now" since that's the more honest framing. Both share the
+            primary olive button shape. */}
         {pickCount >= 5 ? (
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40"
+            className="px-8 py-3.5 font-sans text-[10px] tracking-widest uppercase bg-foreground text-background hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? "Saving…" : `I'm done — wrap up with ${pickCount}`}
+            {submitting ? "Saving…" : `I'm done — wrap up with ${pickCount} →`}
           </button>
         ) : (
           <button
             onClick={onSkip}
             disabled={submitting}
-            className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors underline underline-offset-4 decoration-border-mid hover:decoration-foreground disabled:opacity-40"
+            className="px-8 py-3.5 font-sans text-[10px] tracking-widest uppercase bg-foreground text-background hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? "…" : "Skip for now"}
+            {submitting ? "…" : "Skip for now →"}
           </button>
         )}
       </div>
