@@ -223,7 +223,12 @@ export default function OnboardingPage() {
     setPairsError(null);
     (async () => {
       try {
-        const res = await fetch("/api/onboarding/pairs", { method: "GET" });
+        // Pass the user's age range so the server biases the candidate pool
+        // toward what users in that age range actually like (per the hand-
+        // labeled golden datasets). Falls through to anchor-vector behavior
+        // server-side if age is missing or has no centroid yet.
+        const ageQuery = draft.ageRange ? `?age=${encodeURIComponent(draft.ageRange)}` : "";
+        const res = await fetch(`/api/onboarding/pairs${ageQuery}`, { method: "GET" });
         if (!res.ok) throw new Error(`pairs fetch failed (${res.status})`);
         const j = await res.json();
         const pairs: Pair[] = Array.isArray(j?.pairs) ? j.pairs : [];
@@ -243,7 +248,7 @@ export default function OnboardingPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [step, draft.pairs.length, setDraft]);
+  }, [step, draft.pairs.length, draft.ageRange, setDraft]);
 
   // ── Pair handlers ─────────────────────────────────────────────────────
 

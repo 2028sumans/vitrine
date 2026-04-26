@@ -65,6 +65,8 @@ import { NextResponse } from "next/server";
 import { getPineconeIndex } from "@/lib/embeddings";
 import { getProductsByIds } from "@/lib/algolia";
 import type { AlgoliaProduct } from "@/lib/algolia";
+import { resolveAgeCentroid } from "@/lib/taste-profile";
+import { isAgeRangeKey, type AgeRangeKey } from "@/lib/onboarding-memory";
 
 export const runtime       = "nodejs";
 export const maxDuration   = 30;
@@ -87,6 +89,20 @@ type AxisKey     = typeof AXES[number];
 // vs 0.4 axis spread is still a clearly contrastive pair).
 const HIGH_THRESHOLD = 0.60;
 const LOW_THRESHOLD  = 0.40;
+
+// Pinecone stores category as singular ("top", "dress", "bottom", etc.) —
+// matching the catalog's `category` field. The age-centroid file uses the
+// display-slug form ("tops", "dresses", "bags-and-accessories") matching
+// /shop's category routes. Map between them so resolveAgeCentroid finds
+// the right per-category centroid for each Pinecone category.
+const CATEGORY_TO_AGE_SLUG: Record<CategoryKey, string> = {
+  top:    "tops",
+  dress:  "dresses",
+  bottom: "bottoms",
+  jacket: "outerwear",
+  shoes:  "shoes",
+  bag:    "bags-and-accessories",
+};
 // Per-category fetch breadth. Old client-side-partition version used 120
 // and got 50 pairs total — short of the 80-pair buffer the UI needs for
 // "neither" tolerance. 240 doubles raw coverage; with the looser
@@ -215,7 +231,28 @@ interface CandidatePair {
   bId:      string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Optional age bias — when the user has picked an age range on step 1,
+  // the frontend passes ?age=age-25-32. We use that age's centroid (per
+  // category, with cross-category fallback for unlabeled cats like shoes
+  // / bags) as the Pinecone query vector, so the per-category fetch
+  // returns items biased toward what users in that age range actually
+  // like (per the hand-labeled golden datasets).
+  //
+  // When no age is provided OR when an age has no centroid yet, we fall
+  // back to the generic anchor vector so the gauntlet still works for
+  // users who skipped age, anonymous testing, etc.
+  //
+  // The age centroid is ALSO blended at downstream save time via
+  // loadUserTasteVector (weight 0.4 vs upload weight 1.0), so this
+  // candidate-set bias is additive — picks made on age-appropriate
+  // pairs feed into a centroid that gets re-mixed with the age prior
+  // for ranking. Two-stage age bias = better calibration than either
+  // stage alone.
+  const url       = new URL(request.url);
+  const ageParam  = url.searchParams.get("age");
+  const ageRange: AgeRangeKey | null = isAgeRangeKey(ageParam) ? ageParam : null;
+
   const anchor = await getAnchorVector();
   if (!anchor) {
     return NextResponse.json(
@@ -229,9 +266,21 @@ export async function GET() {
   // SIX parallel Pinecone queries — one per category. Each returns up to
   // PER_CAT_TOP_K items with full metadata. Keeping the parallel fan-out
   // small avoids hitting Pinecone's serverless connection limits.
+  //
+  // Per-category query vector: age centroid for that category (when age
+  // provided AND centroid exists for the (cat × age) pair, falling back
+  // to cross-cat average for that age, then to anchor as the floor).
   const cellsByCategory: CategoryCells[] = await Promise.all(
     CATEGORIES.map(async (category) => {
-      const items = await fetchCategoryItems(idx, anchor, category);
+      // resolveAgeCentroid handles both per-category-direct hits and the
+      // cross-category fallback for unlabeled categories. Returns null if
+      // no age was provided or no centroids exist anywhere — at that
+      // point we use the generic anchor so the route still returns pairs.
+      const ageVec = ageRange
+        ? resolveAgeCentroid(ageRange, CATEGORY_TO_AGE_SLUG[category])
+        : null;
+      const queryVec = ageVec ?? anchor;
+      const items    = await fetchCategoryItems(idx, queryVec, category);
       return { category, axes: partitionByAxes(items) };
     }),
   );
@@ -287,7 +336,11 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    { pairs, count: pairs.length },
+    {
+      pairs,
+      count:    pairs.length,
+      ageRange: ageRange ?? null,  // echoes the bias applied — useful for client debugging
+    },
     { headers: NO_CACHE_HEADERS },
   );
 }

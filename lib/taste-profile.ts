@@ -215,7 +215,7 @@ export interface TasteVectorBreakdown {
  * not yet started). Caller drops the age contribution and the user vector
  * is composed from upload + session only.
  */
-function resolveAgeCentroid(ageRange: AgeRangeKey, categorySlug: string | null): number[] | null {
+export function resolveAgeCentroid(ageRange: AgeRangeKey, categorySlug: string | null): number[] | null {
   if (!AGE.perCategory) return null;
 
   if (categorySlug) {
