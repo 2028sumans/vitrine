@@ -308,11 +308,29 @@ export async function twoStageStrictSearch(
     buildTextQueryVectors(aesthetic, opts.softAvoids ?? []).catch(() => [] as number[][]),
   ]);
 
-  // Stage 1a (Algolia literal gate) and Stage 1b (FashionCLIP semantic gate)
-  // run in parallel. searchByCategory paginates per-category up to ~5000
-  // hits per query; searchByEmbeddings clusters retrieval_phrase vectors and
-  // pulls topK from Pinecone's visual namespace.
-  const [algoliaCandidates, semanticIds] = await Promise.all([
+  // (E) Per-category Pinecone gate: run 6 parallel category-filtered semantic
+  // searches instead of one flat search. Each bucket gets its full topK
+  // budget regardless of cross-category visual bias. The flat-search version
+  // was over-allocating to whatever category FashionCLIP found visually
+  // closest (often dresses) and starving the others.
+  //
+  // Stage 1a (Algolia literal gate) and Stage 1b (FashionCLIP per-category
+  // semantic gate) run in parallel via Promise.all.
+  const semanticGate = gateEmbeddings.length > 0
+    ? Promise.all(
+        CATEGORIES.map((cat) =>
+          searchByEmbeddings(gateEmbeddings, GATE_PINECONE_TOPK_PER_CAT, {
+            priceRange: aesthetic.price_range,
+            minScore:   STAGE1B_MIN_SCORE,
+            categories: [cat],
+          })
+            .then((ids) => ({ cat, ids }))
+            .catch(() => ({ cat, ids: [] as string[] })),
+        ),
+      )
+    : Promise.resolve(CATEGORIES.map((cat) => ({ cat, ids: [] as string[] })));
+
+  const [algoliaCandidates, perCatSemantic] = await Promise.all([
     searchByCategory(
       aesthetic.category_queries,
       aesthetic.style_keywords ?? [],
@@ -323,46 +341,59 @@ export async function twoStageStrictSearch(
       console.warn("[twoStage] Algolia gate failed:", err instanceof Error ? err.message : err);
       return emptyBuckets();
     }),
-
-    gateEmbeddings.length > 0
-      ? searchByEmbeddings(gateEmbeddings, GATE_PINECONE_TOPK, {
-          priceRange: aesthetic.price_range,
-          minScore:   STAGE1B_MIN_SCORE,
-        }).catch(() => [] as string[])
-      : Promise.resolve([] as string[]),
+    semanticGate,
   ]);
 
-  // Hydrate the FashionCLIP-only ids (those Algolia missed). Some will
-  // overlap with Algolia hits — that's fine, the per-category dedup below
-  // handles it. Skip the fetch entirely when there are no semantic ids.
+  // Hydrate the union of all FashionCLIP-only ids (those Algolia missed).
   const algoliaIdSet = new Set(Object.values(algoliaCandidates).flat().map((p) => p.objectID));
-  const semanticOnlyIds = semanticIds.filter((id) => !algoliaIdSet.has(id));
-  const semanticOnlyProducts = semanticOnlyIds.length > 0
-    ? await getProductsByIds(semanticOnlyIds).catch(() => [] as AlgoliaProduct[])
+  const allSemanticOnly = new Set<string>();
+  const semanticIdsByCat = new Map<ClothingCategory, string[]>();
+  for (const { cat, ids } of perCatSemantic) {
+    const filtered = ids.filter((id) => !algoliaIdSet.has(id));
+    semanticIdsByCat.set(cat, filtered);
+    for (const id of filtered) allSemanticOnly.add(id);
+  }
+
+  const semanticOnlyProducts = allSemanticOnly.size > 0
+    ? await getProductsByIds(Array.from(allSemanticOnly)).catch(() => [] as AlgoliaProduct[])
     : [];
+  const semProductById = new Map(semanticOnlyProducts.map((p) => [p.objectID, p]));
 
-  // Bucket semantic-only adds into per-category lists, capped per category
-  // so very abstract queries don't drown the literal-gate items.
-  const semanticBuckets = groupByCategory(semanticOnlyProducts, GATE_SEMANTIC_PER_CAT);
-
-  // Merged pool per category = Algolia ∪ Semantic-only. Algolia order is
-  // preserved at the front so its relevance ranking still influences ties.
+  // (A) Cap pool per category: top GATE_ALGOLIA_PER_CAT from Algolia (relevance
+  // order preserved by searchProducts) ∪ top GATE_SEMANTIC_PER_CAT from
+  // FashionCLIP semantic (Pinecone score order preserved by searchByEmbeddings).
+  // Latency: capping at ~700/cat × 6 = 4200 max pool drops fetch round-trips
+  // from ~10 to ~5 worst case.
   const mergedPool: Record<ClothingCategory, AlgoliaProduct[]> = emptyBuckets();
   for (const cat of CATEGORIES) {
     const seen = new Set<string>();
     const out: AlgoliaProduct[] = [];
-    for (const p of algoliaCandidates[cat]) {
+
+    // Algolia hits, capped at GATE_ALGOLIA_PER_CAT in relevance order
+    for (const p of algoliaCandidates[cat].slice(0, GATE_ALGOLIA_PER_CAT)) {
       if (!seen.has(p.objectID)) { seen.add(p.objectID); out.push(p); }
     }
-    for (const p of semanticBuckets[cat]) {
-      if (!seen.has(p.objectID)) { seen.add(p.objectID); out.push(p); }
+
+    // Semantic-only adds for THIS category, capped at GATE_SEMANTIC_PER_CAT.
+    // The per-category gate already filtered to just this category in
+    // Pinecone, so order is correct without re-grouping.
+    let semAdded = 0;
+    for (const id of (semanticIdsByCat.get(cat) ?? [])) {
+      if (semAdded >= GATE_SEMANTIC_PER_CAT) break;
+      if (seen.has(id)) continue;
+      const p = semProductById.get(id);
+      if (!p) continue;
+      seen.add(id);
+      out.push(p);
+      semAdded++;
     }
+
     mergedPool[cat] = out;
   }
 
   const totalPool = Object.values(mergedPool).reduce((s, b) => s + b.length, 0);
   const totalAlg  = Object.values(algoliaCandidates).flat().length;
-  const totalSem  = Object.values(semanticBuckets).flat().length;
+  const totalSem  = Array.from(semanticIdsByCat.values()).reduce((s, ids) => s + ids.length, 0);
 
   // Both gates dry → fall back to the parallel-RRF hybridSearch. Should be
   // rare with the augmented gate (we'd need a query both Algolia AND
@@ -419,8 +450,14 @@ export async function twoStageStrictSearch(
 
 // ── Stage 2 helpers ───────────────────────────────────────────────────────────
 
-const GATE_PINECONE_TOPK   = 1500;  // wide net for the FashionCLIP gate
-const GATE_SEMANTIC_PER_CAT = 200;  // cap semantic-only adds per category
+// Per-category Pinecone topK (E). Each of 6 cats gets its own budget instead
+// of competing in one flat search. 300 × 6 = 1800 total candidates inspected,
+// up from 1500 in the flat search but distributed properly.
+const GATE_PINECONE_TOPK_PER_CAT = 300;
+// (A) Pool caps: cap Algolia at 500/cat (relevance order), semantic-only at
+// 200/cat. Total worst-case pool ≈ 700/cat × 6 = 4200, down from ~30,000+.
+const GATE_ALGOLIA_PER_CAT  = 500;
+const GATE_SEMANTIC_PER_CAT = 200;
 const STAGE1B_MIN_SCORE     = 0.18; // floor on FashionCLIP-side gate
 
 // MMR rerank — λ controls diversity vs relevance.
@@ -429,11 +466,33 @@ const STAGE1B_MIN_SCORE     = 0.18; // floor on FashionCLIP-side gate
 //   λ=0.5 → aggressive diversity, may push lower-relevance items up
 const MMR_LAMBDA = 0.3;
 
-// Score axis weights — applied to z-normalized cosines so the magnitudes are
-// comparable. New users with no centroid: γ folds back into α via renorm.
+// Score axis weights — applied to normalized cosines so the magnitudes are
+// comparable. Defaults; the rerank dynamically attenuates these per-pool
+// based on (B) centroid alignment and (C) vibe vector availability.
 const W_DESCRIPTOR_VISUAL = 0.6;
 const W_DESCRIPTOR_VIBE   = 0.15;
 const W_CENTROID_VISUAL   = 0.25;
+
+// (B) Centroid attenuation thresholds. Compute cos(centroid, descriptor) —
+// the alignment between the user's existing taste and the current query.
+// When the query is OFF the user's usual taste (low alignment), shrink the
+// centroid weight so it doesn't fight what they're explicitly asking for.
+const CENT_ALIGN_LOW  = 0.15;  // below: centroid is ~irrelevant to query
+const CENT_ALIGN_MED  = 0.30;  // between low/med: partial pull
+const W_CENT_LOW      = 0.05;
+const W_CENT_MED      = 0.15;
+// at MED+ → keep W_CENTROID_VISUAL = 0.25
+
+// (C) Vibe dropout: if fewer than this fraction of pool items have vibe
+// vectors, drop the vibe axis entirely (its weight redistributes to visual).
+// Below 50% means 1 in 2 items has a missing axis, which makes the vibe
+// z-norm meaningless and silently distorts the overall ranking.
+const VIBE_DROPOUT_THRESHOLD = 0.5;
+
+// (D) Z-norm safe mode threshold. Below this pool size, std estimates are
+// noisy enough that z-scores can flip rankings on outliers. Switch to rank-
+// normalization (always [0, 1], stable on any pool size) for small pools.
+const ZNORM_MIN_POOL = 30;
 
 /**
  * Multi-tier descriptor → query vector. Falls through tiers if a tier is
@@ -500,8 +559,8 @@ function descriptorTextForLogging(aesthetic: StyleDNA): string {
 
 /**
  * Z-normalize an array of scores. Mean → 0, std → 1. Items missing a score
- * (NaN passed in) keep NaN so the downstream weighting can ignore them.
- * Returns zeros if the input is degenerate (all the same value).
+ * (NaN passed in) coerce to 0 so they sort to the middle. Returns zeros if
+ * the input is degenerate (all the same value).
  */
 function zNormalize(scores: number[]): number[] {
   const valid = scores.filter((s) => Number.isFinite(s));
@@ -514,18 +573,59 @@ function zNormalize(scores: number[]): number[] {
 }
 
 /**
- * Per-category rerank: z-normalized weighted cosine score → MMR diversity.
+ * Rank-normalize an array of scores. Each valid score gets a value in [0, 1]
+ * based on its sorted position. Stable across any pool size — used for small
+ * pools where z-norm's std estimate is too noisy to trust. Items with NaN
+ * map to 0 (treated as worst).
  *
- * Scoring axes (z-normalized within this pool, so magnitudes are comparable):
- *   z(cos(query, visual))   weight 0.6
- *   z(cos(query, vibe))     weight 0.15
- *   z(cos(centroid, visual)) weight 0.25  (user has a centroid)
+ * Trade-off vs z-norm: loses absolute distance info (a 0.30 cosine and a
+ * 0.20 cosine in the same pool are 1.0 and 0.0 even though the gap is huge),
+ * but always produces stable, bounded scores. Right call for pools < 30.
+ */
+function rankNormalize(scores: number[]): number[] {
+  const indexed: Array<{ s: number; i: number }> = [];
+  for (let i = 0; i < scores.length; i++) {
+    if (Number.isFinite(scores[i])) indexed.push({ s: scores[i], i });
+  }
+  if (indexed.length === 0) return scores.map(() => 0);
+  if (indexed.length === 1) return scores.map((s) => (Number.isFinite(s) ? 1 : 0));
+
+  indexed.sort((a, b) => a.s - b.s);  // ascending — best (highest cosine) gets rank n-1
+  const out = scores.map(() => 0);
+  for (let r = 0; r < indexed.length; r++) {
+    out[indexed[r].i] = r / (indexed.length - 1);   // 0 (worst) to 1 (best)
+  }
+  return out;
+}
+
+/**
+ * (D) Pool-size-aware normalization. z-norm for big pools (preserves
+ * magnitude info), rank-norm for small pools (stable when std is noisy).
+ * Threshold = ZNORM_MIN_POOL.
+ */
+function normalizeScores(scores: number[]): number[] {
+  const validCount = scores.reduce((c, s) => c + (Number.isFinite(s) ? 1 : 0), 0);
+  return validCount >= ZNORM_MIN_POOL ? zNormalize(scores) : rankNormalize(scores);
+}
+
+/**
+ * Per-category rerank with adaptive scoring.
  *
- * If the user has no centroid the third axis is zero-weighted and the first
- * two weights are renormalized so they still sum to 1.
+ *   Score = wVis × N(cos(q, vis)) + wVibe × N(cos(q, vibe)) + wCent × N(cos(c, vis))
  *
- * MMR pass: take top-K with marginal-relevance penalty so we don't return
- * 10 visually-near-identical items.
+ * where N is z-norm for pools ≥ 30 and rank-norm otherwise (D), and the
+ * weights are dynamically adjusted:
+ *
+ *   (B) Centroid attenuation. wCent shrinks toward 0 when the descriptor is
+ *       far from the user's existing taste centroid (cos(centroid, query) is
+ *       low). Prevents taste lock-in: a user who's mostly clicked old-money
+ *       can still type "y2k party" and get y2k results.
+ *
+ *   (C) Vibe dropout. If fewer than 50% of pool items have a vibe vector,
+ *       wVibe → 0 (its weight redistributes to wVis). Without dropout, the
+ *       z-norm of a half-populated vibe column distorts the whole score.
+ *
+ * Final pass: MMR diversity rerank (λ = 0.3) with visual vector similarity.
  */
 function rerankCategory(
   candidates:    AlgoliaProduct[],
@@ -534,54 +634,90 @@ function rerankCategory(
   userCentroid:  number[] | null,
   maxPerCategory: number,
 ): AlgoliaProduct[] {
-  // Raw cosine scores per axis. Use NaN for "missing vector" so zNormalize
-  // can ignore them; we coerce to 0 when combining.
-  const visScores: number[]  = [];
-  const vibScores: number[]  = [];
+  // Raw cosine scores per axis. NaN = missing vector.
+  const visScores:  number[] = [];
+  const vibScores:  number[] = [];
   const centScores: number[] = [];
+  let vibeCount = 0;
   for (const p of candidates) {
     const v = vecById.get(p.objectID);
     visScores.push(v?.visual ? cosineSimilarity(queryVec, v.visual) : NaN);
-    vibScores.push(v?.vibe   ? cosineSimilarity(queryVec, v.vibe)   : NaN);
+    if (v?.vibe) {
+      vibScores.push(cosineSimilarity(queryVec, v.vibe));
+      vibeCount++;
+    } else {
+      vibScores.push(NaN);
+    }
     centScores.push(userCentroid && v?.visual ? cosineSimilarity(userCentroid, v.visual) : NaN);
   }
 
-  const zVis  = zNormalize(visScores);
-  const zVibe = zNormalize(vibScores);
-  const zCent = zNormalize(centScores);
+  // (D) Normalize each axis with the pool-size-aware function.
+  const nVis  = normalizeScores(visScores);
+  const nVibe = normalizeScores(vibScores);
+  const nCent = normalizeScores(centScores);
 
-  // Renormalize axis weights when centroid axis is unavailable.
-  let wVis = W_DESCRIPTOR_VISUAL, wVibe = W_DESCRIPTOR_VIBE, wCent = W_CENTROID_VISUAL;
-  if (!userCentroid) {
-    const sum = wVis + wVibe;  // renorm to 1.0 across just the two query axes
-    wVis  = wVis  / sum;
-    wVibe = wVibe / sum;
-    wCent = 0;
+  // (B) Centroid attenuation. cos(centroid, descriptor) tells us how well
+  // the user's existing taste predicts the current query. Low alignment
+  // means the user is reaching for something off-taste — respect that and
+  // shrink the centroid axis so it doesn't drag results toward their usual.
+  let wCent = userCentroid ? W_CENTROID_VISUAL : 0;
+  let centAlign = NaN;
+  if (userCentroid) {
+    centAlign = cosineSimilarity(userCentroid, queryVec);
+    if      (centAlign < CENT_ALIGN_LOW) wCent = W_CENT_LOW;
+    else if (centAlign < CENT_ALIGN_MED) wCent = W_CENT_MED;
+    // else keep at W_CENTROID_VISUAL (full pull, query aligns with existing taste)
   }
+
+  // (C) Vibe dropout. Fewer than half the items have vibe vectors → axis is
+  // unreliable, drop it. Its weight gets redistributed to visual.
+  const vibeRatio = candidates.length > 0 ? vibeCount / candidates.length : 0;
+  const useVibe   = vibeRatio >= VIBE_DROPOUT_THRESHOLD;
+
+  // Final weights: keep visual:vibe ratio at 4:1 when both are on; visual
+  // takes the freed weight when vibe drops.
+  const remaining = 1 - wCent;
+  let wVis: number, wVibe: number;
+  if (useVibe) {
+    const baseSum = W_DESCRIPTOR_VISUAL + W_DESCRIPTOR_VIBE;
+    wVis  = remaining * (W_DESCRIPTOR_VISUAL / baseSum);
+    wVibe = remaining * (W_DESCRIPTOR_VIBE   / baseSum);
+  } else {
+    wVis  = remaining;
+    wVibe = 0;
+  }
+
+  // Per-pool log so we can see what knobs each query actually triggered.
+  // (Only at category granularity in tight loops; aggregate is in caller.)
+  const cat = candidates[0]?.category ?? "?";
+  console.log(
+    `[twoStage:rerank cat=${cat}] pool=${candidates.length} ` +
+    `useVibe=${useVibe} (vibeRatio=${vibeRatio.toFixed(2)}) ` +
+    `wCent=${wCent.toFixed(2)} ` +
+    (Number.isFinite(centAlign) ? `centAlign=${centAlign.toFixed(2)} ` : "") +
+    `norm=${candidates.length >= ZNORM_MIN_POOL ? "z" : "rank"}`,
+  );
 
   const scored = candidates.map((p, i) => ({
     product: p,
-    score:   wVis * zVis[i] + wVibe * zVibe[i] + wCent * zCent[i],
+    score:   wVis * nVis[i] + wVibe * nVibe[i] + wCent * nCent[i],
     visual:  vecById.get(p.objectID)?.visual ?? null,
   }));
 
   scored.sort((a, b) => b.score - a.score);
 
-  // MMR rerank — for each remaining slot, pick the candidate that maximizes
-  // (relevance) - λ × max-similarity-to-already-chosen. We use the visual
-  // vector as the similarity space (most representative). Items with no
-  // visual vector skip the diversity penalty (max sim treated as 0).
+  // MMR rerank — each new slot picks max(score - λ × max-sim-to-selected).
   if (MMR_LAMBDA <= 0 || scored.length <= 1) {
     return scored.slice(0, maxPerCategory).map((s) => s.product);
   }
 
   const out: typeof scored = [];
-  const remaining = scored.slice();
-  while (out.length < maxPerCategory && remaining.length > 0) {
+  const remainingPool = scored.slice();
+  while (out.length < maxPerCategory && remainingPool.length > 0) {
     let bestIdx = 0;
     let bestMmr = -Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const r = remaining[i];
+    for (let i = 0; i < remainingPool.length; i++) {
+      const r = remainingPool[i];
       let maxSim = 0;
       if (r.visual) {
         for (const s of out) {
@@ -593,8 +729,8 @@ function rerankCategory(
       const mmr = r.score - MMR_LAMBDA * maxSim;
       if (mmr > bestMmr) { bestMmr = mmr; bestIdx = i; }
     }
-    out.push(remaining[bestIdx]);
-    remaining.splice(bestIdx, 1);
+    out.push(remainingPool[bestIdx]);
+    remainingPool.splice(bestIdx, 1);
   }
   return out.map((s) => s.product);
 }

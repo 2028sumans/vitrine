@@ -52,16 +52,20 @@ export function buildAxisFilter(axes: AxisFilter | undefined): Record<string, un
   return Object.keys(out).length === 0 ? null : out;
 }
 
-/** Merge price + axis filters into a single Pinecone filter object. */
+/** Merge price + axis + category filters into a single Pinecone filter object. */
 function mergeFilters(
   priceRange: string | undefined,
   axes:       AxisFilter | undefined,
+  categories: string[] | undefined = undefined,
 ): Record<string, unknown> | null {
   const parts: Record<string, unknown>[] = [];
   const price = buildPriceFilter(priceRange);
   const axis  = buildAxisFilter(axes);
   if (price) parts.push(price);
   if (axis)  parts.push(axis);
+  if (categories && categories.length > 0) {
+    parts.push({ category: { $in: categories } });
+  }
   if (parts.length === 0) return null;
   if (parts.length === 1) return parts[0];
   return { $and: parts };
@@ -446,6 +450,18 @@ export interface SearchOptions {
   /** Pinecone namespace. Default = "" (visual); "vibe" = caption-based vectors. */
   namespace?:  string;
   /**
+   * Restrict matches to one or more product categories — pushed down to
+   * Pinecone as a metadata `$in` filter so the topK budget is spent inside
+   * the requested bucket(s) instead of being dominated by whichever
+   * category happens to be visually closest. Used by the per-category
+   * FashionCLIP gate in lib/hybrid-search.twoStageStrictSearch.
+   *
+   * Note: this requires the product's `category` to be in its Pinecone
+   * metadata. scripts/embed-with-qc.mjs writes it for every upsert, so
+   * this is true for the production index.
+   */
+  categories?: string[];
+  /**
    * Minimum per-match cosine similarity to accept. Default: 0 (accept all).
    * Set to 0.20-0.25 for "strict" semantic queries where off-aesthetic
    * neighbours should be dropped regardless of top-K ranking. FashionCLIP
@@ -468,7 +484,7 @@ export async function searchByEmbeddings(
   if (valid.length === 0) return [];
 
   const clusters       = clusterEmbeddings(valid, 0.78);
-  const pineconeFilter = mergeFilters(options.priceRange, options.axes);
+  const pineconeFilter = mergeFilters(options.priceRange, options.axes, options.categories);
   const minScore       = options.minScore ?? 0;
   const seen           = new Map<string, number>();
   const idx            = await getPineconeIndex();
@@ -736,7 +752,7 @@ export async function searchByCentroidWithMetadata(
   if (!centroid || centroid.length === 0) return [];
   const index = await getPineconeIndex();
   const target = options.namespace ? index.namespace(options.namespace) : index;
-  const filter = mergeFilters(options.priceRange, options.axes);
+  const filter = mergeFilters(options.priceRange, options.axes, options.categories);
   const result = await target.query({
     vector:          centroid,
     topK,
