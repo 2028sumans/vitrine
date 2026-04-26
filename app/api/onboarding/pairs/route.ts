@@ -95,16 +95,26 @@ const LOW_THRESHOLD  = 0.40;
 // we only sample axis pools from the top AGE_BIAS_POOL_SIZE items per
 // category. The remaining items in the topK=240 fetch are "kinda age-
 // aligned, kinda not" and would dilute the signal if mixed in.
-const AGE_BIAS_POOL_SIZE = 100;
+//
+// Tuned 100 → 150 after first cut produced only 31 pairs for sparse age
+// buckets like 13-18 (where labeled examples are limited and the top-100
+// cluster very tightly, leaving low pools empty for some axes).
+const AGE_BIAS_POOL_SIZE = 150;
 
 // Within each axis-end pool (e.g., the high-formality items in tops),
 // only consider the top CELL_TIGHT_TOP items by Pinecone similarity to
 // the query vector. Without this, shuffleInPlace would randomize across
 // the entire axis pool — which on age-biased fetches mixes the most
-// age-aligned items with the lukewarm 80th-percentile tail. Top-10 keeps
+// age-aligned items with the lukewarm 80th-percentile tail. Top-N keeps
 // pairs tightly age-aligned while still giving cross-call variety so two
 // users in the same age bucket don't see identical sequences.
-const CELL_TIGHT_TOP = 10;
+//
+// Tuned 10 → 14 after first cut: top-10 was so tight that dedup kept
+// catching the same items across multiple axis cells (an item high on
+// formality is often also high on minimalism among age-aligned tops),
+// collapsing pair counts. 14 gives enough cross-axis breathing room
+// without losing the tight-aligned ranking.
+const CELL_TIGHT_TOP = 14;
 
 // Pinecone stores category as singular ("top", "dress", "bottom", etc.) —
 // matching the catalog's `category` field. The age-centroid file uses the
@@ -124,7 +134,11 @@ const CATEGORY_TO_AGE_SLUG: Record<CategoryKey, string> = {
 // "neither" tolerance. 240 doubles raw coverage; with the looser
 // thresholds above, expected output recovers to 80+ pairs.
 const PER_CAT_TOP_K  = 240;
-const PAIRS_PER_CELL = 3;
+// Pairs per (category × axis) cell. Higher = more pairs per request but
+// more dedup hits when items overlap across axes. 4 hit the sweet spot
+// after the bias clamps tightened: produces ~70-90 unique pairs after
+// dedup vs ~30-50 at PAIRS_PER_CELL=3.
+const PAIRS_PER_CELL = 4;
 const TARGET_PAIRS   = 80;
 const MAX_PER_CAT    = 16;
 
