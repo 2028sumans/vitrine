@@ -1487,19 +1487,84 @@ export async function POST(request: Request) {
       const optionalWords = q ? q.split(/\s+/).filter(Boolean) : undefined;
       const filters = composeFilters("", priceMax);
 
+      // Page size: when q is empty (Shop All with bias only), fetch a fat
+      // 96-item page so the user sees as many items as possible before
+      // hitting Load More. When q has a real steer string, 48 is enough —
+      // the steer focuses results and we don't need a huge candidate pool.
+      const queryHitsPerPage = q ? HITS_PER_PAGE : 96;
+
       // Algolia query + unified session ranking in parallel.
-      const algoliaPromise = client.searchSingleIndex({
-        indexName: INDEX_NAME,
-        searchParams: {
-          query:       q,
-          ...(optionalWords ? { optionalWords } : {}),
-          ...(filters ? { filters } : {}),
-          hitsPerPage: HITS_PER_PAGE,
-          page,
-          attributesToRetrieve,
-          ...personalizationParams(userToken),
-        },
-      });
+      //
+      // Empty-q (Shop All with bias) uses an 8-slice catalog walk for
+      // catalog-wide diversity — same shape as the flat path below, just
+      // with personalization (boost/centroid + Personalization re-ranking)
+      // layered on top. Without the slice walk, an empty query returns
+      // hits sorted by customRanking=desc(price), so the first page is
+      // 96 of the most expensive items — biased and not "all the products"
+      // in any felt sense. With the slice walk, the page spans every
+      // price tier (0%, 12.5%, 25%, … 87.5% of the catalog).
+      let algoliaPromise: Promise<{ hits?: Array<Record<string, unknown>>; nbHits?: number; queryID?: string }>;
+      if (q || seedProductId) {
+        algoliaPromise = client.searchSingleIndex({
+          indexName: INDEX_NAME,
+          searchParams: {
+            query:       q,
+            ...(optionalWords ? { optionalWords } : {}),
+            ...(filters ? { filters } : {}),
+            hitsPerPage: queryHitsPerPage,
+            page,
+            attributesToRetrieve,
+            ...personalizationParams(userToken),
+          },
+        }) as Promise<{ hits?: Array<Record<string, unknown>>; nbHits?: number; queryID?: string }>;
+      } else {
+        // Shop-all bias-only: 8-slice catalog walk gives true catalog-wide
+        // spread (every price tier) instead of 96 desc(price)-sorted items.
+        // Each slice carries its own queryID; we keep the first one for
+        // hasMore math. Personalization is applied per-slice.
+        const SLICES = 8;
+        const PER_SLICE = queryHitsPerPage / SLICES; // 12
+        algoliaPromise = (async () => {
+          const totalRes = await client.searchSingleIndex({
+            indexName: INDEX_NAME,
+            searchParams: {
+              query: "", hitsPerPage: 0, page: 0, attributesToRetrieve: [],
+              ...(filters ? { filters } : {}),
+            },
+          });
+          const totalCatalog = totalRes.nbHits ?? 100_000;
+          const sliceSpan = Math.max(1, Math.floor(totalCatalog / (SLICES * PER_SLICE)));
+          const sliceResults = await Promise.all(
+            Array.from({ length: SLICES }, (_, sliceIdx) =>
+              client.searchSingleIndex({
+                indexName: INDEX_NAME,
+                searchParams: {
+                  query:       "",
+                  ...(filters ? { filters } : {}),
+                  hitsPerPage: PER_SLICE,
+                  page:        sliceIdx * sliceSpan + page,
+                  attributesToRetrieve,
+                  ...personalizationParams(userToken),
+                },
+              }).catch(() => ({ hits: [] as Array<Record<string, unknown>>, nbHits: 0, queryID: undefined })),
+            ),
+          );
+          // Round-robin interleave so the result spans all 8 slices.
+          const interleaved: Array<Record<string, unknown>> = [];
+          for (let i = 0; i < PER_SLICE; i++) {
+            for (let s = 0; s < SLICES; s++) {
+              const sliceQID = (sliceResults[s] as unknown as { queryID?: string }).queryID;
+              const hit = sliceResults[s].hits?.[i] as Record<string, unknown> | undefined;
+              if (hit) interleaved.push(sliceQID ? { ...hit, _queryID: sliceQID } : hit);
+            }
+          }
+          return {
+            hits: interleaved,
+            nbHits: totalCatalog,
+            queryID: (sliceResults[0] as unknown as { queryID?: string }).queryID,
+          };
+        })();
+      }
 
       let boostIds: string[] = [];
       let axisProfile: AxisRecord = {};
@@ -1654,7 +1719,12 @@ export async function POST(request: Request) {
           .map((x) => x.p);
       }
 
-      // Diversity injection.
+      // Diversity injection. Bumped from 12 → 24 exploration items so the
+      // page feels fuller, especially in the empty-q (Shop All bias-only)
+      // case where the user wants "all the products" not just "my taste."
+      // When clean is short (< startAt), we APPEND exploration items
+      // wholesale instead of skipping injection — better to show 36 items
+      // (12 boosted + 24 exploration) than 12 items + nothing.
       if (!seedProductId && (likedSignals.length + savedSignals.length) >= 1) {
         try {
           const explorePage = Math.max(0, Math.floor(Math.random() * 50));
@@ -1662,7 +1732,7 @@ export async function POST(request: Request) {
             indexName: INDEX_NAME,
             searchParams: {
               query:       "",
-              hitsPerPage: 12,
+              hitsPerPage: 24,
               page:        explorePage,
               attributesToRetrieve,
             },
@@ -1673,7 +1743,13 @@ export async function POST(request: Request) {
               const u = h.image_url;
               return typeof u === "string" && u.startsWith("http") && !seenIds.has(h.objectID as string);
             });
-          clean = injectDiversitySlots(clean, exploratory, 16);
+          if (clean.length <= 16) {
+            // Page is short — just append exploration so the user sees
+            // SOMETHING beyond the few personalized items.
+            clean = [...clean, ...exploratory] as typeof clean;
+          } else {
+            clean = injectDiversitySlots(clean, exploratory, 16);
+          }
         } catch (e) {
           console.warn("[shop-all] diversity exploration fetch failed:", e instanceof Error ? e.message : e);
         }
@@ -1690,12 +1766,12 @@ export async function POST(request: Request) {
       if (clean.length > 0) {
         // hasMore from total catalog count.
         const queryNbHits = res.nbHits ?? 0;
-        const queryConsumed = (page + 1) * HITS_PER_PAGE;
+        const queryConsumed = (page + 1) * queryHitsPerPage;
         const cleanWithPos = clean.map((p, i) => ({ ...p, _position: i + 1 }));
         return NextResponse.json({
           products: cleanWithPos,
           page,
-          hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= HITS_PER_PAGE / 2,
+          hasMore: queryNbHits > 0 ? queryConsumed < queryNbHits : (res.hits?.length ?? 0) >= queryHitsPerPage / 2,
           mode:    seedProductId ? "seed" : (steerQuery ? "steered" : "biased"),
           query:   q,
         });
