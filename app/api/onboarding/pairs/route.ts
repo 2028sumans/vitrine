@@ -78,13 +78,20 @@ const AXES       = ["formality", "minimalism", "edge", "romance", "drape"] as co
 type CategoryKey = typeof CATEGORIES[number];
 type AxisKey     = typeof AXES[number];
 
-const HIGH_THRESHOLD = 0.65;
-const LOW_THRESHOLD  = 0.35;
-// Per-category fetch breadth. We need enough hits per category that, after
-// partitioning by 5 axes × {high, low} = 10 buckets, each bucket has 3+
-// items (so we can produce up to 3 pairs per cell with no replacement).
-// 120 ≈ 12 expected per bucket if axis values are roughly uniform.
-const PER_CAT_TOP_K  = 120;
+// Slightly looser thresholds than the per-axis-filter version (0.65/0.35).
+// Reason: when we filter Pinecone by axis directly, we always get the
+// strictest top-K matching that filter from across the WHOLE catalog.
+// Partitioning client-side from a per-category fetch is bounded by what
+// shows up in our pre-fetch — sparser cells. 0.6/0.4 thresholds widen
+// each pool by ~50% in practice without diluting contrast much (a 0.6
+// vs 0.4 axis spread is still a clearly contrastive pair).
+const HIGH_THRESHOLD = 0.60;
+const LOW_THRESHOLD  = 0.40;
+// Per-category fetch breadth. Old client-side-partition version used 120
+// and got 50 pairs total — short of the 80-pair buffer the UI needs for
+// "neither" tolerance. 240 doubles raw coverage; with the looser
+// thresholds above, expected output recovers to 80+ pairs.
+const PER_CAT_TOP_K  = 240;
 const PAIRS_PER_CELL = 3;
 const TARGET_PAIRS   = 80;
 const MAX_PER_CAT    = 16;
