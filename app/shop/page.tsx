@@ -206,6 +206,14 @@ function ShopPageContent() {
   const [steerInterp,      setSteerInterp]      = useState<SteerInterpretation | null>(null);
   const [interpretingSteer, setInterpretingSteer] = useState(false);
 
+  // "More like this" sidebar state. When set, the panel slides in from the
+  // right with the seed product's nearest catalog neighbours stacked as
+  // horizontal rows. `seed` doubles as the open/closed signal; clearing it
+  // closes the panel.
+  const [moreLikeSeed,     setMoreLikeSeed]     = useState<Product | null>(null);
+  const [moreLikeProducts, setMoreLikeProducts] = useState<Product[]>([]);
+  const [moreLikeLoading,  setMoreLikeLoading]  = useState(false);
+
   // True when the inline TasteShopFlow has produced (or is producing)
   // personalized picks. While true, the default category feed and its
   // grid/scroll/sort toolbar are hidden so the picks aren't sandwiched
@@ -742,15 +750,23 @@ function ShopPageContent() {
     }
   }, [buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isBrandMode, likedIds, userToken]);
 
-  // "More like this" — fire a seed-mode fetch with the active product's
-  // ID. Server queries Pinecone with that single product's vector and
-  // returns the top neighbours. Splice in at activeIdx + 2 so the next
-  // swipe lands on something tightly similar to the seed. Distinct from
-  // refreshBiasedAhead, which uses the full session centroid; seed mode
-  // bypasses everything and trusts THIS one piece.
+  // "More like this" — fire a seed-mode fetch and slide the result in as a
+  // sidebar of horizontal product rows. Doesn't disturb the main feed (so
+  // the user can come back to where they were); doesn't write to taste
+  // memory (the user is just exploring this one piece's neighborhood).
+  // Like/Save buttons inside the sidebar do still flow through the parent's
+  // handlers, so deliberate signals from the sidebar count as session input.
   const handleMoreLikeThis = useCallback(async (productId: string) => {
     if (biasRefetchInFlightRef.current) return;
     biasRefetchInFlightRef.current = true;
+
+    // Open the panel immediately with the seed so the user sees the title
+    // and a loading spinner — no blank flash.
+    const seed = products.find((p) => p.objectID === productId) ?? null;
+    setMoreLikeSeed(seed);
+    setMoreLikeProducts([]);
+    setMoreLikeLoading(true);
+
     try {
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
@@ -769,29 +785,29 @@ function ShopPageContent() {
           seedProductId:   productId,
         }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setMoreLikeProducts([]);
+        return;
+      }
       const data  = await res.json();
       const fresh = (data.products ?? []) as Product[];
-      if (fresh.length === 0) return;
-
-      setProducts((prev) => {
-        const insertAt = Math.min(activeScrollIdxRef.current + 2, prev.length);
-        const keep     = prev.slice(0, insertAt);
-        const keepIds  = new Set(keep.map((p) => p.objectID));
-        const freshUnseen = fresh.filter((p) => !keepIds.has(p.objectID));
-        freshUnseen.forEach((p) => seenIdsRef.current.add(p.objectID));
-        return [...keep, ...freshUnseen];
-      });
-      setToast("more like this");
-      setPage(1);
-      setHasMore(true);
-      setLooseningLevel(0);
+      // Drop the seed itself if Pinecone returned it as its own nearest
+      // neighbour (it always will, since cosine-sim with itself is 1.0).
+      const neighbours = fresh.filter((p) => p.objectID !== productId);
+      setMoreLikeProducts(neighbours);
     } catch (err) {
       console.warn("[shop] handleMoreLikeThis failed:", err);
     } finally {
+      setMoreLikeLoading(false);
       biasRefetchInFlightRef.current = false;
     }
-  }, [buildBias, buildServerSignals, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, likedIds, userToken]);
+  }, [products, buildBias, buildServerSignals, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, likedIds, userToken]);
+
+  const closeMoreLike = useCallback(() => {
+    setMoreLikeSeed(null);
+    setMoreLikeProducts([]);
+    setMoreLikeLoading(false);
+  }, []);
 
   // Toggle-save handler. Saves are a strong, deliberate taste signal:
   //   1. Contribute to the shortlist-derived bias on future /api/shop-all
@@ -1444,6 +1460,20 @@ function ShopPageContent() {
           onMoreLikeThis={handleMoreLikeThis}
         />
       )}
+
+      {/* "More like this" sidebar — opens from the right when the user taps
+          the rail button on a scroll-view card. Stays mounted (translateX
+          off-screen) so the close transition animates out cleanly. */}
+      <MoreLikeSidebar
+        seed={moreLikeSeed}
+        products={moreLikeProducts}
+        loading={moreLikeLoading}
+        likedIds={likedIds}
+        savedIds={savedIds}
+        onLike={handleLike}
+        onSave={handleSave}
+        onClose={closeMoreLike}
+      />
 
       {/* Transient confirmation banner ("saved to your shortlist"). Lives at
           page level so it floats above the scroll view overlay (z-50).
@@ -2458,5 +2488,223 @@ function SteerChips({
         </button>
       ))}
     </div>
+  );
+}
+
+// ── More-like-this sidebar ────────────────────────────────────────────────────
+// Slide-in panel that surfaces the 24 catalog neighbours of a seed product as
+// horizontal rows. Editorial in feel: cream surface, hairline rows, image →
+// brand → title → price → small heart + bookmark.
+//
+// Behavioural notes:
+//   - Backdrop click, Escape, or the close button all dismiss the panel.
+//   - Clicking the image or title opens the product page in a new tab — same
+//     behaviour as the rest of the app's product affordances.
+//   - Like / Save flow back to the parent so signals from the panel still
+//     count as session input (the panel doesn't have its own taste memory).
+//   - Width: 420px on ≥sm, full-screen on mobile. The list scrolls
+//     internally; main page scroll is locked behind the panel.
+function MoreLikeSidebar({
+  seed,
+  products,
+  loading,
+  likedIds,
+  savedIds,
+  onLike,
+  onSave,
+  onClose,
+}: {
+  seed:     Product | null;
+  products: Product[];
+  loading:  boolean;
+  likedIds: Set<string>;
+  savedIds: Set<string>;
+  onLike:   (objectID: string) => void;
+  onSave:   (productId: string) => void;
+  onClose:  () => void;
+}) {
+  const open = seed !== null;
+
+  // Esc to close. Body scroll lock while open so the page behind doesn't drift.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        aria-hidden={!open}
+        onClick={onClose}
+        className={`fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      />
+
+      {/* Panel */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="More like this"
+        className={`fixed inset-y-0 right-0 z-[61] w-full sm:w-[420px] bg-background border-l border-border-mid shadow-2xl flex flex-col transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+        {/* Header — seed thumbnail + name + close */}
+        <header className="flex items-start gap-3 px-5 py-4 border-b border-border">
+          {seed?.image_url && (
+            <a
+              href={seed.product_url || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 w-12 h-16 overflow-hidden bg-[rgba(42,51,22,0.06)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={seed.image_url} alt="" className="w-full h-full object-cover" />
+            </a>
+          )}
+          <div className="flex-1 min-w-0 pt-0.5">
+            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-1">More like</p>
+            <p className="font-display italic text-base text-foreground line-clamp-2 leading-snug">
+              {seed?.title || ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-muted hover:text-foreground transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18 M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && products.length === 0 ? (
+            <div className="px-8 py-16 text-center font-display italic text-muted">
+              Finding the rest of this feeling…
+            </div>
+          ) : products.length === 0 ? (
+            <div className="px-8 py-16 text-center font-display italic text-muted">
+              No close matches in the catalog.
+            </div>
+          ) : (
+            <ul>
+              {products.map((p) => (
+                <MoreLikeRow
+                  key={p.objectID}
+                  product={p}
+                  liked={likedIds.has(p.objectID)}
+                  saved={savedIds.has(p.objectID)}
+                  onLike={() => onLike(p.objectID)}
+                  onSave={() => onSave(p.objectID)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Count footer */}
+        {products.length > 0 && (
+          <footer className="px-5 py-3 border-t border-border font-sans text-[9px] tracking-widest uppercase text-muted text-center">
+            {products.length} matches
+          </footer>
+        )}
+      </aside>
+    </>
+  );
+}
+
+function MoreLikeRow({
+  product, liked, saved, onLike, onSave,
+}: {
+  product: Product;
+  liked:   boolean;
+  saved:   boolean;
+  onLike:  () => void;
+  onSave:  () => void;
+}) {
+  const brandLabel = product.brand || product.retailer || "";
+  return (
+    <li className="border-b border-border last:border-b-0">
+      <div className="flex items-stretch gap-3 px-4 py-3 hover:bg-foreground/[0.03] transition-colors">
+        <a
+          href={product.product_url || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 w-24 h-32 overflow-hidden bg-[rgba(42,51,22,0.06)] group"
+        >
+          {product.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image_url}
+              alt={product.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              loading="lazy"
+              decoding="async"
+            />
+          )}
+        </a>
+
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+          <div className="min-w-0">
+            {brandLabel && (
+              <p className="font-sans text-[9px] tracking-widest uppercase text-accent mb-1 truncate">
+                {brandLabel}
+              </p>
+            )}
+            <a
+              href={product.product_url || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-sans text-xs text-foreground line-clamp-2 leading-snug hover:text-accent transition-colors"
+            >
+              {product.title}
+            </a>
+          </div>
+
+          <div className="flex items-end justify-between gap-2 mt-2">
+            <span className="font-sans text-xs font-medium text-foreground whitespace-nowrap">
+              {product.price != null ? `$${Math.round(product.price).toLocaleString("en-US")}` : ""}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLike(); }}
+                aria-label={liked ? "Remove like" : "Like"}
+                aria-pressed={liked}
+                className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground transition-colors"
+                style={liked ? { color: "#2A3316" } : undefined}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSave(); }}
+                aria-label={saved ? "Remove from shortlist" : "Save to shortlist"}
+                aria-pressed={saved}
+                className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground transition-colors"
+                style={saved ? { color: "#2A3316" } : undefined}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
   );
 }
