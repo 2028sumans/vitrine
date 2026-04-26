@@ -1206,6 +1206,13 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
   const [extraProducts,    setExtraProducts]    = useState<AlgoliaProduct[]>([]);
   const [extraPage,        setExtraPage]        = useState(1);
   const [extraHasMore,     setExtraHasMore]     = useState(true);
+  // Auto-broaden levels for true infinite scroll. When the current scope
+  // (e.g. focus_category=shoes + steer "in black") exhausts, we bump this
+  // and rerun page 1 with the most restrictive filter dropped, instead of
+  // letting the feed dead-end. 0 = original; 1 = drop category; 2 = drop
+  // steer; 3 = catalog walk under the aesthetic alone. Only at 3's
+  // exhaustion do we genuinely set extraHasMore=false.
+  const [extraLooseningLevel, setExtraLooseningLevel] = useState(0);
   const [loadingMoreExtra, setLoadingMoreExtra] = useState(false);
   // Tracks products already in the feed (initial candidates + extras + Algolia
   // pages) so /api/shop-all pagination doesn't hand us duplicates.
@@ -1483,6 +1490,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
             setExtraProducts([]);
             setExtraPage(1);
             setExtraHasMore(true);
+            setExtraLooseningLevel(0);
             setSessionLikedIds(new Set());
             // Start each new feed with a clean session-signal slate so the
             // last run's reactions don't re-order this run's preloaded batch.
@@ -1553,6 +1561,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     setExtraProducts([]);
     setExtraPage(1);
     setExtraHasMore(true);
+    setExtraLooseningLevel(0);
     seenExtraIdsRef.current.clear();
 
     // 2. If fast-parse was concrete, fire an immediate /api/shop-all fetch
@@ -1585,6 +1594,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
             setExtraProducts([]);
             setExtraPage(1);
             setExtraHasMore(true);
+            setExtraLooseningLevel(0);
             seenExtraIdsRef.current.clear();
             void refetchWithSteer(rich);
           }
@@ -1631,10 +1641,13 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
   // as bias so each page reflects what they've been engaging with.
   // Shared /api/shop-all fetch. Both infinite-scroll pagination and the
   // "refetch after steer" path use it. The caller decides the page + which
-  // steer to forward (current state for pagination; explicit for refetch).
+  // steer to forward + which loosening level to apply (passed explicitly
+  // so we don't capture a stale level via closure when called inside a
+  // handler that just bumped or reset it).
   const fetchShopAllPage = useCallback(async (
     page:   number,
     interp: SteerInterp | null,
+    level:  number = 0,
   ): Promise<{ products: AlgoliaProduct[]; hasMore: boolean } | null> => {
     if (!aesthetic) return null;
 
@@ -1649,13 +1662,18 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     const resolvedCategory = (categoryFilter ?? "").trim()
       || (focusCat ? FOCUS_TO_CATEGORY_LABEL[focusCat] ?? "" : "");
 
+    // Effective scope based on the explicitly-passed `level` — drop the
+    // most restrictive signal at each step so the feed never dead-ends.
+    const useCategory = level < 1 ? resolvedCategory : "";
+    const useInterp   = level < 2 ? interp           : null;
+
     // Compose the Algolia free-text query. Order matters — user steer terms
     // go FIRST so Algolia's ranker reads them as the most salient intent.
-    const interpTerms = interp
+    const interpTerms = useInterp
       ? [
-          ...(interp.search_terms ?? []),
-          ...(interp.colors       ?? []),
-          ...(interp.categories   ?? []),
+          ...(useInterp.search_terms ?? []),
+          ...(useInterp.colors       ?? []),
+          ...(useInterp.categories   ?? []),
         ]
       : [];
     const steerQuery = [
@@ -1691,11 +1709,11 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
           page,
           bias,
           likedProductIds: Array.from(sessionLikedIds),
-          categoryFilter: resolvedCategory,
+          categoryFilter: useCategory,
           steerQuery,
           // Structured steer — server applies price_range / avoid_terms as
           // post-filters and uses style_axes to re-rank inside Pinecone.
-          steerInterp: interp ?? undefined,
+          steerInterp: useInterp ?? undefined,
         }),
       });
       if (!res.ok) return null;
@@ -1708,14 +1726,23 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
       console.warn("[fetchShopAllPage] failed:", err);
       return null;
     }
-  }, [aesthetic, candidates, extraProducts, sessionLikedIds]);
+  }, [aesthetic, candidates, extraProducts, sessionLikedIds, categoryFilter]);
 
   const loadMoreExtras = useCallback(async () => {
     if (loadingMoreExtra || !extraHasMore || !aesthetic) return;
     setLoadingMoreExtra(true);
     try {
-      const result = await fetchShopAllPage(extraPage, steerInterp);
-      if (!result) { setExtraHasMore(false); return; }
+      const result = await fetchShopAllPage(extraPage, steerInterp, extraLooseningLevel);
+      if (!result) {
+        // Network/server error — try a broader scope before giving up.
+        if (extraLooseningLevel < 3) {
+          setExtraLooseningLevel((lvl) => lvl + 1);
+          setExtraPage(1);
+          return;
+        }
+        setExtraHasMore(false);
+        return;
+      }
 
       const seen = seenExtraIdsRef.current;
       const batch: AlgoliaProduct[] = [];
@@ -1727,19 +1754,34 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
 
       setExtraProducts((prev) => [...prev, ...batch]);
       setExtraPage((p) => p + 1);
-      if (!result.hasMore || batch.length === 0) setExtraHasMore(false);
+
+      // Auto-broaden when the current scope is exhausted (server says no
+      // more OR every product was a duplicate). Keep extraHasMore=true so
+      // the next loadMoreExtras call fires with the broader scope. Only
+      // genuinely stop at level 3.
+      if (!result.hasMore || batch.length === 0) {
+        if (extraLooseningLevel < 3) {
+          setExtraLooseningLevel((lvl) => lvl + 1);
+          setExtraPage(1);
+        } else {
+          setExtraHasMore(false);
+        }
+      }
     } finally {
       setLoadingMoreExtra(false);
     }
-  }, [aesthetic, extraPage, extraHasMore, loadingMoreExtra, steerInterp, fetchShopAllPage]);
+  }, [aesthetic, extraPage, extraHasMore, loadingMoreExtra, steerInterp, fetchShopAllPage, extraLooseningLevel]);
 
   // Triggered by handleSayMore — blow away the feed and refill page 1 with
-  // the new steer applied against the full catalog.
+  // the new steer applied against the full catalog. Explicitly resets the
+  // loosening level to 0 so the user sees the freshly-applied steer at the
+  // most restrictive scope first.
   const refetchWithSteer = useCallback(async (interp: SteerInterp | null) => {
     if (!aesthetic) return;
+    setExtraLooseningLevel(0);
     setLoadingMoreExtra(true);
     try {
-      const result = await fetchShopAllPage(1, interp);
+      const result = await fetchShopAllPage(1, interp, 0);
       if (!result) return;
       // Re-seed the seen set from the ground up: initial candidates (still
       // rendered above the extras) + new fresh batch. Previously we cleared
@@ -1778,6 +1820,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     setExtraProducts([]);
     setExtraPage(1);
     setExtraHasMore(true);
+    setExtraLooseningLevel(0);
     setSessionLikedIds(new Set());
     clickHistoryRef.current    = [];
     dislikedSignalsRef.current = [];

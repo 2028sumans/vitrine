@@ -177,6 +177,13 @@ function ShopPageContent() {
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(false);
   const [hasMore, setHasMore]   = useState(true);
+  // Auto-broadening for true infinite scroll: when /api/shop-all says it has
+  // exhausted the current scope (e.g. a brand with only 14 products), bump
+  // this counter and rerun pagination from page 0 with the most restrictive
+  // filter dropped. Level 0 = original scope; level 1 = scope dropped, only
+  // steer + aesthetic; level 2 = unscoped catalog walk. We only set
+  // hasMore=false at level 2's exhaustion.
+  const [looseningLevel, setLooseningLevel] = useState(0);
   const seenIdsRef              = useRef<Set<string>>(new Set());
   const sentinelRef             = useRef<HTMLDivElement>(null);
 
@@ -469,12 +476,26 @@ function ShopPageContent() {
 
   // Catalog fetch. Scope is brand / category / steered-taste-query, resolved
   // server-side. Session-bias signals (likes/dislikes so far) rank-boost the
-  // results. Pagination continues until the server says hasMore=false.
+  // results.
+  //
+  // Infinite-scroll discipline: when the server reports it's run out of
+  // matches at the current scope OR returns an all-duplicates batch, we
+  // automatically broaden the search instead of stopping. Brand/category
+  // filters drop at level 1, and at level 2 we walk the catalog with bias
+  // alone. The user keeps scrolling, the feed keeps coming.
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     if (isPickerMode) return; // No product fetch in category-picker mode.
     setLoading(true);
     try {
+      // Build the request scope based on looseningLevel.
+      const useBrand    = looseningLevel < 1 ? (brandFilter    ?? "") : "";
+      const useCategory = looseningLevel < 1 ? (categoryFilter ?? "") : "";
+      // Steer keeps applying at level 1 — it's the user's explicit instruction.
+      // Only at level 2 do we drop it and rely on bias alone.
+      const useSteerQuery  = looseningLevel < 2 ? steerQuery  : "";
+      const useSteerInterp = looseningLevel < 2 ? steerInterp : null;
+
       const res = await fetch(`/api/shop-all`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -484,11 +505,11 @@ function ShopPageContent() {
           likedProductIds: Array.from(likedIds),
           signals:         buildServerSignals(),
           userToken,
-          brandFilter:     brandFilter    ?? "",
-          categoryFilter:  categoryFilter ?? "",
+          brandFilter:     useBrand,
+          categoryFilter:  useCategory,
           priceMax,
-          steerQuery,
-          steerInterp,
+          steerQuery:      useSteerQuery,
+          steerInterp:     useSteerInterp,
         }),
       });
       if (!res.ok) {
@@ -502,13 +523,24 @@ function ShopPageContent() {
       const batch = dedupeAgainstSeen(fresh);
       setProducts((prev) => [...prev, ...batch]);
       setPage((p) => p + 1);
-      if (!data.hasMore) setHasMore(false);
+
+      // Only stop pagination when level-2 (catalog walk) exhausts. Anything
+      // tighter just bumps to the next looser scope and rewinds page=0.
+      if (!data.hasMore || batch.length === 0) {
+        if (looseningLevel < 2) {
+          setLooseningLevel((lvl) => lvl + 1);
+          setPage(0);
+          // Keep hasMore=true; the next loadMore will fire with the broader scope.
+        } else {
+          setHasMore(false);
+        }
+      }
     } catch (err) {
       console.error("[shop] load failed:", err);
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds, userToken]);
+  }, [page, loading, hasMore, looseningLevel, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds, userToken]);
 
   // One-shot init guard. The useEffect below has deps that settle in stages
   // on mount (URL read swaps brand/category null → value); without a guard
@@ -539,6 +571,7 @@ function ShopPageContent() {
     setProducts([]);
     setPage(0);
     setHasMore(true);
+    setLooseningLevel(0);
     seenIdsRef.current = new Set();
 
     if (isPickerMode) {
@@ -580,7 +613,15 @@ function ShopPageContent() {
         }
         setProducts(batch);
         setPage(1);
-        if (!data.hasMore) setHasMore(false);
+        // If the initial scoped fetch already exhausted (e.g. a brand with
+        // <50 products), bump the loosening level instead of disabling
+        // pagination — keeping hasMore=true so "Load more" remains active
+        // and the next click pulls similar items with the brand filter
+        // dropped, delivering true infinite scroll.
+        if (!data.hasMore) {
+          setLooseningLevel(1);
+          setPage(0);
+        }
       } catch (err) {
         console.error("[shop] init load failed:", err);
       } finally {
@@ -672,6 +713,7 @@ function ShopPageContent() {
       if (!isGrid) {
         setPage(1);
         setHasMore(true);
+        setLooseningLevel(0);
       }
     } catch (err) {
       console.warn("[shop] refreshBiasedAhead failed:", err);
@@ -723,6 +765,7 @@ function ShopPageContent() {
       setToast("more like this");
       setPage(1);
       setHasMore(true);
+      setLooseningLevel(0);
     } catch (err) {
       console.warn("[shop] handleMoreLikeThis failed:", err);
     } finally {
@@ -987,6 +1030,7 @@ function ShopPageContent() {
     setProducts([]);
     setPage(0);
     setHasMore(true);
+    setLooseningLevel(0);
     seenIdsRef.current = new Set();
   }, []);
 
