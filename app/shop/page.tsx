@@ -1388,8 +1388,14 @@ function ShopPageContent() {
       </main>
 
       {/* Scroll view — modal overlay with a single narrow centered column.
-          Only renders in scoped modes; picker mode has no products. */}
-      {viewMode === "scroll" && !isPickerMode && (
+          Only renders in scoped modes; picker mode has no products. Also
+          stays HIDDEN while a TasteShopFlow search is active — the grid
+          view above is also gated on !tasteSearchActive (line ~1241), and
+          without the same gate here the default /shop scroll view rendered
+          on top of TasteShopFlow with an empty `products` array (the init
+          effect cleared it for the search), producing the "0 / 0" ghost
+          overlay the user reported. */}
+      {viewMode === "scroll" && !isPickerMode && !tasteSearchActive && (
         <ProductScrollView
           products={displayProducts}
           onNearEnd={loadMore}
