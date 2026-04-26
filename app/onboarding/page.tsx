@@ -42,7 +42,7 @@
  *   freshly-randomized server fetch.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -203,11 +203,21 @@ export default function OnboardingPage() {
   // Fetch the pair gauntlet when the user advances to step 2 and we don't
   // already have pairs cached. Cache hit = the user resumed mid-flow; we
   // keep going from the same pair sequence.
+  //
+  // In-flight gating uses a ref, NOT pairsLoading state. With state in deps,
+  // calling setPairsLoading(true) inside the effect would re-trigger the
+  // effect, run cleanup (setting cancelled=true), and the in-flight fetch's
+  // result would be discarded — leaving the page stuck on "Building your
+  // gauntlet…" forever even though the request had succeeded. The ref
+  // sidesteps the dep cycle: state still drives UI, but the fetch lifecycle
+  // is decoupled from React's render loop.
+  const fetchInFlightRef = useRef(false);
   useEffect(() => {
     if (step !== 2) return;
     if (draft.pairs.length > 0) return; // already fetched / restored from cache
-    if (pairsLoading) return;
+    if (fetchInFlightRef.current) return;
 
+    fetchInFlightRef.current = true;
     let cancelled = false;
     setPairsLoading(true);
     setPairsError(null);
@@ -228,11 +238,12 @@ export default function OnboardingPage() {
           setPairsError(err instanceof Error ? err.message : "Pair fetch failed");
         }
       } finally {
+        fetchInFlightRef.current = false;
         if (!cancelled) setPairsLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [step, draft.pairs.length, pairsLoading, setDraft]);
+  }, [step, draft.pairs.length, setDraft]);
 
   // ── Pair handlers ─────────────────────────────────────────────────────
 
