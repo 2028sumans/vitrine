@@ -550,54 +550,52 @@ function ShopPageContent() {
     }
   }, [page, loading, hasMore, looseningLevel, dedupeAgainstSeen, buildBias, brandFilter, categoryFilter, priceMax, steerQuery, steerInterp, isPickerMode, likedIds, userToken]);
 
-  // One-shot init guard. The useEffect below has deps that settle in stages
-  // on mount (URL read swaps brand/category null → value); without a guard
-  // the body would run 2–3 times in quick succession, firing duplicate
-  // loadMore calls. initStartedRef blocks subsequent runs until the scope
-  // (brand + category + steer) changes, at which point we reset and let
-  // init fire again for the new scope.
-  const initStartedRef = useRef(false);
-  const lastScopeRef   = useRef<string>("__uninit__");
-
+  // Init fetch — AbortController-based. Each scope change cancels the
+  // previous in-flight request and starts fresh. Replaces a brittle
+  // initStartedRef + lastScopeRef pair that was getting wedged on mount
+  // when userToken / searchParams settled in an unfortunate render order
+  // and producing the "0 LOADED" empty-feed bug. The new flow is:
+  //
+  //   1. effect re-runs whenever any scope dep changes (incl. mount)
+  //   2. abort any prior in-flight fetch (race-free, no stale setProducts)
+  //   3. wipe local state, fire fetch, set products from the fresh response
+  //
+  // Re-runs are cheap — Algolia caches identical queries, and the
+  // AbortController collapses bursts during render-settle into one
+  // executed call. No more "did the first fetch fire? did the guard skip?"
+  // bookkeeping; the effect just describes "for this scope, fetch products."
   useEffect(() => {
-    // Scope change (brand / category / steer) = fresh init. We do the first
-    // fetch inline rather than calling loadMore, because loadMore's closure
-    // over `hasMore`/`loading` would still see stale (pre-reset) values if
-    // we setHasMore(true) + invoke loadMore() in the same tick. Inlining
-    // sidesteps that timing hazard cleanly.
-    // Price cap joins the scope key so changing the cap forces a fresh fetch
-    // (same as flipping category / brand / steer). The all-mode flag also
-    // joins it: navigating /shop → /shop?all=1 leaves brand+category+steer
-    // empty in both, so without including `allFlag` the scope key stays
-    // "|||" and initStartedRef would block the fetch — the catalog walk
-    // never fires and the user lands on an empty Shop all page.
-    const scope = `${brandFilter}|${categoryFilter}|${steerQuery}|${priceMax ?? ""}|${allFlag}|${refreshKey}`;
-    if (lastScopeRef.current === scope && initStartedRef.current) return;
-    lastScopeRef.current   = scope;
-    initStartedRef.current = true;
+    if (isPickerMode) {
+      // Picker mode renders category tiles, not products — clear any
+      // leftover state from a prior scope and bail.
+      setProducts([]);
+      setPage(0);
+      setHasMore(true);
+      setLooseningLevel(0);
+      seenIdsRef.current = new Set();
+      setLoading(false);
+      return;
+    }
+
+    const ac = new AbortController();
 
     setProducts([]);
     setPage(0);
     setHasMore(true);
     setLooseningLevel(0);
     seenIdsRef.current = new Set();
-
-    if (isPickerMode) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
+
     (async () => {
       try {
         const res = await fetch(`/api/shop-all`, {
-          method:  "POST",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
+          body: JSON.stringify({
             page:            0,
             bias:            buildBias(),
             likedProductIds: Array.from(likedIds),
-          signals:         buildServerSignals(),
+            signals:         buildServerSignals(),
             userToken,
             brandFilter:     brandFilter    ?? "",
             categoryFilter:  categoryFilter ?? "",
@@ -605,12 +603,15 @@ function ShopPageContent() {
             steerQuery,
             steerInterp,
           }),
+          signal: ac.signal,
         });
+        if (ac.signal.aborted) return;
         if (!res.ok) {
           setHasMore(false);
           return;
         }
         const data  = await res.json();
+        if (ac.signal.aborted) return;
         const fresh = (data.products ?? []) as Product[];
         const seen  = seenIdsRef.current;
         const batch: Product[] = [];
@@ -621,43 +622,23 @@ function ShopPageContent() {
         }
         setProducts(batch);
         setPage(1);
-        // If the initial scoped fetch already exhausted (e.g. a brand with
-        // <50 products), bump the loosening level instead of disabling
-        // pagination — keeping hasMore=true so "Load more" remains active
-        // and the next click pulls similar items with the brand filter
-        // dropped, delivering true infinite scroll.
+        // Server says current scope is exhausted — bump the loosening level
+        // instead of disabling pagination so "Load more" stays active.
         if (!data.hasMore) {
           setLooseningLevel(1);
           setPage(0);
         }
       } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
         console.error("[shop] init load failed:", err);
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) setLoading(false);
       }
     })();
+
+    return () => { ac.abort(); };
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [brandFilter, categoryFilter, steerQuery, priceMax, isPickerMode, userToken, allFlag, refreshKey]);
-
-  // Self-heal: if we end up in a non-picker scope with products empty AND
-  // not loading AND no in-flight bias refetch, the init effect's
-  // initStartedRef + lastScopeRef short-circuit must have prevented the
-  // first fetch (rare race when scope/userToken settle in an unfortunate
-  // order on mount). Force a one-shot refetch by bumping refreshKey, which
-  // re-enters the init effect with a guaranteed-different scope key.
-  // Only fires once per "stuck-empty" state — the next render either
-  // populates products (effect ran) or stays loading (effect is in flight),
-  // both of which fail the condition and prevent a loop.
-  const selfHealFiredRef = useRef(false);
-  useEffect(() => {
-    if (isPickerMode) { selfHealFiredRef.current = false; return; }
-    if (tasteSearchActive)                { return; }
-    if (products.length > 0)              { selfHealFiredRef.current = false; return; }
-    if (loading || interpretingSteer)     { return; }
-    if (selfHealFiredRef.current)         { return; }
-    selfHealFiredRef.current = true;
-    setRefreshKey((k) => k + 1);
-  }, [isPickerMode, tasteSearchActive, products.length, loading, interpretingSteer]);
 
   // ── Scoring-algorithm handlers ────────────────────────────────────────────
 
