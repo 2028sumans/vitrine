@@ -19,7 +19,17 @@ import { embedTextQuery, blendCentroids, subtractCentroid } from "@/lib/embeddin
 import type { StyleDNA } from "@/lib/types";
 
 // Lower weight = subtle nudge; higher = aggressive steer.
-const NEGATIVE_WEIGHT       = 0.25;  // how hard to push away from `avoids`
+//
+// TEXT mode bumped to 0.40 — text briefs come with explicit avoids that need
+// to actively repel matching items (e.g. a "y2k party" brief avoiding "long
+// sleeve" / "maxi length" / "modest" — at 0.25 the avoid-vector subtraction
+// wasn't enough to demote balloon-sleeve maxi dresses that visually shared
+// "satin / dressy / feminine"). IMAGE mode stays at 0.25 because Pinterest /
+// upload pipelines already have stronger visual signal and don't need the
+// extra negative pull. Keep the legacy const name for the image path; text
+// path uses NEGATIVE_WEIGHT_TEXT directly.
+const NEGATIVE_WEIGHT       = 0.25;  // how hard to push away from `avoids` (image mode)
+const NEGATIVE_WEIGHT_TEXT  = 0.40;  // stronger pull-away for text/quiz mode
 // How much of the StyleDNA text-encoded anchor we blend into each image
 // vector for Pinterest / upload modes. Kept intentionally low so image
 // vectors dominate — a text phrase like "feminine vintage 2000s" encoded
@@ -128,9 +138,13 @@ export async function buildTextQueryVectors(
     negatives = negVecs.filter((v) => v.length > 0);
   }
 
-  // Apply negative subtraction to each positive vector
+  // Apply negative subtraction to each positive vector. Text/quiz mode uses
+  // NEGATIVE_WEIGHT_TEXT (0.40) — stronger pull-away than image mode (0.25)
+  // because text briefs come with explicit avoids that need active repulsion
+  // (e.g. "y2k party" with "avoid maxi length" — at 0.25 the avoid-vector
+  // subtraction wasn't enough to demote balloon-sleeve maxi dresses).
   if (negatives.length === 0) return validPositives;
-  return validPositives.map((v) => subtractCentroid(v, negatives, NEGATIVE_WEIGHT));
+  return validPositives.map((v) => subtractCentroid(v, negatives, NEGATIVE_WEIGHT_TEXT));
 }
 
 /**

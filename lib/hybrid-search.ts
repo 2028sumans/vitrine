@@ -507,6 +507,7 @@ export async function twoStageStrictSearch(
       algoliaRankById,
       mmrLambda,
       debug,
+      gateEmbeddings,
     );
   }
 
@@ -825,6 +826,27 @@ function clickAffinityScore(product: AlgoliaProduct, features: ClickFeatures): n
  *
  * Final pass: MMR diversity rerank (λ = 0.3) with visual vector similarity.
  */
+// Per-item cosine floor against the descriptor vector. Stage 1a (Algolia)
+// items have NO cosine filter at retrieval time. Bumped 0.22 → 0.26 → 0.30
+// after each round still leaked off-vibe items (white office blouses,
+// balloon-sleeve maxi dresses scoring ~0.28-0.30 against y2k descriptor).
+// 0.30 is firm "this is at least mildly on-vibe" territory.
+const RERANK_VISUAL_FLOOR = 0.30;
+
+// Multi-phrase bonus — items that match MANY retrieval phrases at once
+// rank above items that match just one. Counts phrases the item clears
+// MULTI_PHRASE_THRESHOLD cosine; bonus = MAX × (matched / total).
+//
+// Threshold 0.22 → 0.28: 0.22 was so loose that 600+ items "matched all"
+// the phrases, making the bonus uninformative. 0.28 requires a strong
+// match per phrase before counting it.
+//
+// Bonus 0.10 → 0.18: bumping the bonus weight makes multi-spec items
+// noticeably outrank "vaguely related" items. Now items matching all 17
+// phrases get +0.18, items matching just one get +0.01 — meaningful gap.
+const MULTI_PHRASE_THRESHOLD = 0.28;
+const MULTI_PHRASE_MAX_BONUS = 0.18;
+
 function rerankCategory(
   candidates:    AlgoliaProduct[],
   vecById:       Map<string, { visual: number[] | null; vibe: number[] | null }>,
@@ -835,7 +857,26 @@ function rerankCategory(
   algoliaRankById: Map<string, number> = new Map(),
   mmrLambda:     number = MMR_LAMBDA,
   debug:         boolean = false,
+  /** Per-retrieval-phrase vectors (sparkly mini, metallic top, low-rise, etc.).
+   *  Used for the multi-phrase bonus: items that match many phrases at once
+   *  rank above items that match just one. Empty array → bonus is zero,
+   *  rerank degrades to pure descriptor scoring. */
+  phraseVecs:    number[][] = [],
 ): AlgoliaProduct[] {
+  // Drop items whose visual cosine to the descriptor falls below the hard
+  // floor. Items without a visual vector are kept (NaN cosine) since they
+  // still contribute via Algolia rank + click affinity. The filter happens
+  // in-place: out-of-floor candidates are removed from the rerank pool.
+  const beforeCount = candidates.length;
+  candidates = candidates.filter((p) => {
+    const v = vecById.get(p.objectID);
+    if (!v?.visual) return true;
+    return cosineSimilarity(queryVec, v.visual) >= RERANK_VISUAL_FLOOR;
+  });
+  if (candidates.length < beforeCount) {
+    console.log(`[twoStage:rerank] visual floor=${RERANK_VISUAL_FLOOR} dropped ${beforeCount - candidates.length}/${beforeCount} below-floor`);
+  }
+  if (candidates.length === 0) return [];
   // Raw cosine scores per axis. NaN = missing vector.
   const visScores:  number[] = [];
   const vibScores:  number[] = [];
@@ -907,15 +948,43 @@ function rerankCategory(
   const algRanks = candidates.map((p) => algoliaRankById.get(p.objectID) ?? 0);
   // Don't normalize — already in [0, 1] from the caller's mapping.
 
+  // Multi-phrase bonus: count how many retrieval phrases each item clears
+  // MULTI_PHRASE_THRESHOLD. The fraction (matched / total) saturating in
+  // [0, 1] times MULTI_PHRASE_MAX_BONUS. An item that's "sparkly AND mini
+  // AND tight AND sexy AND patterned" matches all 5 phrases → full bonus.
+  // An item that's just one of those → bonus = MAX_BONUS / 5. Bonus is
+  // additive on top of the descriptor score, NOT a replacement, so a
+  // perfect single-phrase match still ranks decently.
+  const phraseValid = phraseVecs.filter((v) => v.length > 0);
+  const multiPhraseBonuses = candidates.map((p) => {
+    if (phraseValid.length === 0) return 0;
+    const v = vecById.get(p.objectID)?.visual;
+    if (!v) return 0;
+    let matched = 0;
+    for (const pv of phraseValid) {
+      if (cosineSimilarity(v, pv) >= MULTI_PHRASE_THRESHOLD) matched++;
+    }
+    return MULTI_PHRASE_MAX_BONUS * (matched / phraseValid.length);
+  });
+  if (phraseValid.length > 0) {
+    const multiPhraseFullMatch = multiPhraseBonuses.filter((b) => b >= MULTI_PHRASE_MAX_BONUS * 0.99).length;
+    console.log(
+      `[twoStage:rerank cat=${candidates[0]?.category ?? "?"}] multi-phrase: ` +
+      `${phraseValid.length} phrases, ${multiPhraseFullMatch} items matched all`,
+    );
+  }
+
   const scored = candidates.map((p, i) => {
     const visualCos    = visScores[i];
     const vibeCos      = vibScores[i];
     const centCos      = centScores[i];
     const clickAff     = clickAffinityScore(p, clickFeatures);
     const algoliaRank  = algRanks[i];
+    const phraseBonus  = multiPhraseBonuses[i];
     const finalScore   = wVis * nVis[i] + wVibe * nVibe[i] + wCent * nCent[i]
                        + W_CLICK_AFFINITY * clickAff
-                       + W_ALGOLIA_RANK   * algoliaRank;
+                       + W_ALGOLIA_RANK   * algoliaRank
+                       + phraseBonus;
     const debugInfo    = debug ? {
       visualCos:    Number.isFinite(visualCos)    ? Number(visualCos.toFixed(4))    : null,
       vibeCos:      Number.isFinite(vibeCos)      ? Number(vibeCos.toFixed(4))      : null,

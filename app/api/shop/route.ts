@@ -17,6 +17,7 @@ import {
   warmupEmbeddingModels,
 }                                               from "@/lib/embeddings";
 import { hybridSearch, twoStageStrictSearch }   from "@/lib/hybrid-search";
+import { applyCategoryQualityGate }             from "@/lib/category-quality-gate";
 import {
   buildTextQueryVectors,
   anchorImageVectorsWithAesthetic,
@@ -146,7 +147,7 @@ export async function POST(request: Request) {
     ? body.contexts
     : [{ mode: body.mode ?? "pinterest", boardId: body.boardId, boardName: body.boardName,
          pins: body.pins, pinImageUrls: body.pinImageUrls, textQuery: body.textQuery,
-         uploadedImages: body.uploadedImages, answers: body.answers }];
+         uploadedImages: body.uploadedImages }];
 
   if (contexts.length === 0) {
     return NextResponse.json({ error: "No contexts provided" }, { status: 400 });
@@ -463,6 +464,31 @@ export async function POST(request: Request) {
               debug,
             },
           );
+
+          // Category-level quality gate. After twoStageStrict's per-item
+          // visual floor (0.30) cleans noise, we still ask: is the strongest
+          // surviving item in this category convincingly on-vibe (cosine ≥
+          // 0.36 to the descriptor)? If not, drop the entire bucket rather
+          // than pad the feed with "kinda-related" filler. e.g. for "y2k
+          // party" if the catalog has no shoes-bucket items above 0.36, the
+          // user gets dresses/tops/bottoms/jackets without 2-3 weak shoes
+          // diluting the signal. Text only — Pinterest path is upstream.
+          if (fallbackEmbeddings.length > 0) {
+            try {
+              const gated = await applyCategoryQualityGate(rawCandidates, fallbackEmbeddings, 0.36);
+              rawCandidates = gated.candidates;
+              const droppedCats = gated.scores.filter((s) => s.dropped).map((s) => s.category);
+              if (droppedCats.length > 0) {
+                console.log(
+                  `[shop] quality-gate dropped ${droppedCats.length} category${droppedCats.length === 1 ? "" : "ies"} (text): ${droppedCats.join(", ")}`,
+                  gated.scores.map((s) => `${s.category}=${Number.isFinite(s.topCosine) ? s.topCosine.toFixed(3) : "—"}${s.dropped ? "✗" : ""}`).join(" "),
+                );
+                emit({ phase: "quality-gate", droppedCategories: droppedCats });
+              }
+            } catch (err) {
+              console.warn("[shop] text-mode quality gate failed (non-fatal):", err);
+            }
+          }
 
         } else {
           console.log(`[shop] Algolia text search (mode=${mode}, Pinecone=${USE_VISUAL_SEARCH})`);
