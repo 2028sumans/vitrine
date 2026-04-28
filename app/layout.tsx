@@ -18,7 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MUSE — Ethical fashion, tailored to you",
+  title: "MUSE — The future of slow fashion",
   description:
     "MUSE pulls from hundreds of sustainable labels, vintage stores around the world, preloved platforms, and ethical small-batch makers — and puts them in a private feed tailored to your taste.",
   // Explicit favicon registration. We also have app/icon.svg which Next's
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     shortcut: "/icon.svg",
   },
   openGraph: {
-    title: "MUSE — Ethical fashion, tailored to you",
+    title: "MUSE — The future of slow fashion",
     description:
       "MUSE pulls from hundreds of sustainable labels, vintage stores around the world, preloved platforms, and ethical small-batch makers — and puts them in a private feed tailored to your taste.",
     type: "website",

@@ -209,7 +209,7 @@ export default function HomePage() {
               className="fade-in-up delay-200 font-display font-light italic text-2xl sm:text-3xl mb-5 leading-snug"
               style={{ color: `${HERO_TEXT}99` /* ~60% alpha */ }}
             >
-              Ethical fashion, tailored to you.
+              The future of slow fashion.
             </p>
 
             <p
