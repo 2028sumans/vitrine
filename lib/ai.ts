@@ -7,7 +7,7 @@ import {
   type CategoryCandidates,
   type ClothingCategory,
 } from "@/lib/algolia";
-import type { StyleDNA, ClickSignal, VisionImage, QuestionnaireAnswers } from "@/lib/types";
+import type { StyleDNA, ClickSignal, VisionImage } from "@/lib/types";
 import { logCuration } from "@/lib/curation-log";
 
 // Re-export so consumers can import from either place
@@ -17,7 +17,6 @@ export type {
   CategoryQueries,
   ClickSignal,
   VisionImage,
-  QuestionnaireAnswers,
 } from "@/lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1069,50 +1068,6 @@ export async function textQueryToAesthetic(
   const json = text.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
   return JSON.parse(json) as StyleDNA;
 }
-
-// ── Questionnaire answers → StyleDNA ─────────────────────────────────────────
-// Converts a structured style quiz response into a StyleDNA.
-
-export async function questionnaireToAesthetic(
-  answers:      QuestionnaireAnswers,
-  previousDNAs: StyleDNA[] = []
-): Promise<StyleDNA> {
-  const client = getClient();
-  const historyBlock = buildHistoryBlock(previousDNAs);
-
-  const brief = [
-    answers.occasions.length  ? `Occasions: ${answers.occasions.join(", ")}`          : null,
-    answers.vibes.length      ? `Aesthetic vibes: ${answers.vibes.join(", ")}`        : null,
-    answers.colors.length     ? `Color direction: ${answers.colors.join(", ")}`       : null,
-    answers.fits.length       ? `Fit preference: ${answers.fits.join(", ")}`          : null,
-    `Budget: ${answers.priceRange}`,
-  ].filter(Boolean).join("\n");
-
-  const promptText =
-    `You are a fashion editor and stylist with a sharp, quiet eye.\n` +
-    (previousDNAs.length > 0 ? `\n${historyBlock}\n\n` : "") +
-    `A user completed a style quiz with these answers:\n\n${brief}\n\n` +
-    `Synthesise these into a precise StyleDNA. Use the vibe labels as starting points but make the result specific and nuanced — ` +
-    `don't just echo the input labels back. A "clean girl + coastal" person is different from "clean girl + old money". ` +
-    `Color direction should translate into specific palette colors (not just "neutrals" — be precise: warm ivory, stone, etc.).\n\n` +
-    `Return ONLY valid JSON:\n\n` +
-    JSON_SCHEMA_TEMPLATE;
-
-  const message = await client.messages.create({
-    model:      "claude-haiku-4-5",
-    max_tokens: 1800,
-    messages:   [{ role: "user", content: promptText }],
-  });
-
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
-  const json = text.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
-  const dna  = JSON.parse(json) as StyleDNA;
-
-  // Honour the explicit price range from the quiz — don't let Claude override it
-  dna.price_range = answers.priceRange;
-  return dna;
-}
-
 // ── Comment refinement → updated StyleDNA ────────────────────────────────────
 // Used by /api/refine to tweak the aesthetic based on a user's "say more" comment.
 

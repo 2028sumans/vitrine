@@ -28,7 +28,7 @@ import { useSession, signOut, signIn } from "next-auth/react";
 import type { StyleDNA } from "@/lib/ai";
 import { displayTitle, type AlgoliaProduct, type CategoryCandidates } from "@/lib/algolia";
 import { getUserToken, trackProductClick, trackProductsViewed } from "@/lib/insights";
-import type { QuestionnaireAnswers, VisionImage } from "@/lib/types";
+import type { VisionImage } from "@/lib/types";
 import { addSaved, removeSaved, isSaved, getShortlistSummary } from "@/lib/saved";
 import {
   loadSessionSignals,
@@ -57,7 +57,7 @@ function formatPrice(value: number): string {
 type Board    = { id: string; name: string };
 type Step     = "boards" | "shopping_loading" | "shopping" | "error";
 type ViewMode = "grid" | "scroll";
-type InputMode = "pinterest" | "text" | "images" | "quiz";
+type InputMode = "pinterest" | "text" | "images";
 
 interface PinData {
   id:          string;
@@ -1001,146 +1001,6 @@ function OnboardingQuiz({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-// ── Questionnaire flow ────────────────────────────────────────────────────────
-
-const QUIZ_OCCASIONS = ["Casual days", "Date night", "Work", "Weekend plans", "Vacation", "Party / events", "Wedding guest", "Gym / active"];
-const QUIZ_VIBES     = ["Clean girl", "Quiet luxury", "Old money", "Coastal", "Bohemian", "Dark academia", "Streetwear", "Y2K", "Ballet core", "Cottage core", "Business casual", "Minimalist"];
-const QUIZ_COLORS    = [
-  { label: "Neutrals",     swatches: ["#FAF3E0", "#E8DCC8", "#C8BFB0", "#1C1C1C"] },
-  { label: "Earth tones",  swatches: ["#D4664A", "#C19A6B", "#7A8C5A", "#5D3A1A"] },
-  { label: "Pastels",      swatches: ["#C5B4E3", "#F2C4BF", "#9BE7C4", "#87CEEB"] },
-  { label: "Bold & bright", swatches: ["#D32F2F", "#2563EB", "#FDD835", "#FF7043"] },
-  { label: "Monochromatic", swatches: ["#F8F8F0", "#9E9E9E", "#404040", "#1C1C1C"] },
-  { label: "Dark & moody", swatches: ["#7C1E34", "#355E3B", "#1C2E4A", "#673AB7"] },
-];
-const QUIZ_FITS      = ["Fitted & tailored", "Relaxed & flowy", "Oversized", "Structured", "Sporty", "Mix & match"];
-
-function QuestionnaireFlow({ onComplete }: { onComplete: (answers: QuestionnaireAnswers) => void }) {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<QuestionnaireAnswers>({
-    occasions: [], vibes: [], colors: [], fits: [], priceRange: "mid",
-  });
-
-  const toggle = (key: keyof Pick<QuestionnaireAnswers, "occasions" | "vibes" | "colors" | "fits">, value: string) => {
-    setAnswers((prev) => {
-      const arr = prev[key] as string[];
-      return { ...prev, [key]: arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value] };
-    });
-  };
-
-  const steps = [
-    {
-      title: "What are you shopping for?",
-      sub:   "Pick all that apply",
-      content: (
-        <div className="grid grid-cols-2 gap-2">
-          {QUIZ_OCCASIONS.map((o) => (
-            <button key={o} onClick={() => toggle("occasions", o)}
-              className={`px-3 py-3 text-left border font-sans text-xs transition-colors ${answers.occasions.includes(o) ? "border-foreground bg-foreground/10 text-foreground" : "border-border text-muted hover:border-border-mid"}`}>
-              {o}
-            </button>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: "What's your vibe?",
-      sub:   "Pick your aesthetic(s)",
-      content: (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {QUIZ_VIBES.map((v) => (
-            <button key={v} onClick={() => toggle("vibes", v)}
-              className={`px-3 py-3 text-left border font-sans text-xs transition-colors ${answers.vibes.includes(v) ? "border-foreground bg-foreground/10 text-foreground" : "border-border text-muted hover:border-border-mid"}`}>
-              {v}
-            </button>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: "Color direction?",
-      sub:   "Pick what feels like you",
-      content: (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {QUIZ_COLORS.map(({ label, swatches }) => (
-            <button key={label} onClick={() => toggle("colors", label)}
-              className={`p-3 text-left border transition-colors ${answers.colors.includes(label) ? "border-foreground bg-foreground/10" : "border-border hover:border-border-mid"}`}>
-              <div className="flex gap-1 mb-2">
-                {swatches.map((s) => <div key={s} className="w-4 h-4 rounded-full ring-1 ring-white/10" style={{ backgroundColor: s }} />)}
-              </div>
-              <p className="font-sans text-xs text-muted">{label}</p>
-            </button>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: "How do you like to wear things?",
-      sub:   "Fit preference",
-      content: (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            {QUIZ_FITS.map((f) => (
-              <button key={f} onClick={() => toggle("fits", f)}
-                className={`px-3 py-3 text-left border font-sans text-xs transition-colors ${answers.fits.includes(f) ? "border-foreground bg-foreground/10 text-foreground" : "border-border text-muted hover:border-border-mid"}`}>
-                {f}
-              </button>
-            ))}
-          </div>
-          <div className="mt-6">
-            <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-3">Budget</p>
-            <div className="flex gap-2">
-              {(["budget", "mid", "luxury"] as const).map((p) => (
-                <button key={p} onClick={() => setAnswers((prev) => ({ ...prev, priceRange: p }))}
-                  className={`flex-1 py-2 border font-sans text-xs capitalize transition-colors ${answers.priceRange === p ? "border-foreground bg-foreground/10 text-foreground" : "border-border text-muted hover:border-border-mid"}`}>
-                  {p === "mid" ? "Mid-range" : p}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ),
-    },
-  ];
-
-  const current = steps[step];
-  const canNext = step < steps.length - 1;
-  const canComplete = step === steps.length - 1;
-
-  return (
-    <div className="max-w-xl">
-      {/* Progress */}
-      <div className="flex gap-1 mb-8">
-        {steps.map((_, i) => (
-          <div key={i} className={`h-px flex-1 transition-colors duration-300 ${i <= step ? "bg-foreground/60" : "bg-border"}`} />
-        ))}
-      </div>
-
-      <p className="font-sans text-[9px] tracking-widest uppercase text-muted mb-2">{step + 1} of {steps.length}</p>
-      <h2 className="font-display font-light text-3xl text-foreground mb-1">{current.title}</h2>
-      <p className="font-sans text-sm text-muted mb-6">{current.sub}</p>
-
-      {current.content}
-
-      <div className="flex items-center gap-4 mt-8">
-        {step > 0 && (
-          <button onClick={() => setStep((s) => s - 1)} className="font-sans text-[10px] tracking-widest uppercase text-muted hover:text-foreground transition-colors">← Back</button>
-        )}
-        {canNext && (
-          <button onClick={() => setStep((s) => s + 1)} className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors">
-            Next →
-          </button>
-        )}
-        {canComplete && (
-          <button onClick={() => onComplete(answers)} className="px-8 py-3 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors">
-            Find my look →
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Image upload zone ─────────────────────────────────────────────────────────
 
 function ImageUploadZone({ images, onChange }: {
@@ -1331,7 +1191,6 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     type:          InputMode;
     textQuery:     string;
     uploadedFiles: Array<{ url: string; file: File }>;
-    answers?:      QuestionnaireAnswers;
   }
   const [contextBlocks, setContextBlocks]   = useState<ContextBlock[]>([
     // Default tab is Describe. Pinterest used to be the landing because
@@ -1423,7 +1282,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
     setContextBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  const updateBlock = useCallback((id: string, patch: Partial<{ type: InputMode; textQuery: string; uploadedFiles: Array<{ url: string; file: File }>; answers: QuestionnaireAnswers }>) => {
+  const updateBlock = useCallback((id: string, patch: Partial<{ type: InputMode; textQuery: string; uploadedFiles: Array<{ url: string; file: File }> }>) => {
     setContextBlocks((prev) => prev.map((b) => b.id === id ? { ...b, ...patch } : b));
   }, []);
 
@@ -1475,10 +1334,6 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
             if (!b.uploadedFiles.length) return null;
             const uploadedImages = await Promise.all(b.uploadedFiles.map(({ file }) => fileToVision(file)));
             return { mode: "images" as const, uploadedImages };
-          }
-          if (b.type === "quiz") {
-            if (!b.answers) return null;
-            return { mode: "quiz" as const, answers: b.answers };
           }
           return null;
         })
@@ -2185,8 +2040,7 @@ export function TasteShopFlow(props: TasteShopFlowProps = {}) {
                 disabled={!contextBlocks.some((b) =>
                   (b.type === "pinterest" && !!selectedBoard) ||
                   (b.type === "text" && !!b.textQuery.trim()) ||
-                  (b.type === "images" && b.uploadedFiles.length > 0) ||
-                  (b.type === "quiz" && !!b.answers)
+                  (b.type === "images" && b.uploadedFiles.length > 0)
                 )}
                 className="px-6 py-2.5 bg-foreground text-background font-sans text-[10px] tracking-widest uppercase hover:bg-accent transition-colors duration-200 disabled:opacity-25 disabled:cursor-not-allowed">
                 Build my feed →

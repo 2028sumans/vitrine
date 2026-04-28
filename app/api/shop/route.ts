@@ -6,7 +6,6 @@ import {
   filterByAvoids,
   filterMensItems,
   textQueryToAesthetic,
-  questionnaireToAesthetic,
 }                                               from "@/lib/ai";
 import { getProductsByIds, groupByCategory }    from "@/lib/algolia";
 import {
@@ -23,7 +22,7 @@ import {
   anchorImageVectorsWithAesthetic,
 }                                               from "@/lib/query-builder";
 import { loadTasteMemory, saveStyleDNA, getStyleDNAByBoard } from "@/lib/taste-memory";
-import type { VisionImage, QuestionnaireAnswers } from "@/lib/types";
+import type { VisionImage } from "@/lib/types";
 
 // Use visual search if Pinecone is configured; fall back to Algolia text search
 const USE_VISUAL_SEARCH = !!(process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX);
@@ -63,14 +62,13 @@ interface PinPayload {
 }
 
 interface ContextPayload {
-  mode:            "pinterest" | "text" | "images" | "quiz";
+  mode:            "pinterest" | "text" | "images";
   boardId?:        string;
   boardName?:      string;
   pins?:           PinPayload[];
   pinImageUrls?:   string[];
   textQuery?:      string;
   uploadedImages?: VisionImage[];
-  answers?:        QuestionnaireAnswers;
 }
 
 export async function POST(request: Request) {
@@ -181,17 +179,6 @@ export async function POST(request: Request) {
       if (ctx.textQuery?.trim()) textParts.push(ctx.textQuery.trim());
     } else if (ctx.mode === "images") {
       allUploadedImages.push(...(ctx.uploadedImages ?? []));
-    } else if (ctx.mode === "quiz" && ctx.answers) {
-      // Convert quiz answers to text brief
-      const q = ctx.answers;
-      const brief = [
-        q.occasions?.length  ? `Occasions: ${q.occasions.join(", ")}`  : "",
-        q.vibes?.length      ? `Vibes: ${q.vibes.join(", ")}`          : "",
-        q.colors?.length     ? `Colors: ${q.colors.join(", ")}`        : "",
-        q.fits?.length       ? `Fit: ${q.fits.join(", ")}`             : "",
-        q.priceRange         ? `Budget: ${q.priceRange}`               : "",
-      ].filter(Boolean).join(". ");
-      if (brief) textParts.push(brief);
     }
   }
 
@@ -408,9 +395,9 @@ export async function POST(request: Request) {
 
           rawCandidates = await hybridSearch(embeddings, aesthetic!, token, 50, { useTasteHead });
 
-        } else if (mode === "text" || mode === "quiz") {
-          // Text / quiz mode now runs through the 2-stage retrieval
-          // pipeline (lib/hybrid-search.twoStageStrictSearch):
+        } else if (mode === "text") {
+          // Text mode runs through the 2-stage retrieval pipeline
+          // (lib/hybrid-search.twoStageStrictSearch):
           //
           //   Stage 1 — Algolia gate:
           //     searchByCategory pulls the FULL pool (no per-category cap,
@@ -471,9 +458,8 @@ export async function POST(request: Request) {
               // "I keep clicking things that look Khaite-like."
               clickSignals: tasteMemory.clickSignals,
               // Raw user query drives the (#3) classifier — controls whether
-              // we run stage 1b at all and (#5) what MMR λ to use. Empty for
-              // quiz mode; classifier defaults to "abstract" in that case.
-              userQuery: mode === "text" ? (contexts[0].textQuery ?? "") : "",
+              // we run stage 1b at all and (#5) what MMR λ to use.
+              userQuery: contexts[0].textQuery ?? "",
               debug,
             },
           );

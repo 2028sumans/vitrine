@@ -135,12 +135,4 @@ export const STYLE_AXIS_KEYS = ["formality", "minimalism", "edge", "romance", "d
 
 // ── Search input modes ────────────────────────────────────────────────────────
 
-export type InputMode = "pinterest" | "text" | "images" | "quiz";
-
-export interface QuestionnaireAnswers {
-  occasions:  string[];
-  vibes:      string[];
-  colors:     string[];
-  fits:       string[];
-  priceRange: "budget" | "mid" | "luxury";
-}
+export type InputMode = "pinterest" | "text" | "images";
