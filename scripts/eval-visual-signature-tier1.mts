@@ -41,10 +41,12 @@ async function main() {
       const desc = (dna.aesthetic_descriptor ?? "").trim();
       const alts = (dna.aesthetic_descriptor_alts ?? []).filter(Boolean);
       const sig  = (dna.visual_signature ?? "").trim();
+      const sAlts = ((dna as { visual_signature_alts?: string[] }).visual_signature_alts ?? []).filter(Boolean);
 
       console.log(`   descriptor:      ${desc || "(missing!)"}`);
       console.log(`   descriptor_alts: ${alts.join(" | ") || "(missing)"}`);
       console.log(`   signature:       ${sig || "(MISSING — Claude didn't emit field)"}`);
+      console.log(`   signature_alts:  ${sAlts.join(" | ") || "(missing)"}`);
 
       const lower = sig.toLowerCase();
       const checks = {

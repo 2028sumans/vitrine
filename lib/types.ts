@@ -74,6 +74,14 @@ export interface StyleDNA {
   // Example for "y2k party": "a tight strappy minidress in metallic or
   // rhinestone fabric with a low-rise hem and halter or one-shoulder neckline".
   visual_signature?: string;
+  // 1-2 paraphrases of visual_signature — same garment described in slightly
+  // different words. Stage 2 encodes all of (signature + alts), averages and
+  // L2-normalizes the resulting vectors. Without alts, a single tight phrase
+  // can land in a thin region of CLIP latent space and produce noisy cosines
+  // that fail the visual floor / quality gate even for legitimately on-vibe
+  // products. The ensemble flattens the latent-space landing zone.
+  // Mirrors the same pattern as aesthetic_descriptor_alts.
+  visual_signature_alts?: string[];
   // Which product categories the user's input actually centers on. Claude
   // emits this when 60%+ of the pins depict the same category (shoes board,
   // bag board, dress board). Downstream retrieval then allocates heavily to

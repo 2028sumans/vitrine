@@ -599,28 +599,38 @@ const MMR_BRAND_PENALTY = 0.15;
  * in order of soft-aesthetic specificity.
  */
 async function buildStage2QueryVector(aesthetic: StyleDNA): Promise<number[]> {
-  // Tier 0 — visual_signature (when present and feature flag isn't disabling).
-  // Concrete visual sentence describing what the ideal product image should
-  // look like, written in FashionCLIP's native "a photo of …" vocabulary.
-  // Lands in a denser region of CLIP latent space than abstract phrases like
-  // "clubby" / "unhurried", so cosines actually concentrate. Used for queries
-  // where Stage 1 (Algolia keyword gate) couldn't anchor on brand/color/garment
-  // — those queries leave Stage 2 to carry the load and need a query vector
-  // FashionCLIP can grip on.
+  // Tier 0 — visual_signature ensemble (when present and feature flag isn't
+  // disabling). Concrete visual sentence describing what the ideal product
+  // image should look like, written in FashionCLIP's native "a photo of …"
+  // vocabulary. Encoded as an ensemble: signature + 1-2 alts (paraphrases),
+  // averaged + L2-normalized — same trick as Tier 1 descriptor + alts. The
+  // ensemble flattens the latent-space landing zone so a single tight phrase
+  // doesn't land in a thin CLIP region and produce noisy cosines that fail
+  // the visual floor / quality gate even for legitimately on-vibe products.
   //
   // Falls through to Tier 1 (descriptor) when:
   //   - Claude didn't emit visual_signature (old cached DNA, prompt regression)
   //   - Feature flag USE_VISUAL_SIGNATURE=0 is set
-  //   - Encoding the signature failed (network blip on FashionCLIP)
-  //
-  // Override path is intentionally one-way (signature → descriptor): never
-  // blend silently, so the eval signal is clean. Phase 2 (classifier-driven
-  // blend) is a follow-up if needed.
+  //   - Encoding all signatures failed (network blip on FashionCLIP)
   const useVisualSignature = process.env.USE_VISUAL_SIGNATURE !== "0";
   const visualSignature    = (aesthetic.visual_signature ?? "").trim();
+  const sigAlts            = (aesthetic.visual_signature_alts ?? [])
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .slice(0, 2);
   if (useVisualSignature && visualSignature) {
-    const v = await embedTextQuery(visualSignature).catch(() => [] as number[]);
-    if (v.length > 0) return v;
+    const phrases = [visualSignature, ...sigAlts];
+    const vecs    = await Promise.all(phrases.map((p) => embedTextQuery(p).catch(() => [] as number[])));
+    const valid   = vecs.filter((v) => v.length > 0);
+    if (valid.length === 1) return valid[0];
+    if (valid.length > 1) {
+      const dim = valid[0].length;
+      const avg = new Array<number>(dim).fill(0);
+      for (const v of valid) for (let i = 0; i < dim; i++) avg[i] += v[i] / valid.length;
+      let n = 0;
+      for (const x of avg) n += x * x;
+      const norm = Math.sqrt(n);
+      return norm === 0 ? avg : avg.map((x) => x / norm);
+    }
   }
 
   // Tier 1 — Claude's purified descriptor + its paraphrases. Encode all of
