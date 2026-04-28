@@ -62,6 +62,18 @@ export interface StyleDNA {
   // query. Robust to any single phrasing landing in a thin region of CLIP
   // space.
   aesthetic_descriptor_alts?: string[];
+  // Concrete visual sentence — what the IDEAL product image should LOOK like:
+  // silhouette + fabric + embellishment + length/cut. Complement to
+  // aesthetic_descriptor (which is intentionally abstract). When the user's
+  // brief is anchor-poor (just a vibe, no brand/color/garment), Stage 2
+  // rerank gets fuzzy cosines because abstract phrases land in thin regions
+  // of CLIP latent space. visual_signature gives FashionCLIP a sentence in
+  // its native "a photo of …" vocabulary so the cosine actually concentrates.
+  // Used by buildStage2QueryVector (text-mode rerank only) — Pinterest path
+  // doesn't consume this field. Optional; falls back to descriptor when absent.
+  // Example for "y2k party": "a tight strappy minidress in metallic or
+  // rhinestone fabric with a low-rise hem and halter or one-shoulder neckline".
+  visual_signature?: string;
   // Which product categories the user's input actually centers on. Claude
   // emits this when 60%+ of the pins depict the same category (shoes board,
   // bag board, dress board). Downstream retrieval then allocates heavily to

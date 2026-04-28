@@ -599,6 +599,30 @@ const MMR_BRAND_PENALTY = 0.15;
  * in order of soft-aesthetic specificity.
  */
 async function buildStage2QueryVector(aesthetic: StyleDNA): Promise<number[]> {
+  // Tier 0 — visual_signature (when present and feature flag isn't disabling).
+  // Concrete visual sentence describing what the ideal product image should
+  // look like, written in FashionCLIP's native "a photo of …" vocabulary.
+  // Lands in a denser region of CLIP latent space than abstract phrases like
+  // "clubby" / "unhurried", so cosines actually concentrate. Used for queries
+  // where Stage 1 (Algolia keyword gate) couldn't anchor on brand/color/garment
+  // — those queries leave Stage 2 to carry the load and need a query vector
+  // FashionCLIP can grip on.
+  //
+  // Falls through to Tier 1 (descriptor) when:
+  //   - Claude didn't emit visual_signature (old cached DNA, prompt regression)
+  //   - Feature flag USE_VISUAL_SIGNATURE=0 is set
+  //   - Encoding the signature failed (network blip on FashionCLIP)
+  //
+  // Override path is intentionally one-way (signature → descriptor): never
+  // blend silently, so the eval signal is clean. Phase 2 (classifier-driven
+  // blend) is a follow-up if needed.
+  const useVisualSignature = process.env.USE_VISUAL_SIGNATURE !== "0";
+  const visualSignature    = (aesthetic.visual_signature ?? "").trim();
+  if (useVisualSignature && visualSignature) {
+    const v = await embedTextQuery(visualSignature).catch(() => [] as number[]);
+    if (v.length > 0) return v;
+  }
+
   // Tier 1 — Claude's purified descriptor + its paraphrases. Encode all of
   // them in parallel, average the unit vectors, renormalize. Robust to any
   // single phrasing landing in a thin region of CLIP latent space.
@@ -666,6 +690,11 @@ async function buildStage2QueryVector(aesthetic: StyleDNA): Promise<number[]> {
 }
 
 function descriptorTextForLogging(aesthetic: StyleDNA): string {
+  // Mirror buildStage2QueryVector's tier order so the log shows what was
+  // actually encoded, not just the abstract descriptor field.
+  const useVisualSignature = process.env.USE_VISUAL_SIGNATURE !== "0";
+  const sig                = (aesthetic.visual_signature ?? "").trim();
+  if (useVisualSignature && sig) return `signature: ${sig}`;
   return (aesthetic.aesthetic_descriptor ?? "").trim()
     || [aesthetic.primary_aesthetic, aesthetic.mood].filter(Boolean).join(", ").trim()
     || (aesthetic.summary ?? "").trim()
