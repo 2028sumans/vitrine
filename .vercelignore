@@ -1,0 +1,10 @@
+# Skip data-pipeline tooling from the deploy upload. None of these run on
+# Vercel — scripts/ is local pipeline tooling (scrapers, embed-checkpoint
+# JSONs, log files; some 100MB+) and .cache/ is the FashionCLIP model cache.
+# Without this, deploy fails at "File size limit exceeded (100 MB)" on
+# scripts/shopify-checkpoint.bak.json.
+scripts/
+.cache/
+data/curation-log.jsonl
+.next/cache/
+tsconfig.tsbuildinfo
